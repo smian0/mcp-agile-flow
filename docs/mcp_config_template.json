@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "agile-flow": {
+      "command": "REPLACE_WITH_PATH_TO/run_server.sh",
+      "args": [],
+      "env": {
+        "PROJECT_PATH": "REPLACE_WITH_WRITABLE_PROJECT_PATH",
+        "DEBUG": "true"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
