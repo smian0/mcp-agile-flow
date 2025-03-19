@@ -39,8 +39,12 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+tests/test_outputs/
 
 # OS specific
 .DS_Store
 Thumbs.db
 test_sample*
+repomix
+repo-analysis
+sample-project

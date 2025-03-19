@@ -1,220 +1,179 @@
 # MCP Agile Flow
 
-A collection of Model Control Protocol (MCP) servers that enhance agile workflows in Cursor.
-
-## For MCP Client Users
+A simple MCP server implementation for managing agile workflow rules and templates.
 
 ### Available Server
-
-The MCP Agile Flow server provides natural language capabilities and essential tools:
-
-- `hello-world`: Returns a greeting message
-- `add-note`: Adds a note to the server's memory
-- `get-project-path`: Returns current project paths
-- `Hey Sho`: Process natural language commands
-- `debug-tools`: Provides debugging information
+- `simple_server.py`: MCP server implementation with agile workflow capabilities
 
 ### Available Tools Reference
 
-#### Standard Tools (Both Servers)
-
-1. **hello-world**
+1. **initialize-ide-rules**
    ```json
    {
-     "name": "hello-world",
-     "arguments": {}
+     "name": "initialize-ide-rules",
+     "arguments": {
+       "project_path": "/path/to/project",
+       "ide": "cursor",
+       "backup_existing": true
+     }
    }
    ```
-   Returns: "Hello, World!"
+   Returns: Success status and details about initialized files
 
-2. **add-note**
+2. **initialize-rules**
+   ```json
+   {
+     "name": "initialize-rules",
+     "arguments": {
+       "project_path": "/path/to/project",
+       "backup_existing": true
+     }
+   }
+   ```
+   Returns: Success status and details about initialized files
+
+3. **migrate-rules-to-windsurf**
+   ```json
+   {
+     "name": "migrate-rules-to-windsurf",
+     "arguments": {
+       "project_path": "/path/to/project",
+       "specific_file": "optional-file-name",
+       "verbose": false,
+       "no_truncate": false
+     }
+   }
+   ```
+   Returns: Migration status and details
+
+4. **add-note**
    ```json
    {
      "name": "add-note",
      "arguments": {
-       "name": "meeting-notes",
-       "content": "Discuss project timeline"
+       "name": "note-name",
+       "content": "note content"
      }
    }
    ```
-   Returns: Confirmation that the note was added
+   Returns: Success status
 
-3. **get-project-path**
+5. **get-project-path**
    ```json
    {
      "name": "get-project-path",
-     "arguments": {}
-   }
-   ```
-   Returns: Current directory paths
-
-#### Simple Server Special Tools
-
-4. **Hey Sho**
-   ```json
-   {
-     "name": "Hey Sho",
      "arguments": {
-       "message": "Hey Sho, get project path"
+       "random_string": "dummy-value"
      }
    }
    ```
-   Example messages:
-   - "Hey Sho, hello world"
-   - "Hey Sho, add a note called todo with content Fix the bug"
-   - "Hey Sho, get project path"
+   Returns: Current project paths
 
-5. **debug-tools**
+6. **debug-tools**
    ```json
    {
      "name": "debug-tools",
      "arguments": {
-       "count": 10
+       "count": 5
      }
    }
    ```
-   Returns: Recent tool invocations (count is optional, defaults to 5)
+   Returns: Debug information about recent tool invocations
 
 ### Viewing Available Tools
 
 To see all available tools:
 
-1. In Cursor, open Command Palette (Cmd+Shift+P or Ctrl+Shift+P)
-2. Type "MCP: List Tools" and select it
-3. Choose your configured server
-4. You should see all registered tools with descriptions
-
-Alternatively, when running the server manually:
-```bash
-python run_mcp_server.py
-```
-Server logs should show tool registration during startup.
-
-### Setup and Usage
-
-1. Clone and set up the repository:
-   ```bash
-   git clone https://github.com/yourusername/mcp-agile-flow.git
-   cd mcp-agile-flow
-   make install
-   ```
-
-2. Configure Cursor:
-   - Open Cursor settings
-   - Navigate to the MCP section
-   - Edit your `~/.cursor/mcp.json` file with this configuration:
-
-```json
-{
-  "mcp-agile-flow": {
-    "command": "/absolute/path/to/your/venv/python",
-    "args": [
-      "/absolute/path/to/mcp-agile-flow/run_mcp_server.py"
-    ],
-    "autoApprove": [
-      "hello-world",
-      "add-note",
-      "get-project-path"
-    ],
-    "disabled": false
-  },
-  "mcp-agile-flow-simple": {
-    "command": "/absolute/path/to/your/venv/python",
-    "args": [
-      "/absolute/path/to/mcp-agile-flow/simple_server.py"
-    ],
-    "autoApprove": [
-      "hello-world",
-      "add-note",
-      "get-project-path",
-      "Hey Sho",
-      "debug-tools"
-    ],
-    "disabled": false
-  }
-}
+```python
+from src.mcp_agile_flow.simple_server import get_tool_definitions
+tools = get_tool_definitions()
+for tool in tools:
+    print(f"Tool: {tool.name}")
+    print(f"Description: {tool.description}")
+    print("---")
 ```
 
-⚠️ **Important**: 
-- Use **absolute paths** for both Python and script locations
-- Make sure Python path points to the virtual environment's Python
-- Restart Cursor after making changes
+### Example Usage
 
-### Verifying Server Connection
-
-You can manually test the servers:
-
-```bash
-# Test standard server
-python run_mcp_server.py
-
-# Test simple server
-python simple_server.py
-```
-
-The server should start and show debug output. If connected properly in Cursor:
-1. Select the server in Cursor settings
-2. Try using a tool command:
+1. Initialize Cursor Rules:
    ```json
-   {"name": "hello-world", "arguments": {}}
+   {
+     "name": "initialize-rules",
+     "arguments": {
+       "project_path": "/path/to/project",
+       "backup_existing": true
+     }
+   }
    ```
 
-### Using Hey Sho Commands
+2. Add a Note:
+   ```json
+   {
+     "name": "add-note",
+     "arguments": {
+       "name": "todo",
+       "content": "Fix the bug"
+     }
+   }
+   ```
 
-With the Simple MCP Server, you can use natural language:
+3. Get Project Path:
+   ```json
+   {
+     "name": "get-project-path",
+     "arguments": {
+       "random_string": "dummy"
+     }
+   }
+   ```
 
-```json
-{
-  "name": "Hey Sho",
-  "arguments": {
-    "message": "Hey Sho, get project path"
-  }
-}
-```
+4. Migrate to Windsurf:
+   ```json
+   {
+     "name": "migrate-rules-to-windsurf",
+     "arguments": {
+       "project_path": "/path/to/project"
+     }
+   }
+   ```
+   This creates a single `.windsurfrules` file in your project root that contains all rules in a Windsurf-compatible format.
 
-### Troubleshooting
+5. Debug Tool Invocations:
+   ```json
+   {
+     "name": "debug-tools",
+     "arguments": {
+       "count": 5
+     }
+   }
+   ```
 
-If the server is not connecting:
+### Development
 
-1. Check server logs at `~/.mcp-agile-flow/mcp-server.log` or `~/.mcp-agile-flow/simple-mcp-server.log`
-2. Verify absolute paths in your `~/.cursor/mcp.json` configuration
-3. Make sure your virtual environment is activated when testing manually
-4. Restart Cursor after updating the configuration
-5. Verify server script permissions are executable (`chmod +x *.py`)
+#### Prerequisites
+- Python 3.8+
+- pip
 
-#### Common Issues
+#### Installation
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   pip install -e .
+   ```
 
-- **Missing Tool List**: Try using "MCP: List Tools" from Command Palette
-- **Server Not Running**: Check logs for startup errors
-- **Path Problems**: Ensure all paths are absolute and correct
-- **Environment Issues**: Run `which python` in your activated environment to get the correct path
-
-## For Developers
-
-### Setup Development Environment
-
+#### Running Tests
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/mcp-agile-flow.git
-cd mcp-agile-flow
-
-# Create environment and install dependencies
-make install-dev
+python -m pytest
 ```
 
+#### Development Tasks
 All development tasks are managed through the `Makefile`. Check the `Makefile` for available commands like testing, running servers, and code formatting.
 
-### Project Structure
+### Contributing
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
-- `src/mcp_agile_flow/`
-  - `simple_server.py`: MCP server implementation with Hey Sho capabilities
-- `docs/`: Documentation
-- `tests/`: Test suite
-
-## Documentation
-
-- [Simple Server Usage](docs/simple_server_usage.md)
-
-## License
-
+### License
 MIT License - See [LICENSE](LICENSE) file for details.
+
+### Authors
+- Your Name - Initial work

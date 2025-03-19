@@ -33,6 +33,7 @@ python_files = "test_*.py"
 python_functions = "test_*"
 python_classes = "Test*"
 addopts = "--verbose"
+norecursedirs = ["tests/archive"]
 
 [tool.black]
 line-length = 88
