@@ -1,5 +1,3 @@
-repo-analysis
-
 # Python
 __pycache__/
 *.py[cod]
@@ -30,8 +28,6 @@ ENV/
 
 # IDE files
 .idea/
-.vscode/
-.cursor/
 *.swp
 *.swo
 

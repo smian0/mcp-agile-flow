@@ -1,0 +1,14 @@
+{
+  "name": "mcp-agile-flow",
+  "version": "0.1.0",
+  "command": "python",
+  "args": ["-m", "src.mcp_agile_flow"],
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  },
+  "connectionTimeoutMs": 5000,
+  "responseTimeoutMs": 30000,
+  "transport": "stdio"
+} 

@@ -1,116 +1,220 @@
-# MCP Agile Flow Server
+# MCP Agile Flow
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+A collection of Model Control Protocol (MCP) servers that enhance agile workflows in Cursor.
 
-A lightweight Python MCP server for Agile project lifecycle management and documentation.
+## For MCP Client Users
 
-## Overview
+### Available Server
 
-MCP Agile Flow provides tools for managing Agile workflows through the Model Context Protocol (MCP). It enables AI assistants to help with:
+The MCP Agile Flow server provides natural language capabilities and essential tools:
 
-- Agile documentation in markdown files
-- Managing epics, stories, and tasks
-- Project progress tracking
-- IDE-specific rule generation
+- `hello-world`: Returns a greeting message
+- `add-note`: Adds a note to the server's memory
+- `get-project-path`: Returns current project paths
+- `Hey Sho`: Process natural language commands
+- `debug-tools`: Provides debugging information
 
-All documentation is stored locally in your project root for easy versioning.
+### Available Tools Reference
 
-## Quick Start
+#### Standard Tools (Both Servers)
 
-### Prerequisites
+1. **hello-world**
+   ```json
+   {
+     "name": "hello-world",
+     "arguments": {}
+   }
+   ```
+   Returns: "Hello, World!"
 
-- Python 3.10+
-- uv (Python package installer)
+2. **add-note**
+   ```json
+   {
+     "name": "add-note",
+     "arguments": {
+       "name": "meeting-notes",
+       "content": "Discuss project timeline"
+     }
+   }
+   ```
+   Returns: Confirmation that the note was added
 
-### Installation
+3. **get-project-path**
+   ```json
+   {
+     "name": "get-project-path",
+     "arguments": {}
+   }
+   ```
+   Returns: Current directory paths
 
+#### Simple Server Special Tools
+
+4. **Hey Sho**
+   ```json
+   {
+     "name": "Hey Sho",
+     "arguments": {
+       "message": "Hey Sho, get project path"
+     }
+   }
+   ```
+   Example messages:
+   - "Hey Sho, hello world"
+   - "Hey Sho, add a note called todo with content Fix the bug"
+   - "Hey Sho, get project path"
+
+5. **debug-tools**
+   ```json
+   {
+     "name": "debug-tools",
+     "arguments": {
+       "count": 10
+     }
+   }
+   ```
+   Returns: Recent tool invocations (count is optional, defaults to 5)
+
+### Viewing Available Tools
+
+To see all available tools:
+
+1. In Cursor, open Command Palette (Cmd+Shift+P or Ctrl+Shift+P)
+2. Type "MCP: List Tools" and select it
+3. Choose your configured server
+4. You should see all registered tools with descriptions
+
+Alternatively, when running the server manually:
 ```bash
-# Install from PyPI
-pip install mcp-agile-flow
-
-# Or install from GitHub
-pip install git+https://github.com/modelcontextprotocol/mcp-agile-flow.git
+python run_mcp_server.py
 ```
+Server logs should show tool registration during startup.
 
-For development setup:
-```bash
-# Clone the repository
-git clone https://github.com/modelcontextprotocol/mcp-agile-flow.git
-cd mcp-agile-flow
+### Setup and Usage
 
-# Install dependencies with uv
-uv pip install -e .
-```
+1. Clone and set up the repository:
+   ```bash
+   git clone https://github.com/yourusername/mcp-agile-flow.git
+   cd mcp-agile-flow
+   make install
+   ```
 
-### MCP Client Configuration
-
-Add to your MCP configuration file:
+2. Configure Cursor:
+   - Open Cursor settings
+   - Navigate to the MCP section
+   - Edit your `~/.cursor/mcp.json` file with this configuration:
 
 ```json
 {
-  "mcpServers": {
-    "agile-flow": {
-      "command": "/path/to/run_server.sh",
-      "args": [],
-      "env": {},
-      "disabled": false,
-      "autoApprove": []
-    }
+  "mcp-agile-flow": {
+    "command": "/absolute/path/to/your/venv/python",
+    "args": [
+      "/absolute/path/to/mcp-agile-flow/run_mcp_server.py"
+    ],
+    "autoApprove": [
+      "hello-world",
+      "add-note",
+      "get-project-path"
+    ],
+    "disabled": false
+  },
+  "mcp-agile-flow-simple": {
+    "command": "/absolute/path/to/your/venv/python",
+    "args": [
+      "/absolute/path/to/mcp-agile-flow/simple_server.py"
+    ],
+    "autoApprove": [
+      "hello-world",
+      "add-note",
+      "get-project-path",
+      "Hey Sho",
+      "debug-tools"
+    ],
+    "disabled": false
   }
 }
 ```
 
-The server now intelligently detects project paths:
-1. Automatically detects the project root (looks for .git, package.json, etc.)
-2. Falls back to the current working directory if needed
-3. Supports explicit configuration via PROJECT_PATH if you prefer
+⚠️ **Important**: 
+- Use **absolute paths** for both Python and script locations
+- Make sure Python path points to the virtual environment's Python
+- Restart Cursor after making changes
 
-For client-specific instructions, see [Setup Guide](docs/setup.md) or [MCP Server Cheatsheet](docs/mcp_server_cheatsheet.md).
+### Verifying Server Connection
 
-## Key Features
+You can manually test the servers:
 
-- **Document Management**: Store and manage Agile documentation
-- **Workflow Management**: Track epics, stories, and tasks
-- **IDE Integration**: Generate IDE-specific rules for AI assistants
-- **Local Storage**: All data stored as markdown files in the `agile-docs` directory
-- **Smart Path Detection**: Automatically finds project root folder
-- **Fault Tolerance**: Handles permission issues gracefully with fallbacks
+```bash
+# Test standard server
+python run_mcp_server.py
 
-## Tools Overview
+# Test simple server
+python simple_server.py
+```
 
-| Category | Tools |
-|----------|-------|
-| Project | `create_project`, `list_projects`, `get_progress` |
-| Epics | `add_epic`, `list_epics`, `update_status` |
-| Stories | `add_story`, `list_stories`, `update_status` |
-| Tasks | `add_task`, `list_tasks`, `update_status` |
-| IDE Rules | `generate_cursor_rules`, `generate_cline_rules`, `generate_all_rules` |
+The server should start and show debug output. If connected properly in Cursor:
+1. Select the server in Cursor settings
+2. Try using a tool command:
+   ```json
+   {"name": "hello-world", "arguments": {}}
+   ```
 
-For complete documentation of all available tools, see [Tool Reference](docs/tools.md) or [MCP Server Cheatsheet](docs/mcp_server_cheatsheet.md).
+### Using Hey Sho Commands
+
+With the Simple MCP Server, you can use natural language:
+
+```json
+{
+  "name": "Hey Sho",
+  "arguments": {
+    "message": "Hey Sho, get project path"
+  }
+}
+```
+
+### Troubleshooting
+
+If the server is not connecting:
+
+1. Check server logs at `~/.mcp-agile-flow/mcp-server.log` or `~/.mcp-agile-flow/simple-mcp-server.log`
+2. Verify absolute paths in your `~/.cursor/mcp.json` configuration
+3. Make sure your virtual environment is activated when testing manually
+4. Restart Cursor after updating the configuration
+5. Verify server script permissions are executable (`chmod +x *.py`)
+
+#### Common Issues
+
+- **Missing Tool List**: Try using "MCP: List Tools" from Command Palette
+- **Server Not Running**: Check logs for startup errors
+- **Path Problems**: Ensure all paths are absolute and correct
+- **Environment Issues**: Run `which python` in your activated environment to get the correct path
+
+## For Developers
+
+### Setup Development Environment
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/mcp-agile-flow.git
+cd mcp-agile-flow
+
+# Create environment and install dependencies
+make install-dev
+```
+
+All development tasks are managed through the `Makefile`. Check the `Makefile` for available commands like testing, running servers, and code formatting.
+
+### Project Structure
+
+- `src/mcp_agile_flow/`
+  - `simple_server.py`: MCP server implementation with Hey Sho capabilities
+- `docs/`: Documentation
+- `tests/`: Test suite
 
 ## Documentation
 
-- [Setup Guide](docs/setup.md) - Installation and configuration
-- [User Guide](docs/user-guide.md) - How to use the MCP server
-- [Tool Reference](docs/tools.md) - Available MCP tools
-- [MCP Server Cheatsheet](docs/mcp_server_cheatsheet.md) - Quick reference guide
-- [Alternative Configurations](docs/alternative_configs.md) - Different setup options
-- [Technical Overview](docs/technical.md) - Architecture details
-- [Implementation Plan](docs/implementation.md) - Development plan and structure 
-
-## Contributing
-
-Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for more information.
+- [Simple Server Usage](docs/simple_server_usage.md)
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
-
-## Recent Improvements
-
-- Smart project path detection to find the correct project root
-- Permission error handling with fallback to user's home directory
-- Fixed IDE rule generation to avoid root directory issues
-- Improved configuration flexibility - environment variables now optional
-- Enhanced error messaging with specific troubleshooting steps
+MIT License - See [LICENSE](LICENSE) file for details.
