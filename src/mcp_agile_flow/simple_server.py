@@ -21,6 +21,7 @@ from mcp.server import stdio
 
 # Import local modules
 from .rules_migration import migrate_cursor_to_windsurf
+from .memory_graph import register_memory_tools
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -65,6 +66,9 @@ def log_tool_invocation(name: str, arguments: Optional[dict], response: Any) -> 
 # Create an MCP server
 mcp = Server("MCP Agile Flow - Simple")
 
+# Register memory graph tools
+register_memory_tools(mcp)
+
 @mcp.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
     """
@@ -81,41 +85,23 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "project_path": {
-                        "type": "string",
-                        "description": "Path to the project directory"
-                    },
                     "ide": {
                         "type": "string", 
                         "description": "IDE to initialize (cursor, windsurf, cline, or copilot)",
                         "enum": ["cursor", "windsurf", "cline", "copilot"]
-                    },
-                    "backup_existing": {
-                        "type": "boolean",
-                        "description": "Whether to back up existing rules",
-                        "default": True
                     }
                 },
-                "required": ["project_path", "ide"],
+                "required": ["ide"],
             },
         ),
         types.Tool(
             name="initialize-rules",
-            description="Initialize a project with cursor rules and templates",
+            description="Initialize Cursor rules for the project (for backward compatibility, use initialize-ide-rules for other IDEs)",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "project_path": {
-                        "type": "string",
-                        "description": "Path to the project directory"
-                    },
-                    "backup_existing": {
-                        "type": "boolean",
-                        "description": "Whether to back up existing rules",
-                        "default": True
-                    }
                 },
-                "required": ["project_path"],
+                "required": [],
             },
         ),
         types.Tool(
@@ -124,10 +110,6 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "project_path": {
-                        "type": "string",
-                        "description": "Path to the project directory. If not provided, uses current working directory."
-                    },
                     "specific_file": {
                         "type": "string",
                         "description": "Specific file to migrate (without .mdc extension). If not provided, migrates all files."
@@ -158,14 +140,24 @@ async def handle_list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
-            name="get-project-path",
-            description="Returns the current project directory path",
+            name="get-project-settings",
+            description="Returns comprehensive project settings including project path, knowledge graph directory, AI docs directory, and other agile flow configuration. Use this to understand your project's structure and agile workflow settings.",
             inputSchema={
                 "type": "object",
                 "properties": {},
                 "required": [],
             },
         ),
+        types.Tool(
+            name="get-project-path",
+            description="[DEPRECATED: Use get-project-settings instead] Returns information about the project path",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        ),
+
         types.Tool(
             name="debug-tools",
             description="Get debug information about recent tool invocations",
@@ -227,17 +219,41 @@ async def handle_call_tool(
     
     try:
         if name == "initialize-ide-rules":
-            if not arguments or "project_path" not in arguments or "ide" not in arguments:
-                raise ValueError("Missing required arguments: project_path and ide")
+            # Get project path from environment variable or use current directory
+            project_path = os.environ.get("PROJECT_PATH")
             
-            project_path = arguments["project_path"]
+            # If environment variable is not set, use current directory
+            if project_path:
+                source = "environment variable"
+            else:
+                project_path = os.getcwd()
+                source = "current directory"
+                
+            # Check if IDE is specified in arguments
+            if not arguments or "ide" not in arguments:
+                # If IDE is not specified, return a message asking the user to specify it
+                return [create_text_response(json.dumps({
+                    "status": "error",
+                    "message": "Please specify which IDE you are using. Supported options are: cursor, windsurf, cline, or copilot",
+                    "supported_ides": ["cursor", "windsurf", "cline", "copilot"]
+                }, indent=2))]
+            
             ide = arguments["ide"]
-            backup_existing = arguments.get("backup_existing", True)
+            # Always back up existing files
+            backup_existing = True
             
             # Validate IDE
             if ide not in ["cursor", "windsurf", "cline", "copilot"]:
                 raise ValueError("Invalid IDE. Must be one of: cursor, windsurf, cline, or copilot")
             
+            # Log which source was used for project_path
+            logger.info(f"Using project_path from {source}: {project_path}")
+            print(f"initialize-ide-rules using project_path from {source}: {project_path}")
+            
+            # Validate that the project path exists
+            if not os.path.exists(project_path):
+                raise ValueError(f"Project path does not exist: {project_path}")
+                
             if ide == "cursor":
                 # Initialize Cursor rules
                 cursor_dir = os.path.join(project_path, ".cursor")
@@ -308,6 +324,8 @@ async def handle_call_tool(
                 response_data = {
                     "initialized_rules": initialized_rules,
                     "initialized_templates": initialized_templates,
+                    "rules_directory": os.path.abspath(rules_dir),
+                    "templates_directory": os.path.abspath(templates_dir),
                     "success": True
                 }
                 
@@ -335,7 +353,7 @@ async def handle_call_tool(
                 # Create response
                 response_data = {
                     "initialized_windsurf": True,
-                    "file_path": windsurf_rule_file,
+                    "file_path": os.path.abspath(windsurf_rule_file),
                     "status": status,
                     "success": True
                 }
@@ -364,7 +382,7 @@ async def handle_call_tool(
                 # Create response
                 response_data = {
                     "initialized_cline": True,
-                    "file_path": cline_rule_file,
+                    "file_path": os.path.abspath(cline_rule_file),
                     "status": status,
                     "success": True
                 }
@@ -395,7 +413,7 @@ async def handle_call_tool(
                 # Create response
                 response_data = {
                     "initialized_copilot": True,
-                    "file_path": copilot_rule_file,
+                    "file_path": os.path.abspath(copilot_rule_file),
                     "status": status,
                     "success": True
                 }
@@ -405,11 +423,26 @@ async def handle_call_tool(
                 raise ValueError(f"Unknown IDE: {ide}. Supported values are 'cursor', 'windsurf', 'cline', or 'copilot'")
         
         elif name == "initialize-rules":
-            if not arguments or "project_path" not in arguments:
-                raise ValueError("Missing project_path argument")
+            # Get project path from environment variable or use current directory
+            project_path = os.environ.get("PROJECT_PATH")
             
-            project_path = arguments["project_path"]
-            backup_existing = arguments.get("backup_existing", True)
+            # If environment variable is not set, use current directory
+            if project_path:
+                source = "environment variable"
+            else:
+                project_path = os.getcwd()
+                source = "current directory"
+                
+            # Always back up existing files
+            backup_existing = True
+            
+            # Log which source was used for project_path
+            logger.info(f"Using project_path from {source}: {project_path}")
+            print(f"initialize-rules using project_path from {source}: {project_path}")
+            
+            # Validate that the project path exists
+            if not os.path.exists(project_path):
+                raise ValueError(f"Project path does not exist: {project_path}")
             
             # Create .cursor directory structure
             cursor_dir = os.path.join(project_path, ".cursor")
@@ -480,13 +513,31 @@ async def handle_call_tool(
             response_data = {
                 "initialized_rules": initialized_rules,
                 "initialized_templates": initialized_templates,
+                "rules_directory": os.path.abspath(rules_dir),
+                "templates_directory": os.path.abspath(templates_dir),
                 "success": True
             }
             
             return [create_text_response(json.dumps(response_data, indent=2))]
             
         elif name == "migrate-rules-to-windsurf":
-            project_path = arguments.get("project_path", os.getcwd())
+            # Get project path from environment variable or use current directory
+            project_path = os.environ.get("PROJECT_PATH")
+            
+            # If environment variable is not set, use current directory
+            if project_path:
+                source = "environment variable"
+            else:
+                project_path = os.getcwd()
+                source = "current directory"
+                
+            logger.info(f"Using project_path from {source}: {project_path}")
+            print(f"migrate-rules-to-windsurf using project_path from {source}: {project_path}")
+            
+            # Validate that the project path exists
+            if not os.path.exists(project_path):
+                raise ValueError(f"Project path does not exist: {project_path}")
+                
             specific_file = arguments.get("specific_file")
             verbose = arguments.get("verbose", False)
             no_truncate = arguments.get("no_truncate", False)
@@ -524,22 +575,73 @@ async def handle_call_tool(
             
             return [create_text_response(f"Note '{note_name}' added successfully")]
             
-        elif name == "get-project-path":
-            logger.info("Getting project paths")
+        elif name == "get-project-settings":
+            logger.info("Getting project settings")
             
-            # Get the current working directory
-            current_dir = os.getcwd()
+            # Get the PROJECT_PATH environment variable
+            project_path_env = os.environ.get("PROJECT_PATH")
             
-            # Get the directory of the current file
-            file_dir = os.path.dirname(os.path.abspath(__file__))
+            # Determine if the project path was manually set
+            is_manually_set = project_path_env is not None
+            
+            # If PROJECT_PATH is not set, use the current working directory
+            project_path = project_path_env if is_manually_set else os.getcwd()
+            
+            # Get current working directory
+            current_directory = os.getcwd()
+            
+            # Define knowledge graph directory (primarily ai-kngr, with fallbacks)
+            knowledge_graph_dir = os.path.join(project_path, "ai-kngr")
+            if not os.path.exists(knowledge_graph_dir):
+                # Check fallback directories
+                for fallback in [".kg", ".knowledge"]:
+                    fallback_dir = os.path.join(project_path, fallback)
+                    if os.path.exists(fallback_dir):
+                        knowledge_graph_dir = fallback_dir
+                        break
+                else:  # No fallback found - append the proper suffix to project_path
+                    knowledge_graph_dir = os.path.join(project_path, "ai-kngr")
+            
+            # Define AI docs directory (primarily ai-docs, with fallbacks)
+            ai_docs_dir = os.path.join(project_path, "ai-docs")
+            if not os.path.exists(ai_docs_dir):
+                # Check fallback directories
+                for fallback in [".ai", ".docs", "docs"]:
+                    fallback_dir = os.path.join(project_path, fallback)
+                    if os.path.exists(fallback_dir):
+                        ai_docs_dir = fallback_dir
+                        break
+                else:  # No fallback found - append the proper suffix to project_path
+                    ai_docs_dir = os.path.join(project_path, "ai-docs")
             
             # Create response
             response_data = {
-                "current_directory": current_dir,
-                "file_directory": file_dir
+                "project_path": project_path,
+                "current_directory": current_directory,
+                "is_project_path_manually_set": is_manually_set,  # Renamed for clarity
+                "knowledge_graph_directory": knowledge_graph_dir,
+                "ai_docs_directory": ai_docs_dir
             }
             
             return [create_text_response(json.dumps(response_data, indent=2))]
+            
+        elif name == "get-project-path":
+            logger.info("Getting project paths (deprecated, use get-project-settings instead)")
+            
+            # Call get-project-settings and filter the response
+            settings_response = await handle_call_tool("get-project-settings", None)
+            settings_data = json.loads(settings_response[0].text)
+            
+            # Create response with only the project path fields
+            response_data = {
+                "project_path": settings_data["project_path"],
+                "current_directory": settings_data["current_directory"],
+                "is_manually_set": settings_data["is_project_path_manually_set"]  # Use the new field name
+            }
+            
+            return [create_text_response(json.dumps(response_data, indent=2))]
+            
+
             
         elif name == "debug-tools":
             count = arguments.get("count", 5)

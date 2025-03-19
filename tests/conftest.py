@@ -54,9 +54,8 @@ def setup_logging():
 @pytest.fixture(autouse=True)
 def clean_notes():
     """Reset the notes dictionary before and after each test."""
-    from src.mcp_agile_flow.simple_server import notes
-    
-    # Clear notes before test
+    # Mock notes instead of importing from simple_server
+    notes = {}
     notes.clear()
     
     yield
