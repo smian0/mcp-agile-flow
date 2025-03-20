@@ -125,11 +125,11 @@ def test_get_project_settings_tool_with_agile_flow_path(temp_dir, env_cleanup):
     assert response_data["is_project_path_manually_set"] == True
 
 
-def test_initialize_ide_rules_with_agile_flow_path(temp_dir, env_cleanup):
-    """Test that initialize-ide-rules works with AGILE_FLOW_PROJECT_PATH environment variable."""
+def test_initialize_ide_rules_with_project_path(temp_dir, env_cleanup):
+    """Test that initialize-ide-rules works with PROJECT_PATH environment variable."""
     # Set the environment variable
-    os.environ["AGILE_FLOW_PROJECT_PATH"] = temp_dir
-    print(f"\nAGILE_FLOW_PROJECT_PATH set to: {os.environ['AGILE_FLOW_PROJECT_PATH']}")
+    os.environ["PROJECT_PATH"] = temp_dir
+    print(f"\nPROJECT_PATH set to: {os.environ['PROJECT_PATH']}")
     
     # Call the tool
     result = asyncio.run(handle_call_tool("initialize-ide-rules", {"ide": "cursor"}))
@@ -147,7 +147,7 @@ def test_initialize_ide_rules_with_agile_flow_path(temp_dir, env_cleanup):
     # Check that the directories were created
     cursor_dir = os.path.join(temp_dir, ".cursor")
     rules_dir = os.path.join(cursor_dir, "rules")
-    templates_dir = os.path.join(cursor_dir, "templates")
+    templates_dir = os.path.join(temp_dir, "ai-templates")
     
     assert os.path.exists(cursor_dir)
     assert os.path.exists(rules_dir)

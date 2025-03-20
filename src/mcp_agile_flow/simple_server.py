@@ -300,7 +300,8 @@ async def handle_call_tool(
                 # Initialize Cursor rules
                 cursor_dir = os.path.join(project_path, ".cursor")
                 rules_dir = os.path.join(cursor_dir, "rules")
-                templates_dir = os.path.join(cursor_dir, "templates")
+                # Place ai-templates at the project root
+                templates_dir = os.path.join(project_path, "ai-templates")
                 
                 os.makedirs(rules_dir, exist_ok=True)
                 os.makedirs(templates_dir, exist_ok=True)
@@ -308,13 +309,13 @@ async def handle_call_tool(
                 # Get paths to our rule and template files
                 server_dir = os.path.dirname(os.path.abspath(__file__))
                 cursor_rules_dir = os.path.join(server_dir, "cursor_rules")
-                cursor_templates_dir = os.path.join(server_dir, "cursor_templates")
+                ai_templates_dir = os.path.join(server_dir, "ai-templates")
                 
                 # Verify source directories exist
                 if not os.path.exists(cursor_rules_dir):
                     raise FileNotFoundError(f"Source rules directory not found: {cursor_rules_dir}")
-                if not os.path.exists(cursor_templates_dir):
-                    raise FileNotFoundError(f"Source templates directory not found: {cursor_templates_dir}")
+                if not os.path.exists(ai_templates_dir):
+                    raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
                 
                 # Track what files were initialized
                 initialized_rules = []
@@ -354,8 +355,8 @@ async def handle_call_tool(
                             initialized_templates.append({"file_name": existing_file, "status": "backed_up"})
                 
                 # Copy templates
-                for template_file in os.listdir(cursor_templates_dir):
-                    src = os.path.join(cursor_templates_dir, template_file)
+                for template_file in os.listdir(ai_templates_dir):
+                    src = os.path.join(ai_templates_dir, template_file)
                     dst = os.path.join(templates_dir, template_file)
                     
                     # Copy the file
@@ -386,16 +387,36 @@ async def handle_call_tool(
                 
                 # Get the windsurf template path
                 server_dir = os.path.dirname(os.path.abspath(__file__))
-                windsurf_template_dir = os.path.join(server_dir, "windsurf_templates")
-                template_file = os.path.join(windsurf_template_dir, "windsurf_rules_template.md")
+                ide_rules_dir = os.path.join(server_dir, "ide_rules")
+                template_file = os.path.join(ide_rules_dir, "ide_rules.md")
                 
                 # Copy the template
                 shutil.copy2(template_file, windsurf_rule_file)
+                
+                # Create and populate the ai-templates directory
+                templates_dir = os.path.join(project_path, "ai-templates")
+                os.makedirs(templates_dir, exist_ok=True)
+                
+                # Get paths to our template files
+                ai_templates_dir = os.path.join(server_dir, "ai-templates")
+                
+                # Verify source directories exist
+                if not os.path.exists(ai_templates_dir):
+                    raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
+                
+                # Copy templates
+                for template_file in os.listdir(ai_templates_dir):
+                    src = os.path.join(ai_templates_dir, template_file)
+                    dst = os.path.join(templates_dir, template_file)
+                    
+                    # Copy the file
+                    shutil.copy2(src, dst)
                 
                 # Create response
                 response_data = {
                     "initialized_windsurf": True,
                     "file_path": os.path.abspath(windsurf_rule_file),
+                    "templates_directory": os.path.abspath(templates_dir),
                     "status": status,
                     "success": True
                 }
@@ -413,18 +434,38 @@ async def handle_call_tool(
                 else:
                     status = "no existing file to backup"
                 
-                # Get the windsurf template path (we'll use the same template)
+                # Get the cline template path (we'll use the same template)
                 server_dir = os.path.dirname(os.path.abspath(__file__))
-                windsurf_template_dir = os.path.join(server_dir, "windsurf_templates")
-                template_file = os.path.join(windsurf_template_dir, "windsurf_rules_template.md")
+                ide_rules_dir = os.path.join(server_dir, "ide_rules")
+                template_file = os.path.join(ide_rules_dir, "ide_rules.md")
                 
                 # Copy the template
                 shutil.copy2(template_file, cline_rule_file)
+                
+                # Create and populate the ai-templates directory
+                templates_dir = os.path.join(project_path, "ai-templates")
+                os.makedirs(templates_dir, exist_ok=True)
+                
+                # Get paths to our template files
+                ai_templates_dir = os.path.join(server_dir, "ai-templates")
+                
+                # Verify source directories exist
+                if not os.path.exists(ai_templates_dir):
+                    raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
+                
+                # Copy templates
+                for template_file in os.listdir(ai_templates_dir):
+                    src = os.path.join(ai_templates_dir, template_file)
+                    dst = os.path.join(templates_dir, template_file)
+                    
+                    # Copy the file
+                    shutil.copy2(src, dst)
                 
                 # Create response
                 response_data = {
                     "initialized_cline": True,
                     "file_path": os.path.abspath(cline_rule_file),
+                    "templates_directory": os.path.abspath(templates_dir),
                     "status": status,
                     "success": True
                 }
@@ -444,18 +485,38 @@ async def handle_call_tool(
                 else:
                     status = "no existing file to backup"
                 
-                # Get the windsurf template path (we'll use the same template)
+                # Get the copilot template path (we'll use the same template)
                 server_dir = os.path.dirname(os.path.abspath(__file__))
-                windsurf_template_dir = os.path.join(server_dir, "windsurf_templates")
-                template_file = os.path.join(windsurf_template_dir, "windsurf_rules_template.md")
+                ide_rules_dir = os.path.join(server_dir, "ide_rules")
+                template_file = os.path.join(ide_rules_dir, "ide_rules.md")
                 
                 # Copy the template
                 shutil.copy2(template_file, copilot_rule_file)
+                
+                # Create and populate the ai-templates directory
+                templates_dir = os.path.join(project_path, "ai-templates")
+                os.makedirs(templates_dir, exist_ok=True)
+                
+                # Get paths to our template files
+                ai_templates_dir = os.path.join(server_dir, "ai-templates")
+                
+                # Verify source directories exist
+                if not os.path.exists(ai_templates_dir):
+                    raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
+                
+                # Copy templates
+                for template_file in os.listdir(ai_templates_dir):
+                    src = os.path.join(ai_templates_dir, template_file)
+                    dst = os.path.join(templates_dir, template_file)
+                    
+                    # Copy the file
+                    shutil.copy2(src, dst)
                 
                 # Create response
                 response_data = {
                     "initialized_copilot": True,
                     "file_path": os.path.abspath(copilot_rule_file),
+                    "templates_directory": os.path.abspath(templates_dir),
                     "status": status,
                     "success": True
                 }
@@ -494,7 +555,8 @@ async def handle_call_tool(
             # Create .cursor directory structure
             cursor_dir = os.path.join(project_path, ".cursor")
             rules_dir = os.path.join(cursor_dir, "rules")
-            templates_dir = os.path.join(cursor_dir, "templates")
+            # Place ai-templates at the project root
+            templates_dir = os.path.join(project_path, "ai-templates")
             
             os.makedirs(rules_dir, exist_ok=True)
             os.makedirs(templates_dir, exist_ok=True)
@@ -502,13 +564,13 @@ async def handle_call_tool(
             # Get paths to our rule and template files
             server_dir = os.path.dirname(os.path.abspath(__file__))
             cursor_rules_dir = os.path.join(server_dir, "cursor_rules")
-            cursor_templates_dir = os.path.join(server_dir, "cursor_templates")
+            ai_templates_dir = os.path.join(server_dir, "ai-templates")
             
             # Verify source directories exist
             if not os.path.exists(cursor_rules_dir):
                 raise FileNotFoundError(f"Source rules directory not found: {cursor_rules_dir}")
-            if not os.path.exists(cursor_templates_dir):
-                raise FileNotFoundError(f"Source templates directory not found: {cursor_templates_dir}")
+            if not os.path.exists(ai_templates_dir):
+                raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
             
             # Track what files were initialized
             initialized_rules = []
@@ -548,8 +610,8 @@ async def handle_call_tool(
                         initialized_templates.append({"file_name": existing_file, "status": "backed_up"})
             
             # Copy templates
-            for template_file in os.listdir(cursor_templates_dir):
-                src = os.path.join(cursor_templates_dir, template_file)
+            for template_file in os.listdir(ai_templates_dir):
+                src = os.path.join(ai_templates_dir, template_file)
                 dst = os.path.join(templates_dir, template_file)
                 
                 # Copy the file

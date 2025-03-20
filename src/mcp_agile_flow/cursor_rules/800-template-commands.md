@@ -14,11 +14,23 @@ alwaysApply: true
 
 ## Requirements
 - Recognize and process template-related commands
-- Create documents in the correct location
-- Apply the appropriate template based on command
+- Create documents in the correct location (ai-docs directory)
+- Apply the appropriate template from ai-templates directory
 - Maintain proper file structure
 - Ensure consistent document formatting
 - Track document status appropriately
+- Ensure output is identical regardless of which IDE is used
+
+## Document Flow Process
+
+1. **Templates Source**: All document templates are stored in the IDE-agnostic `ai-templates` directory
+2. **Output Location**: All AI-produced documents are stored in the `ai-docs` directory
+3. **Cross-IDE Consistency**: The exact same document generation process is used across all IDEs
+4. **Available Templates**:
+   - `template-prd.md`: Product Requirements Document template
+   - `template-arch.md`: Architecture Document template
+   - `template-story.md`: User Story template
+5. **Document Structure**: Follow the hierarchical structure defined below for all generated documents
 
 ## Command Processing
 
@@ -55,14 +67,19 @@ alwaysApply: true
 ## Directory Structure
 
 ```
-ai-docs/
-├── prd.md                 # Product Requirements Document
-├── arch.md                # Architecture Document
-├── epic-1-user-auth/      # Epic directory with descriptive suffix
+ai-templates/                 # Source templates directory (not visible to user)
+├── template-prd.md           # PRD template
+├── template-arch.md          # Architecture template
+└── template-story.md         # Story template
+
+ai-docs/                      # Output documents directory (visible to user)
+├── prd.md                    # Product Requirements Document
+├── arch.md                   # Architecture Document
+├── epic-1-user-auth/         # Epic directory with descriptive suffix
 │   ├── story-1-login-flow.story.md   # Story files with descriptive suffixes
 │   ├── story-2-signup-form.story.md
 │   └── ...
-├── epic-2-task-core/      # Another epic with descriptive suffix
+├── epic-2-task-core/         # Another epic with descriptive suffix
 │   └── ...
 └── ...
 ```
@@ -72,19 +89,19 @@ ai-docs/
 User: "Create a new PRD for TaskMaster App"
 
 AI Action:
-1. Create `ai-docs` directory if it doesn't exist
-2. Create `prd.md` file in `ai-docs` directory
-3. Apply PRD template
+1. Identify template to use: `ai-templates/template-prd.md`
+2. Create `ai-docs` directory if it doesn't exist
+3. Create `prd.md` file in `ai-docs` directory using the template
 4. Add project-specific details
 5. Confirm creation with: "Created Product Requirements Document for TaskMaster App in `ai-docs/prd.md`"
 
 User: "Create a story for Epic-1-user-auth: User Authentication with suffix login-flow"
 
 AI Action:
-1. Verify PRD exists in `ai-docs/prd.md`
-2. Create `ai-docs/epic-1-user-auth` directory if it doesn't exist
-3. Create `story-1-login-flow.story.md` file in `ai-docs/epic-1-user-auth` directory
-4. Apply Story template
+1. Identify template to use: `ai-templates/template-story.md`
+2. Verify PRD exists in `ai-docs/prd.md`
+3. Create `ai-docs/epic-1-user-auth` directory if it doesn't exist
+4. Create `story-1-login-flow.story.md` file in `ai-docs/epic-1-user-auth` directory using the template
 5. Add story-specific details
 6. Confirm creation with: "Created Story-1-login-flow for Epic-1-user-auth: User Authentication in `ai-docs/epic-1-user-auth/story-1-login-flow.story.md`"
 </example>
@@ -102,8 +119,9 @@ Creates a story file but doesn't link it to an epic or follow the proper format.
 </example>
 
 ## Critical Rules
-- Commands must be recognized correctly based on intent
-- Documents must be created in the correct directory structure
+- Process must be identical across all supported IDEs (Cursor, Windsurf, Cline, Copilot)
+- Templates must always be sourced from the ai-templates directory
+- Documents must always be created in the ai-docs directory
 - Templates must be applied consistently
 - References between documents must be maintained
 - Status progression must be enforced
