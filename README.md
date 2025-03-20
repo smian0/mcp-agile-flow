@@ -12,9 +12,8 @@ A simple MCP server implementation for managing agile workflow rules and templat
    {
      "name": "initialize-ide-rules",
      "arguments": {
-       "project_path": "/path/to/project",
        "ide": "cursor",
-       "backup_existing": true
+       "project_path": "/path/to/project"
      }
    }
    ```
@@ -25,14 +24,29 @@ A simple MCP server implementation for managing agile workflow rules and templat
    {
      "name": "initialize-rules",
      "arguments": {
-       "project_path": "/path/to/project",
-       "backup_existing": true
+       "project_path": "/path/to/project"
      }
    }
    ```
    Returns: Success status and details about initialized files
 
-3. **migrate-rules-to-windsurf**
+3. **get-safe-project-path**
+   ```json
+   {
+     "name": "get-safe-project-path",
+     "arguments": {
+       "proposed_path": "/optional/path/to/check"
+     }
+   }
+   ```
+   Returns: Safe project path or error requesting user input
+   - If proposed path is writable, returns that path
+   - If current directory is not root, uses it as fallback for safety
+   - If current directory is root, returns error requesting user to provide a specific path
+   - Never allows operations in the root directory
+   - Always prompts for explicit path instead of using unsafe defaults
+
+4. **migrate-rules-to-windsurf**
    ```json
    {
      "name": "migrate-rules-to-windsurf",
@@ -46,7 +60,7 @@ A simple MCP server implementation for managing agile workflow rules and templat
    ```
    Returns: Migration status and details
 
-4. **add-note**
+5. **add-note**
    ```json
    {
      "name": "add-note",
@@ -58,10 +72,10 @@ A simple MCP server implementation for managing agile workflow rules and templat
    ```
    Returns: Success status
 
-5. **get-project-path**
+6. **get-project-settings**
    ```json
    {
-     "name": "get-project-path",
+     "name": "get-project-settings",
      "arguments": {
        "random_string": "dummy-value"
      }
@@ -69,7 +83,7 @@ A simple MCP server implementation for managing agile workflow rules and templat
    ```
    Returns: Current project paths
 
-6. **debug-tools**
+7. **debug-tools**
    ```json
    {
      "name": "debug-tools",
@@ -95,18 +109,34 @@ for tool in tools:
 
 ### Example Usage
 
-1. Initialize Cursor Rules:
+1. Initialize Cursor Rules (with path check):
    ```json
+   # First, check if the path is safe and writable
+   {
+     "name": "get-safe-project-path",
+     "arguments": {}
+   }
+   # Then use the returned safe path in the initialize-rules command
    {
      "name": "initialize-rules",
      "arguments": {
-       "project_path": "/path/to/project",
-       "backup_existing": true
+       "project_path": "/path/from/previous/step"
      }
    }
    ```
 
-2. Add a Note:
+2. Initialize Rules for a specific IDE:
+   ```json
+   {
+     "name": "initialize-ide-rules",
+     "arguments": {
+       "ide": "windsurf",
+       "project_path": "/path/to/project"
+     }
+   }
+   ```
+
+3. Add a Note:
    ```json
    {
      "name": "add-note",
@@ -117,7 +147,7 @@ for tool in tools:
    }
    ```
 
-3. Get Project Path:
+4. Get Project Path:
    ```json
    {
      "name": "get-project-path",
@@ -127,7 +157,7 @@ for tool in tools:
    }
    ```
 
-4. Migrate to Windsurf:
+5. Migrate to Windsurf:
    ```json
    {
      "name": "migrate-rules-to-windsurf",
@@ -138,7 +168,7 @@ for tool in tools:
    ```
    This creates a single `.windsurfrules` file in your project root that contains all rules in a Windsurf-compatible format.
 
-5. Debug Tool Invocations:
+6. Debug Tool Invocations:
    ```json
    {
      "name": "debug-tools",

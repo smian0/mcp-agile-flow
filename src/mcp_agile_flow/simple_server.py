@@ -65,6 +65,114 @@ def parse_greeting_command(message: str) -> Tuple[str, Dict[str, Any]]:
     
     return cmd_name, cmd_args
 
+def get_safe_project_path(arguments: Optional[dict] = None) -> Tuple[str, str]:
+    """
+    Get a safe project path that is guaranteed to be writable.
+    
+    Args:
+        arguments: Optional arguments dictionary that might contain 'project_path'
+        
+    Returns:
+        Tuple containing (safe_path, source_description)
+    """
+    # First check if project_path is provided in arguments
+    if arguments and "project_path" in arguments and arguments["project_path"].strip() != '':
+        raw_path = arguments["project_path"].strip()
+        # If using relative path notation like "." or "./", convert to absolute
+        if raw_path == "." or raw_path == "./":
+            path = os.getcwd()
+            source = "current directory (from relative path)"
+        else:
+            path = os.path.abspath(raw_path)
+            source = "arguments parameter"
+    # Then check AGILE_FLOW_PROJECT_PATH (preferred)
+    else:
+        agile_flow_project_path = os.environ.get("AGILE_FLOW_PROJECT_PATH")
+        # Then check PROJECT_PATH for backward compatibility
+        project_path_env = os.environ.get("PROJECT_PATH")
+        
+        # First check AGILE_FLOW_PROJECT_PATH
+        if agile_flow_project_path is not None and agile_flow_project_path.strip() != '':
+            # Check if the environment variable points to root
+            if agile_flow_project_path.strip() == '/' or agile_flow_project_path.strip() == '\\':
+                # If env var points to root, check if current dir is root
+                current_dir = os.getcwd()
+                if current_dir == '/':
+                    # Both env var and current dir are root - need user input
+                    raise ValueError("Environment variable points to root directory and current directory is also root. Please provide a specific project path.")
+                else:
+                    # Use current dir as fallback
+                    path = current_dir
+                    source = "current directory (env var was root path)"
+            else:
+                path = os.path.abspath(agile_flow_project_path)
+                source = "AGILE_FLOW_PROJECT_PATH environment variable"
+        # Then check PROJECT_PATH for backward compatibility
+        elif project_path_env is not None and project_path_env.strip() != '':
+            # Check if the environment variable points to root
+            if project_path_env.strip() == '/' or project_path_env.strip() == '\\':
+                # If env var points to root, check if current dir is root
+                current_dir = os.getcwd()
+                if current_dir == '/':
+                    # Both env var and current dir are root - need user input
+                    raise ValueError("Environment variable points to root directory and current directory is also root. Please provide a specific project path.")
+                else:
+                    # Use current dir as fallback
+                    path = current_dir
+                    source = "current directory (env var was root path)"
+            else:
+                path = os.path.abspath(project_path_env)
+                source = "PROJECT_PATH environment variable (legacy)"
+        # Default to current directory if neither is set
+        else:
+            current_dir = os.getcwd()
+            # Check if current directory is root
+            if current_dir == '/':
+                # Current directory is root - need user input
+                raise ValueError("Current directory is the root directory. Please provide a specific project path.")
+            else:
+                path = current_dir
+                source = "current directory"
+    
+    # Safety check: Never write to root directory
+    if path == '/' or path == '\\':
+        # Root directory was specified either by argument or env var
+        # Check if current directory is also root
+        current_dir = os.getcwd()
+        if current_dir == '/':
+            # Both specified path and current dir are root - need user input
+            raise ValueError("Specified path is root directory and current directory is also root. Please provide a non-root project path.")
+        else:
+            # Use current dir as fallback
+            path = current_dir
+            source = "current directory (safety fallback from root)"
+            logger.warning("Attempted to use root directory. Falling back to current working directory for safety.")
+    
+    # Check if path exists and is writable
+    if not os.path.exists(path):
+        # Path doesn't exist - check if current dir is root
+        current_dir = os.getcwd()
+        if current_dir == '/':
+            # Current directory is root - need user input
+            raise ValueError(f"Path {path} does not exist, and current directory is root. Please provide a valid project path.")
+        else:
+            # Use current dir as fallback
+            logger.warning(f"Path {path} does not exist. Falling back to current directory: {current_dir}")
+            return current_dir, "current directory (fallback from non-existent path)"
+    
+    if not os.access(path, os.W_OK):
+        # Path is not writable - check if current dir is root
+        current_dir = os.getcwd()
+        if current_dir == '/':
+            # Current directory is root - need user input
+            raise ValueError(f"Path {path} is not writable, and current directory is root. Please provide a valid, writable project path.")
+        else:
+            # Use current dir as fallback
+            logger.warning(f"Path {path} is not writable. Falling back to current directory: {current_dir}")
+            return current_dir, "current directory (fallback from non-writable path)"
+    
+    return path, source
+
 @mcp.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
     """
@@ -86,6 +194,10 @@ async def handle_list_tools() -> list[types.Tool]:
                         "type": "string", 
                         "description": "IDE to initialize (cursor, windsurf, cline, or copilot)",
                         "enum": ["cursor", "windsurf", "cline", "copilot"]
+                    },
+                    "project_path": {
+                        "type": "string",
+                        "description": "Custom project path to use (optional). If not provided, will use environment variables or current directory."
                     }
                 },
                 "required": ["ide"],
@@ -97,6 +209,10 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Custom project path to use (optional). If not provided, will use environment variables or current directory."
+                    }
                 },
                 "required": [],
             },
@@ -107,6 +223,20 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {},
+                "required": [],
+            },
+        ),
+        types.Tool(
+            name="get-safe-project-path",
+            description="Get a safe, writable project path that can be used for file operations. If the root directory is detected, this will automatically use the current working directory instead.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "proposed_path": {
+                        "type": "string",
+                        "description": "Optional path to check. If not provided, standard environment variables or current directory will be used."
+                    }
+                },
                 "required": [],
             },
         ),
@@ -144,25 +274,23 @@ async def handle_call_tool(
     
     try:
         if name == "initialize-ide-rules":
-            # Get project path from environment variables or use current directory
-            # First check AGILE_FLOW_PROJECT_PATH (preferred)
-            agile_flow_project_path = os.environ.get("AGILE_FLOW_PROJECT_PATH")
-            # Then check PROJECT_PATH for backward compatibility
-            project_path_env = os.environ.get("PROJECT_PATH")
+            # Get a safe project path using the utility function
+            try:
+                project_path, source = get_safe_project_path(arguments)
+            except ValueError as e:
+                # Handle case where current directory is root
+                current_dir = os.getcwd()
+                response_data = {
+                    "error": str(e),
+                    "status": "error",
+                    "needs_user_input": True,
+                    "current_directory": current_dir,
+                    "is_root": current_dir == "/",
+                    "message": "Please provide a specific project path using the 'project_path' argument.",
+                    "success": False
+                }
+                return [create_text_response(json.dumps(response_data, indent=2), is_error=True)]
             
-            # First check AGILE_FLOW_PROJECT_PATH
-            if agile_flow_project_path is not None and agile_flow_project_path.strip() != '':
-                project_path = agile_flow_project_path
-                source = "AGILE_FLOW_PROJECT_PATH environment variable"
-            # Then check PROJECT_PATH for backward compatibility
-            elif project_path_env is not None and project_path_env.strip() != '':
-                project_path = project_path_env
-                source = "PROJECT_PATH environment variable (legacy)"
-            # Default to current directory if neither is set
-            else:
-                project_path = os.getcwd()
-                source = "current directory"
-                
             # Check if IDE is specified in arguments
             if not arguments or "ide" not in arguments:
                 # If IDE is not specified, return a message asking the user to specify it
@@ -184,10 +312,8 @@ async def handle_call_tool(
             logger.info(f"Using project_path from {source}: {project_path}")
             print(f"initialize-ide-rules using project_path from {source}: {project_path}")
             
-            # Validate that the project path exists
-            if not os.path.exists(project_path):
-                raise ValueError(f"Project path does not exist: {project_path}")
-                
+            # At this point, we've already verified the path exists and is writable in get_safe_project_path
+            
             if ide == "cursor":
                 # Initialize Cursor rules
                 cursor_dir = os.path.join(project_path, ".cursor")
@@ -357,25 +483,23 @@ async def handle_call_tool(
                 raise ValueError(f"Unknown IDE: {ide}. Supported values are 'cursor', 'windsurf', 'cline', or 'copilot'")
         
         elif name == "initialize-rules":
-            # Get project path from environment variables or use current directory
-            # First check AGILE_FLOW_PROJECT_PATH (preferred)
-            agile_flow_project_path = os.environ.get("AGILE_FLOW_PROJECT_PATH")
-            # Then check PROJECT_PATH for backward compatibility
-            project_path_env = os.environ.get("PROJECT_PATH")
+            # Get a safe project path using the utility function
+            try:
+                project_path, source = get_safe_project_path(arguments)
+            except ValueError as e:
+                # Handle case where current directory is root
+                current_dir = os.getcwd()
+                response_data = {
+                    "error": str(e),
+                    "status": "error",
+                    "needs_user_input": True,
+                    "current_directory": current_dir,
+                    "is_root": current_dir == "/",
+                    "message": "Please provide a specific project path using the 'project_path' argument.",
+                    "success": False
+                }
+                return [create_text_response(json.dumps(response_data, indent=2), is_error=True)]
             
-            # First check AGILE_FLOW_PROJECT_PATH
-            if agile_flow_project_path is not None and agile_flow_project_path.strip() != '':
-                project_path = agile_flow_project_path
-                source = "AGILE_FLOW_PROJECT_PATH environment variable"
-            # Then check PROJECT_PATH for backward compatibility
-            elif project_path_env is not None and project_path_env.strip() != '':
-                project_path = project_path_env
-                source = "PROJECT_PATH environment variable (legacy)"
-            # Default to current directory if neither is set
-            else:
-                project_path = os.getcwd()
-                source = "current directory"
-                
             # Always back up existing files
             backup_existing = True
             
@@ -383,9 +507,7 @@ async def handle_call_tool(
             logger.info(f"Using project_path from {source}: {project_path}")
             print(f"initialize-rules using project_path from {source}: {project_path}")
             
-            # Validate that the project path exists
-            if not os.path.exists(project_path):
-                raise ValueError(f"Project path does not exist: {project_path}")
+            # At this point, we've already verified the path exists and is writable in get_safe_project_path
             
             # Create .cursor directory structure
             cursor_dir = os.path.join(project_path, ".cursor")
@@ -473,6 +595,38 @@ async def handle_call_tool(
             logger.info(f"Project settings response: {response_data}")
             
             return [create_text_response(json.dumps(response_data, indent=2))]
+        
+        elif name == "get-safe-project-path":
+            # Get a proposed path from arguments if provided
+            proposed_path = arguments.get("proposed_path", "").strip() if arguments else ""
+            
+            try:
+                # Use the get_safe_project_path function
+                safe_path, source = get_safe_project_path({"project_path": proposed_path} if proposed_path else None)
+                
+                # Create response for successful case
+                response_data = {
+                    "safe_path": safe_path,
+                    "source": source,
+                    "is_writable": os.access(safe_path, os.W_OK),
+                    "exists": os.path.exists(safe_path),
+                    "current_directory": os.getcwd()
+                }
+                
+                return [create_text_response(json.dumps(response_data, indent=2))]
+            except ValueError as e:
+                # Handle case where current directory is root
+                current_dir = os.getcwd()
+                response_data = {
+                    "error": str(e),
+                    "needs_user_input": True,
+                    "current_directory": current_dir,
+                    "safe_path": None,
+                    "is_root": current_dir == "/",
+                    "message": "Please provide a specific project path using the 'proposed_path' argument."
+                }
+                
+                return [create_text_response(json.dumps(response_data, indent=2), is_error=True)]
         
         # Handle memory graph tools
         elif name in ["get_project_info", "get_mermaid_diagram", "update_mermaid_diagram", "update_markdown_with_mermaid", "create_entities", "create_relations", "add_observations", 

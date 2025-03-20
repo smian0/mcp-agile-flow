@@ -47,6 +47,7 @@ def get_model():
     """Returns a common LMStudio model configuration"""
     return LMStudio(
         id="mistral-small-3.1-24b-instruct-2503",
+        # id="qwen2.5-14b-instruct-mlx",
         base_url="http://Shoaibs-Mac-Studio.local:1234/v1",
         api_key="sk-lmstudio-1a2efea8c59dc9bc11eb6c9692e20737",
     )
@@ -58,7 +59,7 @@ def create_agent(tools, debug=False):
         tools=tools,
         description="You are an AI assistant that can use MCP tools for Agile project management.",
         show_tool_calls=debug,
-        debug_mode=debug
+        debug_mode=debug,
     )
 
 # Simple wrapper function that uses asyncio.run internally
