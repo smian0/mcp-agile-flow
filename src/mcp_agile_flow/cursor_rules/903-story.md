@@ -1,6 +1,6 @@
 ---
 description: Use when creating or updating User Stories to ensure proper structure, tracking, and implementation
-globs: **/*.story.md, ai-docs/epic-*/story-*.story.md
+globs: ai-docs/epic-*/story-*.md
 alwaysApply: false
 ---
 
@@ -71,6 +71,29 @@ alwaysApply: false
 - "Update story status to {status}": Updates story status
 - "Mark task {task} as complete": Updates task status
 - "Add task {task} to story": Adds a new task to the story
+
+## Update Mechanisms
+
+### Automatic Updates
+- **Test Completion**: When tests are run and pass, the corresponding test task should be automatically marked as complete
+- **Code Implementation**: When code is committed or saved, the corresponding implementation task can be updated
+- **Dependency Changes**: When a dependency changes status, related tasks should be reviewed
+
+### Manual Updates
+- **Story Progress Command**: Use "update story progress" to refresh all story components at once
+- **Periodic Updates**: Story should be updated at the end of each development session
+- **Milestone Completion**: Story should be comprehensively updated when significant milestones are reached
+
+### TDD Verification Requirements
+- Test tasks must have passing tests before being marked complete
+- Implementation tasks should not be marked complete until their tests pass
+- The complete story should have full test coverage before marking as Complete
+
+### Chat Command Log Maintenance
+- Record all significant user instructions and agent responses
+- Document key decisions and technical choices
+- Maintain a chronological history of the implementation process
+- Note any challenges or blockers encountered during implementation
 
 ## Examples
 <example>

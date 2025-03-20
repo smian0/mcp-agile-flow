@@ -44,8 +44,8 @@ ai-docs/                      # Output documents directory (visible to user)
 ├── prd.md                    # Product Requirements Document
 ├── arch.md                   # Architecture Document
 ├── epic-1-user-auth/         # Epic directory with descriptive suffix
-│   ├── story-1-login-flow.story.md   # Story files with descriptive suffixes
-│   ├── story-2-signup-form.story.md
+│   ├── story-1-login-flow.md   # Story files with descriptive suffixes
+│   ├── story-2-signup-form.md
 │   └── ...
 ├── epic-2-task-core/         # Another epic with descriptive suffix
 │   └── ...

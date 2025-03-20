@@ -64,6 +64,20 @@ alwaysApply: true
 - "Mark task {task} as complete in story {story-id}"
 - "Add task {task} to story {story-id}"
 
+### Progress Tracking Commands
+
+#### Story Progress Updates
+- "Update story progress": Refreshes status, tasks, and chat log for current story
+- "Track implementation notes for {story}": Adds implementation details to Dev Notes
+- "Document commands for story {story}": Updates Chat Command Log with recent interactions
+- "Verify task completion for {task}": Checks if tests pass before marking as complete
+
+#### Progress Reporting
+- "Generate progress report": Creates a summary of work completed across stories
+- "Summarize epic progress": Shows completion status for all stories in an epic
+- "Show current blockers": Lists incomplete tasks that are blocking progress
+- "Create sprint summary": Summarizes all work completed in current sprint
+
 ## Directory Structure
 
 ```
@@ -76,8 +90,8 @@ ai-docs/                      # Output documents directory (visible to user)
 ├── prd.md                    # Product Requirements Document
 ├── arch.md                   # Architecture Document
 ├── epic-1-user-auth/         # Epic directory with descriptive suffix
-│   ├── story-1-login-flow.story.md   # Story files with descriptive suffixes
-│   ├── story-2-signup-form.story.md
+│   ├── story-1-login-flow.md   # Story files with descriptive suffixes
+│   ├── story-2-signup-form.md
 │   └── ...
 ├── epic-2-task-core/         # Another epic with descriptive suffix
 │   └── ...
@@ -101,9 +115,9 @@ AI Action:
 1. Identify template to use: `ai-templates/template-story.md`
 2. Verify PRD exists in `ai-docs/prd.md`
 3. Create `ai-docs/epic-1-user-auth` directory if it doesn't exist
-4. Create `story-1-login-flow.story.md` file in `ai-docs/epic-1-user-auth` directory using the template
+4. Create `story-1-login-flow.md` file in `ai-docs/epic-1-user-auth` directory using the template
 5. Add story-specific details
-6. Confirm creation with: "Created Story-1-login-flow for Epic-1-user-auth: User Authentication in `ai-docs/epic-1-user-auth/story-1-login-flow.story.md`"
+6. Confirm creation with: "Created Story-1-login-flow for Epic-1-user-auth: User Authentication in `ai-docs/epic-1-user-auth/story-1-login-flow.md`"
 </example>
 
 <example type="invalid">
