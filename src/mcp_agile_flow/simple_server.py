@@ -1361,6 +1361,189 @@ def extract_makefile_commands(makefile_path):
         logger.error(f"Error parsing Makefile: {str(e)}")
         return None
 
+def handle_brd_commands(command, args):
+    """Handle BRD-related commands."""
+    if re.match(r"create a new brd for", command, re.IGNORECASE):
+        project_name = command.split("for", 1)[1].strip()
+        return create_brd(project_name)
+    elif re.match(r"initialize brd for", command, re.IGNORECASE):
+        project_name = command.split("for", 1)[1].strip()
+        return create_brd(project_name)
+    elif re.match(r"generate business requirements document for", command, re.IGNORECASE):
+        project_name = command.split("for", 1)[1].strip()
+        return create_brd(project_name)
+    # Handle BRD update commands
+    elif re.match(r"add business objective (.*) to brd", command, re.IGNORECASE):
+        objective = re.match(r"add business objective (.*) to brd", command, re.IGNORECASE).group(1)
+        return add_to_brd_section("Business Objectives", objective)
+    elif re.match(r"add market problem (.*) to brd", command, re.IGNORECASE):
+        problem = re.match(r"add market problem (.*) to brd", command, re.IGNORECASE).group(1)
+        return add_to_brd_section("Market Problem Analysis", problem)
+    elif re.match(r"add success metric (.*) to brd", command, re.IGNORECASE):
+        metric = re.match(r"add success metric (.*) to brd", command, re.IGNORECASE).group(1)
+        return add_to_brd_section("Success Metrics", metric)
+    elif re.match(r"update brd status to (.*)", command, re.IGNORECASE):
+        status = re.match(r"update brd status to (.*)", command, re.IGNORECASE).group(1)
+        return update_document_status("brd", status)
+    return None
+
+def create_brd(project_name):
+    """Create a Business Requirements Document (BRD) for the given project.
+    
+    Args:
+        project_name (str): The name of the project
+        
+    Returns:
+        str: Confirmation message
+    """
+    # Check if ai-docs directory exists, create if not
+    if not os.path.exists("ai-docs"):
+        os.makedirs("ai-docs")
+    
+    # Read the BRD template
+    template_path = ".ai-templates/template-brd.md"
+    with open(template_path, "r") as f:
+        template_content = f.read()
+    
+    # Replace placeholders
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    content = template_content.replace("{project-name}", project_name)
+    content = content.replace("{date}", today)
+    
+    # Create the BRD file
+    output_path = "ai-docs/brd.md"
+    with open(output_path, "w") as f:
+        f.write(content)
+    
+    return f"Created Business Requirements Document for {project_name} in `{output_path}`"
+
+def add_to_brd_section(section_name, content_to_add):
+    """Add content to a specific section in the BRD.
+    
+    Args:
+        section_name (str): The name of the section to add content to
+        content_to_add (str): The content to add
+        
+    Returns:
+        str: Confirmation message
+    """
+    brd_path = "ai-docs/brd.md"
+    if not os.path.exists(brd_path):
+        return "Error: BRD not found. Create a BRD first using 'Create a new BRD for <project-name>'."
+    
+    with open(brd_path, "r") as f:
+        content = f.read()
+    
+    # Find the section
+    section_pattern = f"## {section_name}"
+    if section_name not in content:
+        return f"Error: Section '{section_name}' not found in the BRD."
+    
+    # Split the content by sections
+    sections = re.split(r"^## ", content, flags=re.MULTILINE)
+    updated_content = ""
+    
+    # Add the first part (before any section)
+    if sections[0].strip():
+        updated_content += sections[0]
+    
+    # Process each section
+    for i, section in enumerate(sections[1:], 1):
+        section_content = "## " + section
+        if section.startswith(section_name):
+            # Add the new content to this section
+            lines = section_content.split("\n")
+            # Find where to insert the new content
+            insert_index = -1
+            for j, line in enumerate(lines):
+                if j > 0 and (line.startswith("##") or j == len(lines) - 1):
+                    insert_index = j
+                    break
+            
+            if insert_index == -1:
+                # If we couldn't find a good spot, just append to the end of the section
+                lines.append(f"- {content_to_add}")
+            else:
+                # Insert before the next section
+                lines.insert(insert_index, f"- {content_to_add}")
+            
+            section_content = "\n".join(lines)
+        
+        updated_content += section_content
+    
+    # Write the updated content back to the file
+    with open(brd_path, "w") as f:
+        f.write(updated_content)
+    
+    return f"Added '{content_to_add}' to the '{section_name}' section of the BRD."
+
+def update_document_status(doc_type, new_status):
+    """Update the status of a document.
+    
+    Args:
+        doc_type (str): The type of document ('brd', 'prd', 'architecture', 'story')
+        new_status (str): The new status to set
+        
+    Returns:
+        str: Confirmation message
+    """
+    # Map document type to file path
+    doc_path_map = {
+        "brd": "ai-docs/brd.md",
+        "prd": "ai-docs/prd.md",
+        "architecture": "ai-docs/arch.md",
+        # Story paths would need to be handled differently
+    }
+    
+    if doc_type.lower() not in doc_path_map:
+        return f"Error: Unknown document type '{doc_type}'"
+    
+    doc_path = doc_path_map[doc_type.lower()]
+    
+    if not os.path.exists(doc_path):
+        return f"Error: {doc_type.upper()} not found at {doc_path}"
+    
+    with open(doc_path, "r") as f:
+        content = f.read()
+    
+    # Look for status section
+    status_pattern = r"## Status:?\s*(.*)"
+    status_match = re.search(status_pattern, content, re.IGNORECASE | re.MULTILINE)
+    
+    if not status_match:
+        # For BRD, look for Document Control section
+        if doc_type.lower() == "brd":
+            control_pattern = r"## Document Control\s*\n(.*\n)*?[\-\*]\s*\*\*Status:\*\*\s*(.*)"
+            control_match = re.search(control_pattern, content, re.IGNORECASE | re.MULTILINE)
+            
+            if control_match:
+                updated_content = re.sub(
+                    r"(## Document Control\s*\n(?:.*\n)*?[\-\*]\s*\*\*Status:\*\*\s*)(.*)(\s*)",
+                    f"\\1{new_status}\\3",
+                    content,
+                    flags=re.IGNORECASE | re.MULTILINE
+                )
+                
+                with open(doc_path, "w") as f:
+                    f.write(updated_content)
+                
+                return f"Updated {doc_type.upper()} status to '{new_status}'"
+        
+        return f"Error: Could not find status section in {doc_type.upper()}"
+    
+    # Update the status
+    updated_content = re.sub(
+        r"(## Status:?\s*)(.*)",
+        f"\\1{new_status}",
+        content,
+        flags=re.IGNORECASE | re.MULTILINE
+    )
+    
+    with open(doc_path, "w") as f:
+        f.write(updated_content)
+    
+    return f"Updated {doc_type.upper()} status to '{new_status}'"
+
 async def run_server():
     """
     Run the server using stdin/stdout streams.

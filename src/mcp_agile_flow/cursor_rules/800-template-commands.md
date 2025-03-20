@@ -27,6 +27,7 @@ alwaysApply: true
 2. **Output Location**: All AI-produced documents are stored in the `ai-docs` directory
 3. **Cross-IDE Consistency**: The exact same document generation process is used across all IDEs
 4. **Available Templates**:
+   - `template-brd.md`: Business Requirements Document template
    - `template-prd.md`: Product Requirements Document template
    - `template-arch.md`: Architecture Document template
    - `template-story.md`: User Story template
@@ -35,6 +36,11 @@ alwaysApply: true
 ## Command Processing
 
 ### Document Creation Commands
+
+#### BRD Commands
+- "Create a new BRD for {project-name}"
+- "Initialize BRD for {project-name}"
+- "Generate Business Requirements Document for {project-name}"
 
 #### PRD Commands
 - "Create a new PRD for {project-name}"
@@ -59,6 +65,9 @@ alwaysApply: true
 - "Change {document-type} status to {status}"
 
 #### Content Updates
+- "Add business objective {objective} to BRD"
+- "Add market problem {problem} to BRD"
+- "Add success metric {metric} to BRD"
 - "Add Epic {epic-title} to PRD"
 - "Add technology {technology} to architecture"
 - "Mark task {task} as complete in story {story-id}"
@@ -82,11 +91,13 @@ alwaysApply: true
 
 ```
 .ai-templates/                 # Source templates directory (not visible to user)
+├── template-brd.md           # BRD template
 ├── template-prd.md           # PRD template
 ├── template-arch.md          # Architecture template
 └── template-story.md         # Story template
 
 ai-docs/                      # Output documents directory (visible to user)
+├── brd.md                    # Business Requirements Document
 ├── prd.md                    # Product Requirements Document
 ├── arch.md                   # Architecture Document
 ├── epic-1-user-auth/         # Epic directory with descriptive suffix
@@ -100,6 +111,15 @@ ai-docs/                      # Output documents directory (visible to user)
 
 ## Examples
 <example>
+User: "Create a new BRD for TaskMaster App"
+
+AI Action:
+1. Identify template to use: `.ai-templates/template-brd.md`
+2. Create `ai-docs` directory if it doesn't exist
+3. Create `brd.md` file in `ai-docs` directory using the template
+4. Add project-specific details
+5. Confirm creation with: "Created Business Requirements Document for TaskMaster App in `ai-docs/brd.md`"
+
 User: "Create a new PRD for TaskMaster App"
 
 AI Action:

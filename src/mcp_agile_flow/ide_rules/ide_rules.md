@@ -28,6 +28,7 @@ This file contains all rules for IDE integration, organized by rule type and pri
 2. **Output Location**: All AI-produced documents are stored in the `ai-docs` directory
 3. **Cross-IDE Consistency**: The exact same document generation process is used across all IDEs
 4. **Available Templates**:
+   - `template-brd.md`: Business Requirements Document template
    - `template-prd.md`: Product Requirements Document template
    - `template-arch.md`: Architecture Document template
    - `template-story.md`: User Story template
@@ -36,11 +37,13 @@ This file contains all rules for IDE integration, organized by rule type and pri
 ### Directory Structure
 ```
 .ai-templates/                 # Source templates directory (not visible to user)
+├── template-brd.md           # BRD template
 ├── template-prd.md           # PRD template
 ├── template-arch.md          # Architecture template
 └── template-story.md         # Story template
 
 ai-docs/                      # Output documents directory (visible to user)
+├── brd.md                    # Business Requirements Document
 ├── prd.md                    # Product Requirements Document
 ├── arch.md                   # Architecture Document
 ├── epic-1-user-auth/         # Epic directory with descriptive suffix
@@ -53,6 +56,15 @@ ai-docs/                      # Output documents directory (visible to user)
 ```
 
 ### Document Creation Commands
+#### BRD Commands
+- "Create a new BRD for {project-name}"
+- "Initialize BRD for {project-name}"
+- "Generate Business Requirements Document for {project-name}"
+- "Add business objective {objective} to BRD"
+- "Add market problem {problem} to BRD"
+- "Add success metric {metric} to BRD"
+- "Update BRD status to {status}"
+
 #### PRD Commands
 - "Create a new PRD for {project-name}"
 - "Initialize PRD for {project-name}"
@@ -442,3 +454,76 @@ Each IDE may have a different way of implementing rules, but the core concepts a
 - Use tab indentation (not spaces) for command lines
 - Keep commands portable across environments (avoid system-specific commands)
 - Ensure all targets have clear, descriptive names that reflect their purpose
+
+### Document Types
+
+#### BRD - Business Requirements Document
+
+The Business Requirements Document (BRD) establishes the business context and rationale for a project. It sits above the PRD in the documentation hierarchy and focuses on:
+
+1. Executive Summary - Concise overview of the business need and solution approach
+2. Business Objectives - Clear, measurable business goals driving the project
+3. Market Problem Analysis - Detailed examination of market gaps and customer pain points
+4. Success Metrics - Quantifiable measures of project success with baseline and target values
+5. Customer Needs - Segmented analysis of user requirements
+6. Business Constraints - Limitations on budget, time, resources, technology, and regulations
+7. Assumptions - Explicit business, market, technical, and resource assumptions
+8. Stakeholders - Key stakeholders with roles, responsibilities, and decision authority
+9. Related Documents - Links to supporting documents, particularly the PRD
+
+The BRD follows a defined status progression:
+1. Draft - Initial creation and iteration
+2. In Review - Shared with stakeholders for feedback
+3. Approved - Finalized and accepted by key stakeholders
+4. Superseded - When replaced by a newer version
+
+#### PRD - Product Requirements Document
+
+The Product Requirements Document (PRD) defines the product's purpose, features, functionality, and behavior. It follows the BRD in the documentation hierarchy and focuses on:
+
+1. Introduction - Clear description of the project, scope, and context
+2. Goals - Measurable objectives and success criteria for the product
+3. Features and Requirements - Detailed functional and non-functional requirements
+4. Epic Structure - Organized breakdown of major feature sets
+5. Story List - User stories organized under Epics
+6. Tech Stack - High-level overview of technologies to be used
+7. Future Enhancements - Potential features for future consideration
+
+The PRD follows a defined status progression:
+1. Draft - Initial creation and iteration
+2. Approved - Finalized and accepted by stakeholders
+
+#### Architecture Document
+
+The Architecture Document defines the technical approach, system components, and implementation strategy. It follows the PRD in the documentation hierarchy and focuses on:
+
+1. Technical Summary - Overview of the architectural approach
+2. Technology Stack - Detailed list of technologies with justifications
+3. Architectural Diagrams - Visual representations of system components and data flows
+4. Data Models - Database schema and data structure definitions
+5. API Specifications - Endpoint definitions and interaction patterns
+6. Project Structure - Organization of code and resources
+7. Non-functional Requirements - Performance, security, and operational considerations
+
+The Architecture Document follows a defined status progression:
+1. Draft - Initial creation and iteration
+2. Approved - Finalized and accepted by stakeholders
+3. Updated - When changes are made after approval
+
+#### User Story
+
+User Stories define specific pieces of functionality from the user's perspective. They are organized under Epics and focus on:
+
+1. Story Description - In the format "As a [role] I want [action] so that [benefit]"
+2. Context - Background information and justification
+3. Acceptance Criteria - Requirements for story completion
+4. Tasks - Specific implementation tasks with checkboxes for tracking progress
+5. Implementation Notes - Technical details and approach
+6. Dev Notes - Notes made during implementation
+7. Test Strategy - Approach for testing the functionality
+
+Stories follow a defined status progression:
+1. Draft - Initial creation
+2. In Progress - During active development
+3. Complete - When all tasks are finished
+4. Cancelled - When the story is no longer needed
