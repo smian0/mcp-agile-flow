@@ -65,7 +65,7 @@ def test_initialize_ide_with_explicit_path(temp_dir, env_cleanup):
     # Check that the directories were created
     cursor_dir = os.path.join(temp_dir, ".cursor")
     rules_dir = os.path.join(cursor_dir, "rules")
-    templates_dir = os.path.join(temp_dir, "ai-templates")
+    templates_dir = os.path.join(temp_dir, ".ai-templates")
     
     assert os.path.exists(cursor_dir)
     assert os.path.exists(rules_dir)
@@ -134,7 +134,7 @@ def test_initialize_ide_windsurf(temp_dir, env_cleanup):
     
     # Check that the files were created
     windsurf_rule_file = os.path.join(temp_dir, ".windsurfrules")
-    templates_dir = os.path.join(temp_dir, "ai-templates")
+    templates_dir = os.path.join(temp_dir, ".ai-templates")
     
     assert os.path.exists(windsurf_rule_file)
     assert os.path.exists(templates_dir)

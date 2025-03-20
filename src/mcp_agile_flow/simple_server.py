@@ -296,7 +296,7 @@ async def handle_call_tool(
             else:
                 ide = arguments["ide"]
             
-            # Always back up existing files
+            # Always back up existing rule files (but not templates)
             backup_existing = True
             
             # Validate IDE
@@ -314,7 +314,7 @@ async def handle_call_tool(
                 cursor_dir = os.path.join(project_path, ".cursor")
                 rules_dir = os.path.join(cursor_dir, "rules")
                 # Place ai-templates at the project root
-                templates_dir = os.path.join(project_path, "ai-templates")
+                templates_dir = os.path.join(project_path, ".ai-templates")
                 
                 os.makedirs(rules_dir, exist_ok=True)
                 os.makedirs(templates_dir, exist_ok=True)
@@ -359,20 +359,13 @@ async def handle_call_tool(
                 
                 # Handle existing template files
                 existing_templates = os.listdir(templates_dir) if os.path.exists(templates_dir) else []
-                for existing_file in existing_templates:
-                    if backup_existing:
-                        src = os.path.join(templates_dir, existing_file)
-                        backup = src + ".back"
-                        if os.path.exists(src):
-                            shutil.copy2(src, backup)
-                            initialized_templates.append({"file_name": existing_file, "status": "backed_up"})
                 
-                # Copy templates
+                # Copy templates - always overwrite without conditional logic
                 for template_file in os.listdir(ai_templates_dir):
                     src = os.path.join(ai_templates_dir, template_file)
                     dst = os.path.join(templates_dir, template_file)
                     
-                    # Copy the file
+                    # Copy the file, always overwriting existing files
                     shutil.copy2(src, dst)
                     initialized_templates.append({"file_name": template_file, "status": "copied"})
                 
@@ -407,7 +400,7 @@ async def handle_call_tool(
                 shutil.copy2(template_file, windsurf_rule_file)
                 
                 # Create and populate the ai-templates directory
-                templates_dir = os.path.join(project_path, "ai-templates")
+                templates_dir = os.path.join(project_path, ".ai-templates")
                 os.makedirs(templates_dir, exist_ok=True)
                 
                 # Get paths to our template files
@@ -417,12 +410,12 @@ async def handle_call_tool(
                 if not os.path.exists(ai_templates_dir):
                     raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
                 
-                # Copy templates
+                # Copy templates - always overwrite without conditional logic
                 for template_file in os.listdir(ai_templates_dir):
                     src = os.path.join(ai_templates_dir, template_file)
                     dst = os.path.join(templates_dir, template_file)
                     
-                    # Copy the file
+                    # Copy the file, always overwriting existing files
                     shutil.copy2(src, dst)
                 
                 # Create response
@@ -456,7 +449,7 @@ async def handle_call_tool(
                 shutil.copy2(template_file, cline_rule_file)
                 
                 # Create and populate the ai-templates directory
-                templates_dir = os.path.join(project_path, "ai-templates")
+                templates_dir = os.path.join(project_path, ".ai-templates")
                 os.makedirs(templates_dir, exist_ok=True)
                 
                 # Get paths to our template files
@@ -466,12 +459,12 @@ async def handle_call_tool(
                 if not os.path.exists(ai_templates_dir):
                     raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
                 
-                # Copy templates
+                # Copy templates - always overwrite without conditional logic
                 for template_file in os.listdir(ai_templates_dir):
                     src = os.path.join(ai_templates_dir, template_file)
                     dst = os.path.join(templates_dir, template_file)
                     
-                    # Copy the file
+                    # Copy the file, always overwriting existing files
                     shutil.copy2(src, dst)
                 
                 # Create response
@@ -507,7 +500,7 @@ async def handle_call_tool(
                 shutil.copy2(template_file, copilot_rule_file)
                 
                 # Create and populate the ai-templates directory
-                templates_dir = os.path.join(project_path, "ai-templates")
+                templates_dir = os.path.join(project_path, ".ai-templates")
                 os.makedirs(templates_dir, exist_ok=True)
                 
                 # Get paths to our template files
@@ -517,12 +510,12 @@ async def handle_call_tool(
                 if not os.path.exists(ai_templates_dir):
                     raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
                 
-                # Copy templates
+                # Copy templates - always overwrite without conditional logic
                 for template_file in os.listdir(ai_templates_dir):
                     src = os.path.join(ai_templates_dir, template_file)
                     dst = os.path.join(templates_dir, template_file)
                     
-                    # Copy the file
+                    # Copy the file, always overwriting existing files
                     shutil.copy2(src, dst)
                 
                 # Create response

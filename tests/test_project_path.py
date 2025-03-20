@@ -147,7 +147,7 @@ def test_initialize_ide_rules_with_project_path(temp_dir, env_cleanup):
     # Check that the directories were created
     cursor_dir = os.path.join(temp_dir, ".cursor")
     rules_dir = os.path.join(cursor_dir, "rules")
-    templates_dir = os.path.join(temp_dir, "ai-templates")
+    templates_dir = os.path.join(temp_dir, ".ai-templates")
     
     assert os.path.exists(cursor_dir)
     assert os.path.exists(rules_dir)

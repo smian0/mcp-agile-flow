@@ -160,7 +160,7 @@ def test_initialize_rules_with_custom_path(tmp_path):
     
     # Verify that the rules directory was created in the custom path
     rules_dir = test_project_path / ".cursor" / "rules"
-    templates_dir = test_project_path / "ai-templates"
+    templates_dir = test_project_path / ".ai-templates"
     
     assert rules_dir.exists()
     assert templates_dir.exists()
@@ -211,7 +211,7 @@ def test_initialize_ide_rules_with_custom_path(tmp_path):
         save_test_output(f"initialize_{ide}_rules_response", response)
         
         # Verify that the ai-templates directory exists regardless of which IDE is used
-        templates_dir = test_project_path / "ai-templates"
+        templates_dir = test_project_path / ".ai-templates"
         assert templates_dir.exists(), f"Templates directory not created for {ide}"
         
         # Handle IDE-specific path verification

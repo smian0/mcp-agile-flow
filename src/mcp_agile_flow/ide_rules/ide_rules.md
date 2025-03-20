@@ -17,14 +17,14 @@ This file contains all rules for IDE integration, organized by rule type and pri
 - When implementing cross-IDE document standards
 
 ### Requirements
-- Use the shared ai-templates directory for all document templates
+- Use the shared .ai-templates directory for all document templates
 - Output all generated documents to the ai-docs directory
 - Maintain consistent structure across all IDEs
 - Use identical document generation process regardless of IDE
 - Follow the standard template formats and document hierarchy
 
 ### Document Flow
-1. **Templates Source**: All document templates are stored in the IDE-agnostic `ai-templates` directory
+1. **Templates Source**: All document templates are stored in the IDE-agnostic `.ai-templates` directory
 2. **Output Location**: All AI-produced documents are stored in the `ai-docs` directory
 3. **Cross-IDE Consistency**: The exact same document generation process is used across all IDEs
 4. **Available Templates**:
@@ -35,7 +35,7 @@ This file contains all rules for IDE integration, organized by rule type and pri
 
 ### Directory Structure
 ```
-ai-templates/                 # Source templates directory (not visible to user)
+.ai-templates/                 # Source templates directory (not visible to user)
 ├── template-prd.md           # PRD template
 ├── template-arch.md          # Architecture template
 └── template-story.md         # Story template
@@ -73,7 +73,7 @@ ai-docs/                      # Output documents directory (visible to user)
 User: "Create a new PRD for TaskMaster App"
 
 AI Action:
-1. Identify template to use: `ai-templates/template-prd.md`
+1. Identify template to use: `.ai-templates/template-prd.md`
 2. Create `ai-docs` directory if it doesn't exist
 3. Create `prd.md` file in `ai-docs` directory using the template
 4. Add project-specific details
@@ -82,7 +82,7 @@ AI Action:
 
 ### Critical Rules
 - Process must be identical across all supported IDEs (Cursor, Windsurf, Cline, Copilot)
-- Templates must always be sourced from the ai-templates directory
+- Templates must always be sourced from the .ai-templates directory
 - Documents must always be created in the ai-docs directory
 - Templates must be applied consistently
 - References between documents must be maintained
