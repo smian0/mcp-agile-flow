@@ -373,3 +373,72 @@ Each IDE may have a different way of implementing rules, but the core concepts a
 - Rules must be regularly updated to maintain consistency
 - When a rule is updated in one IDE, it must be updated in all IDE implementations
 - Rule format must follow the documentation standards outlined in this file
+
+## Build and Automation Standards
+
+### Makefile Usage Standards
+
+#### Context
+- When working with projects that have build, test, or deployment automation
+- When setting up a new project that requires task automation
+- When executing project commands or workflows
+- When maintaining or updating build processes
+- When documenting project setup and usage
+
+#### Requirements
+- Always look for and use existing Makefiles for project commands
+- Follow proper Makefile syntax and conventions
+- Document all Makefile targets clearly with comments
+- Organize targets by category (build, test, run, clean, deploy)
+- Maintain backward compatibility when updating Makefiles
+- Ensure all commands are properly escaped and portable
+- Provide descriptive help targets for self-documentation
+
+#### Makefile Structure
+1. **Core Components**:
+   - Variables: Define reusable variables at the top of the file
+   - Phony Targets: Mark non-file targets as .PHONY to avoid conflicts
+   - Default Target: The first target is the default when running `make` without arguments
+   - Dependencies: Clearly specify target dependencies
+   - Help Documentation: Include a help target that lists available commands
+   - Comments: Document each target's purpose with comments
+
+2. **Standard Target Categories**:
+   - Build: Compilation, installation, and setup (`build`, `install`, `setup`)
+   - Testing: Test execution and coverage (`test`, `pytest`, `check`)
+   - Running: Execution of the project (`run`, `start`, `serve`, `dev`)
+   - Cleaning: Removal of temporary files (`clean`, `clear`, `reset`)
+   - Deployment: Publishing and releasing (`deploy`, `publish`, `release`)
+   - Linting: Code formatting and style checking (`lint`, `format`, `style`)
+
+3. **Common Project Targets**:
+   - `all`: Build everything needed
+   - `clean`: Remove build artifacts
+   - `test`: Run tests
+   - `install`: Install dependencies
+   - `build`: Compile/build the project
+   - `run`/`start`: Execute the project
+   - `lint`: Check code style and format
+   - `help`: Show available commands
+   - `deploy`: Deploy to hosting/production
+
+#### Examples
+- ✅ Check for Makefile first: "You can run the tests using `make test`"
+- ✅ Reference existing targets: "The Makefile includes these commands: `make build`, `make install`"
+- ✅ Add to Makefile: "I'll add a new target to the Makefile for this operation"
+
+#### Invalid Examples
+- ❌ Ignoring Makefile: Suggesting direct commands when equivalent make targets exist
+- ❌ Creating duplicate functionality: Adding scripts instead of extending the Makefile
+- ❌ Using incorrect syntax: Indenting command lines with spaces instead of tabs
+
+#### Critical Rules
+- Always check for the existence of a Makefile before suggesting command-line instructions
+- Use `make` commands instead of direct shell commands when equivalent targets exist
+- When adding functionality, extend the Makefile rather than creating separate scripts
+- Preserve existing Makefile structure and conventions when making updates
+- Document all Makefile changes clearly with comments
+- Ensure Makefile targets are properly categorized
+- Use tab indentation (not spaces) for command lines
+- Keep commands portable across environments (avoid system-specific commands)
+- Ensure all targets have clear, descriptive names that reflect their purpose

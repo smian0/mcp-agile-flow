@@ -12,7 +12,10 @@ import re
 import json
 import shutil
 import datetime
-from typing import Dict, List, Optional, Tuple, Any
+import glob
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Any, Union
+import traceback
 
 from .utils import get_project_settings
 
@@ -65,15 +68,17 @@ def parse_greeting_command(message: str) -> Tuple[str, Dict[str, Any]]:
     
     return cmd_name, cmd_args
 
-def get_safe_project_path(arguments: Optional[dict] = None) -> Tuple[str, str]:
+def get_safe_project_path(arguments: Optional[dict] = None, environment_variable: str = None, default: str = None) -> str:
     """
     Get a safe project path that is guaranteed to be writable.
     
     Args:
         arguments: Optional arguments dictionary that might contain 'project_path'
+        environment_variable: Optional environment variable to use if 'project_path' is not provided
+        default: Optional default path to use if 'project_path' is not provided and environment variable is not set
         
     Returns:
-        Tuple containing (safe_path, source_description)
+        str: The safe project path
     """
     # First check if project_path is provided in arguments
     if arguments and "project_path" in arguments and arguments["project_path"].strip() != '':
@@ -85,39 +90,24 @@ def get_safe_project_path(arguments: Optional[dict] = None) -> Tuple[str, str]:
         else:
             path = os.path.abspath(raw_path)
             source = "arguments parameter"
-    # Then check PROJECT_PATH environment variable
+    # Then check environment variable
+    elif environment_variable and os.environ.get(environment_variable) is not None and os.environ.get(environment_variable).strip() != '':
+        path = os.path.abspath(os.environ.get(environment_variable))
+        source = f"{environment_variable} environment variable"
+    # Default to current directory if not set
     else:
-        project_path_env = os.environ.get("PROJECT_PATH")
-        
-        # Check if PROJECT_PATH is set
-        if project_path_env is not None and project_path_env.strip() != '':
-            # Check if the environment variable points to root
-            if project_path_env.strip() == '/' or project_path_env.strip() == '\\':
-                # If env var points to root, check if current dir is root
-                current_dir = os.getcwd()
-                if current_dir == '/':
-                    # Both env var and current dir are root - need user input
-                    raise ValueError("Environment variable PROJECT_PATH points to root directory and current directory is also root. Please provide a specific project path.")
-                else:
-                    # Use current dir as fallback
-                    path = current_dir
-                    source = "current directory (env var was root path)"
-            else:
-                path = os.path.abspath(project_path_env)
-                source = "PROJECT_PATH environment variable"
-        # Default to current directory if not set
+        current_dir = os.getcwd()
+        # Check if current directory is root
+        if current_dir == '/':
+            # Current directory is root - need user input
+            raise ValueError("Current directory is the root directory. Please provide a specific project path.")
         else:
-            current_dir = os.getcwd()
-            # Check if current directory is root
-            if current_dir == '/':
-                # Current directory is root - need user input
-                raise ValueError("Current directory is the root directory. Please provide a specific project path.")
-            else:
-                path = current_dir
-                source = "current directory"
+            path = current_dir
+            source = "current directory"
     
     # Safety check: Never write to root directory
-    if path == '/' or path == '\\':
+    is_root = path == '/' or path == '\\'
+    if is_root:
         # Root directory was specified either by argument or env var
         # Check if current directory is also root
         current_dir = os.getcwd()
@@ -128,6 +118,7 @@ def get_safe_project_path(arguments: Optional[dict] = None) -> Tuple[str, str]:
             # Use current dir as fallback
             path = current_dir
             source = "current directory (safety fallback from root)"
+            is_root = False
             logger.warning("Attempted to use root directory. Falling back to current working directory for safety.")
     
     # Check if path exists and is writable
@@ -140,7 +131,7 @@ def get_safe_project_path(arguments: Optional[dict] = None) -> Tuple[str, str]:
         else:
             # Use current dir as fallback
             logger.warning(f"Path {path} does not exist. Falling back to current directory: {current_dir}")
-            return current_dir, "current directory (fallback from non-existent path)"
+            return current_dir
     
     if not os.access(path, os.W_OK):
         # Path is not writable - check if current dir is root
@@ -151,9 +142,9 @@ def get_safe_project_path(arguments: Optional[dict] = None) -> Tuple[str, str]:
         else:
             # Use current dir as fallback
             logger.warning(f"Path {path} is not writable. Falling back to current directory: {current_dir}")
-            return current_dir, "current directory (fallback from non-writable path)"
+            return current_dir
     
-    return path, source
+    return path
 
 @mcp.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
@@ -167,30 +158,42 @@ async def handle_list_tools() -> list[types.Tool]:
     # Start with the standard tools
     tools = [
         types.Tool(
-            name="initialize-ide-rules",
+            name="initialize-ide",
             description="Initialize a project with rules for a specific IDE. The project path will default to the PROJECT_PATH environment variable if set, or the current directory if not set.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "ide": {
                         "type": "string", 
-                        "description": "IDE to initialize (cursor, windsurf, cline, or copilot)",
-                        "enum": ["cursor", "windsurf", "cline", "copilot"]
+                        "description": "IDE to initialize (cursor, windsurf, cline, or copilot). Defaults to cursor if not specified.",
+                        "enum": ["cursor", "windsurf", "cline", "copilot"],
+                        "default": "cursor"
                     },
                     "project_path": {
                         "type": "string",
                         "description": "Custom project path to use (optional). If not provided, will use PROJECT_PATH environment variable or current directory."
                     }
                 },
-                "required": ["ide"],
+                "required": [],
             },
         ),
         types.Tool(
-            name="initialize-rules",
-            description="Initialize Cursor rules for the project (for backward compatibility, use initialize-ide-rules for other IDEs). The project path will default to the PROJECT_PATH environment variable if set, or the current directory if not set.",
+            name="prime-context",
+            description="Analyzes project's AI documentation to build contextual understanding. This tool examines PRD, architecture docs, stories, and other AI-generated artifacts to provide a comprehensive project overview and current development state. Always prioritizes data from the ai-docs directory before falling back to README.md.",
             inputSchema={
                 "type": "object",
                 "properties": {
+                    "depth": {
+                        "type": "string",
+                        "description": "Level of detail to include (minimal, standard, comprehensive)",
+                        "enum": ["minimal", "standard", "comprehensive"],
+                        "default": "standard"
+                    },
+                    "focus_areas": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional specific areas to focus on (e.g., ['architecture', 'current_story', 'progress'])"
+                    },
                     "project_path": {
                         "type": "string",
                         "description": "Custom project path to use (optional). If not provided, will use PROJECT_PATH environment variable or current directory."
@@ -255,10 +258,10 @@ async def handle_call_tool(
         return [create_text_response(f"Error: The tool '{name}' requires arguments, but none were provided.", is_error=True)]
     
     try:
-        if name == "initialize-ide-rules":
+        if name == "initialize-ide":
             # Get a safe project path using the utility function
             try:
-                project_path, source = get_safe_project_path(arguments)
+                project_path, is_root, source = get_safe_project_path(arguments)
             except ValueError as e:
                 # Handle case where current directory is root
                 current_dir = os.getcwd()
@@ -275,14 +278,12 @@ async def handle_call_tool(
             
             # Check if IDE is specified in arguments
             if not arguments or "ide" not in arguments:
-                # If IDE is not specified, return a message asking the user to specify it
-                return [create_text_response(json.dumps({
-                    "status": "error",
-                    "message": "Please specify which IDE you are using. Supported options are: cursor, windsurf, cline, or copilot",
-                    "supported_ides": ["cursor", "windsurf", "cline", "copilot"]
-                }, indent=2))]
+                # If IDE is not specified, use the default "cursor"
+                ide = "cursor"
+                logger.info("IDE not specified, defaulting to 'cursor'")
+            else:
+                ide = arguments["ide"]
             
-            ide = arguments["ide"]
             # Always back up existing files
             backup_existing = True
             
@@ -292,7 +293,7 @@ async def handle_call_tool(
             
             # Log which source was used for project_path
             logger.info(f"Using project_path from {source}: {project_path}")
-            print(f"initialize-ide-rules using project_path from {source}: {project_path}")
+            print(f"initialize-ide using project_path from {source}: {project_path}")
             
             # At this point, we've already verified the path exists and is writable in get_safe_project_path
             
@@ -525,110 +526,372 @@ async def handle_call_tool(
             else:
                 raise ValueError(f"Unknown IDE: {ide}. Supported values are 'cursor', 'windsurf', 'cline', or 'copilot'")
         
-        elif name == "initialize-rules":
-            # Get a safe project path using the utility function
+        elif name == "prime-context":
             try:
-                project_path, source = get_safe_project_path(arguments)
-            except ValueError as e:
-                # Handle case where current directory is root
-                current_dir = os.getcwd()
-                response_data = {
-                    "error": str(e),
-                    "status": "error",
-                    "needs_user_input": True,
-                    "current_directory": current_dir,
-                    "is_root": current_dir == "/",
-                    "message": "Please provide a specific project path using the 'project_path' argument.",
-                    "success": False
+                # Get safe project path
+                project_path = None
+                if 'project_path' in arguments:
+                    project_path = arguments['project_path']
+                    logging.info(f"Using project path from arguments: {project_path}")
+                else:
+                    # Only if not provided in arguments, try environment variables
+                    project_path = get_safe_project_path(
+                        None,
+                        environment_variable="AGILE_FLOW_PROJECT_PATH"
+                    )
+                    if project_path is None:
+                        project_path = get_safe_project_path(
+                            None,
+                            environment_variable="PROJECT_PATH",
+                            default=os.getcwd()
+                        )
+                    
+                if project_path == "/":
+                    return [create_text_response("Error: Current directory is root. This is likely not the correct project path.", is_error=True)]
+                
+                logging.info(f"Prime context using project path: {project_path}")
+                
+                # Parse arguments
+                depth = arguments.get("depth", "standard")
+                focus_areas = arguments.get("focus_areas", [])
+                
+                # Check if ai-docs directory exists
+                ai_docs_dir = os.path.join(project_path, "ai-docs")
+                if not os.path.isdir(ai_docs_dir):
+                    return [create_text_response("Error: AI docs directory not found. Run 'initialize-ide' to set up project structure.", is_error=True)]
+                
+                # Initialize context data structure
+                context = {
+                    "project": {
+                        "name": os.path.basename(project_path),  # Will be overridden if PRD or README has a title
+                        "overview": "", 
+                        "status": "Unknown",
+                        "readme": None
+                    },
+                    "architecture": {"overview": "", "status": "Unknown"},
+                    "epics": [],
+                    "current_epic": None,
+                    "current_story": None,
+                    "progress": {
+                        "epics_total": 0,
+                        "epics_completed": 0,
+                        "stories_total": 0,
+                        "stories_completed": 0,
+                        "stories_in_progress": 0,
+                        "tasks_total": 0,
+                        "tasks_completed": 0,
+                        "tasks_percentage": 0
+                    }
                 }
-                return [create_text_response(json.dumps(response_data, indent=2), is_error=True)]
-            
-            # Always back up existing files
-            backup_existing = True
-            
-            # Log which source was used for project_path
-            logger.info(f"Using project_path from {source}: {project_path}")
-            print(f"initialize-rules using project_path from {source}: {project_path}")
-            
-            # At this point, we've already verified the path exists and is writable in get_safe_project_path
-            
-            # Create .cursor directory structure
-            cursor_dir = os.path.join(project_path, ".cursor")
-            rules_dir = os.path.join(cursor_dir, "rules")
-            # Place ai-templates at the project root
-            templates_dir = os.path.join(project_path, "ai-templates")
-            
-            os.makedirs(rules_dir, exist_ok=True)
-            os.makedirs(templates_dir, exist_ok=True)
-            
-            # Get paths to our rule and template files
-            server_dir = os.path.dirname(os.path.abspath(__file__))
-            cursor_rules_dir = os.path.join(server_dir, "cursor_rules")
-            ai_templates_dir = os.path.join(server_dir, "ai-templates")
-            
-            # Verify source directories exist
-            if not os.path.exists(cursor_rules_dir):
-                raise FileNotFoundError(f"Source rules directory not found: {cursor_rules_dir}")
-            if not os.path.exists(ai_templates_dir):
-                raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
-            
-            # Track what files were initialized
-            initialized_rules = []
-            initialized_templates = []
-            
-            # First, handle any existing files that need backup
-            existing_files = os.listdir(rules_dir) if os.path.exists(rules_dir) else []
-            for existing_file in existing_files:
-                if backup_existing:
-                    src = os.path.join(rules_dir, existing_file)
-                    backup = src + ".back"
-                    if os.path.exists(src):
-                        shutil.copy2(src, backup)
-                        initialized_rules.append({"file_name": existing_file, "status": "backed_up"})
-            
-            # Copy rules
-            for rule_file in os.listdir(cursor_rules_dir):
-                if not rule_file.endswith('.md'):
-                    continue
                 
-                src = os.path.join(cursor_rules_dir, rule_file)
-                # Convert .md to .mdc for the destination file
-                dst = os.path.join(rules_dir, rule_file.replace('.md', '.mdc'))
+                # Look for Makefile in project root
+                makefile_path = os.path.join(project_path, "Makefile")
+                makefile_commands = extract_makefile_commands(makefile_path)
                 
-                # Copy the file
-                shutil.copy2(src, dst)
-                initialized_rules.append({"file_name": rule_file, "status": "copied"})
-            
-            # Handle existing template files
-            existing_templates = os.listdir(templates_dir) if os.path.exists(templates_dir) else []
-            for existing_file in existing_templates:
-                if backup_existing:
-                    src = os.path.join(templates_dir, existing_file)
-                    backup = src + ".back"
-                    if os.path.exists(src):
-                        shutil.copy2(src, backup)
-                        initialized_templates.append({"file_name": existing_file, "status": "backed_up"})
-            
-            # Copy templates
-            for template_file in os.listdir(ai_templates_dir):
-                src = os.path.join(ai_templates_dir, template_file)
-                dst = os.path.join(templates_dir, template_file)
+                if makefile_commands:
+                    context["project"]["makefile_commands"] = makefile_commands
+                    logging.info("Found Makefile with commands")
+
+                # Read project's README.md as a primary source for context (not a fallback)
+                readme_path = os.path.join(project_path, "README.md")
+                readme_content = None
                 
-                # Copy the file
-                shutil.copy2(src, dst)
-                initialized_templates.append({"file_name": template_file, "status": "copied"})
-            
-            # Create response
-            response_data = {
-                "initialized_rules": initialized_rules,
-                "initialized_templates": initialized_templates,
-                "rules_directory": os.path.abspath(rules_dir),
-                "templates_directory": os.path.abspath(templates_dir),
-                "success": True
-            }
-            
-            return [create_text_response(json.dumps(response_data, indent=2))]
-            
+                if os.path.isfile(readme_path):
+                    with open(readme_path, 'r') as file:
+                        readme_content = file.read()
+                        context["project"]["readme"] = readme_content
+                        
+                        # Extract title from README
+                        readme_title = extract_markdown_title(readme_content)
+                        if readme_title:
+                            # Store README title for potential use
+                            readme_title_for_use = readme_title
+                        
+                        # Extract status from README
+                        readme_status = extract_status(readme_content)
+                        if readme_status:
+                            # Store README status for potential use
+                            readme_status_for_use = readme_status
+                            
+                    logging.info(f"Found README.md at project root")
+                
+                # Look for additional documentation files in ai-docs
+                documentation_files = {}
+                for filename in os.listdir(ai_docs_dir):
+                    if filename.endswith('.md') and filename not in ['README.md', 'prd.md', 'architecture.md']:
+                        file_path = os.path.join(ai_docs_dir, filename)
+                        if os.path.isfile(file_path):
+                            with open(file_path, 'r') as file:
+                                content = file.read()
+                                name = filename[:-3]  # Remove .md extension
+                                documentation_files[name] = {
+                                    "title": extract_markdown_title(content),
+                                    "content": summarize_content(content, depth),
+                                    "status": extract_status(content)
+                                }
+                
+                # Add additional documentation to context if any was found
+                if documentation_files:
+                    context["additional_docs"] = documentation_files
+                    logging.info(f"Found {len(documentation_files)} additional documentation files in ai-docs")
+                
+                # Read PRD
+                prd_path = os.path.join(ai_docs_dir, "prd.md")
+                if os.path.isfile(prd_path):
+                    with open(prd_path, 'r') as file:
+                        prd_content = file.read()
+                        
+                        # Extract information from PRD
+                        title = extract_markdown_title(prd_content)
+                        if title:
+                            # Use PRD title for project name, but keep README info for context
+                            context["project"]["name"] = title
+                            context["project"]["prd_title"] = title
+                        elif 'readme_title_for_use' in locals():
+                            # Use README title if PRD has no title
+                            context["project"]["name"] = readme_title_for_use
+                        
+                        # Extract status from PRD
+                        status = extract_status(prd_content)
+                        if status:
+                            # Use PRD status, but keep README status for context
+                            context["project"]["status"] = status
+                            context["project"]["prd_status"] = status
+                        elif 'readme_status_for_use' in locals():
+                            # Use README status if PRD has no status
+                            context["project"]["status"] = readme_status_for_use
+                        
+                        # Store PRD overview alongside README content
+                        prd_overview = summarize_content(prd_content)
+                        context["project"]["prd_overview"] = prd_overview
+                        context["project"]["overview"] = prd_overview
+                else:
+                    # Use README content as overview if no PRD
+                    if readme_content:
+                        context["project"]["overview"] = readme_content
+                        # Also use README title and status if we have them and there's no PRD
+                        if 'readme_title_for_use' in locals():
+                            context["project"]["name"] = readme_title_for_use
+                        if 'readme_status_for_use' in locals():
+                            context["project"]["status"] = readme_status_for_use
+                
+                # Read and parse architecture document
+                arch_path = os.path.join(ai_docs_dir, "architecture.md")
+                if os.path.isfile(arch_path):
+                    with open(arch_path, 'r') as file:
+                        arch_content = file.read()
+                        
+                        # Extract status
+                        arch_status = extract_status(arch_content)
+                        if arch_status:
+                            context["architecture"]["status"] = arch_status
+                        
+                        # Extract overview
+                        context["architecture"]["overview"] = summarize_content(arch_content)
+                else:
+                    context["architecture"]["overview"] = "No architecture documentation available."
+                
+                # Process epics
+                epics_dir = os.path.join(ai_docs_dir, "epics")
+                current_epic = None
+                current_story = None
+                
+                if os.path.exists(epics_dir):
+                    epic_dirs = [d for d in os.listdir(epics_dir) 
+                                 if os.path.isdir(os.path.join(epics_dir, d))]
+                    
+                    for epic_dir in epic_dirs:
+                        epic_path = os.path.join(epics_dir, epic_dir)
+                        epic_md_path = os.path.join(epic_path, "epic.md")
+                        
+                        if not os.path.exists(epic_md_path):
+                            continue
+                        
+                        with open(epic_md_path, "r") as f:
+                            epic_content = f.read()
+                        
+                        epic_data = {
+                            "name": extract_markdown_title(epic_content),
+                            "id": epic_dir,
+                            "status": extract_status(epic_content),
+                            "description": summarize_content(epic_content, depth),
+                            "stories": [],
+                            "progress": {
+                                "total_stories": 0,
+                                "complete": 0,
+                                "in_progress": 0,
+                                "draft": 0
+                            }
+                        }
+                        
+                        # Process stories within epic
+                        stories_dir = os.path.join(epic_path, "stories")
+                        if os.path.exists(stories_dir):
+                            story_files = glob.glob(os.path.join(stories_dir, "*.md"))
+                            
+                            for story_file in story_files:
+                                with open(story_file, "r") as f:
+                                    story_content = f.read()
+                                
+                                story_status = extract_status(story_content)
+                                story_name = extract_markdown_title(story_content)
+                                
+                                # Update epic story counts
+                                epic_data["progress"]["total_stories"] += 1
+                                
+                                if story_status.lower() == "complete":
+                                    epic_data["progress"]["complete"] += 1
+                                elif story_status.lower() == "in progress":
+                                    epic_data["progress"]["in_progress"] += 1
+                                    
+                                    # Track current story and epic
+                                    if current_story is None:
+                                        current_story = {
+                                            "name": story_name,
+                                            "file": os.path.basename(story_file),
+                                            "status": story_status,
+                                            "content": summarize_content(story_content, depth),
+                                            "completion": extract_task_completion(story_content)
+                                        }
+                                        current_epic = epic_data
+                                else:
+                                    # Assume draft status
+                                    epic_data["progress"]["draft"] += 1
+                                
+                                # Only include detailed story info for comprehensive depth
+                                if depth == "comprehensive":
+                                    story_data = {
+                                        "name": story_name,
+                                        "file": os.path.basename(story_file),
+                                        "status": story_status,
+                                        "content": summarize_content(story_content, "minimal" if depth != "comprehensive" else depth)
+                                    }
+                                    epic_data["stories"].append(story_data)
+                        
+                        # Determine epic status if not explicitly set
+                        if epic_data["status"] == "Unknown":
+                            if epic_data["progress"]["total_stories"] == 0:
+                                epic_data["status"] = "Empty"
+                            elif epic_data["progress"]["complete"] == epic_data["progress"]["total_stories"]:
+                                epic_data["status"] = "Complete"
+                            elif epic_data["progress"]["in_progress"] > 0:
+                                epic_data["status"] = "In Progress"
+                            else:
+                                epic_data["status"] = "Draft"
+                        
+                        context["epics"].append(epic_data)
+                
+                # Set current epic and story
+                if current_epic is not None:
+                    context["current_epic"] = {
+                        "name": current_epic["name"],
+                        "id": current_epic["id"],
+                        "status": current_epic["status"],
+                        "progress": current_epic["progress"]
+                    }
+                
+                if current_story is not None:
+                    context["current_story"] = current_story
+                    # Update global progress with current story task completion
+                    if "completion" in current_story:
+                        context["progress"]["tasks_total"] = current_story["completion"]["total"]
+                        context["progress"]["tasks_completed"] = current_story["completion"]["completed"]
+                        context["progress"]["tasks_percentage"] = current_story["completion"]["percentage"]
+                
+                # Generate human-readable summary based on aggregated data
+                summary = f"# {context['project']['name']} Project Context\n\n"
+                
+                # Project overview combining PRD and README data
+                summary += "## Project Overview\n"
+                summary += f"Status: {context['project']['status']}\n\n"
+                
+                # Include overview from PRD or README
+                if context["project"]["overview"]:
+                    summary += context["project"]["overview"] + "\n\n"
+                else:
+                    summary += "No project overview available.\n\n"
+                
+                # README information (always include, even if used for overview)
+                if context["project"]["readme"]:
+                    summary += "## From Project README\n"
+                    # Extract just the essential parts for the summary to keep it concise
+                    readme_summary = summarize_content(context["project"]["readme"])
+                    summary += readme_summary + "\n\n"
+                
+                # Makefile commands if available
+                if "makefile_commands" in context["project"] and context["project"]["makefile_commands"]:
+                    summary += "## Project Commands (from Makefile)\n"
+                    for category, commands in context["project"]["makefile_commands"].items():
+                        summary += f"### {category.title()} Commands\n"
+                        for cmd in commands:
+                            summary += f"- `make {cmd['target']}`: {cmd['command']}\n"
+                        summary += "\n"
+                
+                # Additional documentation if present and depth is comprehensive
+                if "additional_docs" in context and depth == "comprehensive":
+                    summary += "## Additional Documentation\n"
+                    for doc_name, doc_info in context["additional_docs"].items():
+                        summary += f"### {doc_info['title']} ({doc_info['status']})\n"
+                        summary += doc_info['content'] + "\n\n"
+                
+                # Architecture
+                if depth != "minimal":
+                    summary += "## Architecture\n"
+                    if context["architecture"]["status"]:
+                        summary += f"Status: {context['architecture']['status']}\n\n"
+                    
+                    if context["architecture"]["overview"]:
+                        summary += context["architecture"]["overview"] + "\n\n"
+                    else:
+                        summary += "No architecture documentation available.\n\n"
+                
+                # Epics
+                summary += "## Epics\n"
+                if context["epics"]:
+                    for epic in context["epics"]:
+                        progress = epic["progress"]
+                        progress_percentage = 0
+                        if progress["total_stories"] > 0:
+                            progress_percentage = round(progress["complete"] / progress["total_stories"] * 100)
+                        
+                        summary += f"### {epic['name']} ({epic['status']})\n"
+                        summary += f"Progress: {progress_percentage}% - {progress['complete']}/{progress['total_stories']} stories complete\n"
+                        summary += f"Stories: {progress['complete']} complete, {progress['in_progress']} in progress, {progress['draft']} draft\n\n"
+                else:
+                    summary += "No epics found.\n\n"
+                
+                # Current focus
+                summary += "## Current Focus\n"
+                if context["current_epic"] and context["current_story"]:
+                    summary += f"Epic: {context['current_epic']['name']} ({context['current_epic']['status']})\n"
+                    summary += f"Story: {context['current_story']['name']} ({context['current_story']['status']})\n"
+                    summary += f"Progress: {context['progress']['tasks_percentage']}% - {context['progress']['tasks_completed']}/{context['progress']['tasks_total']} tasks complete\n\n"
+                    summary += context['current_story']['content']
+                else:
+                    summary += "No current work items identified.\n"
+                
+                # Create final context object
+                result = {
+                    "context": context,
+                    "summary": summary
+                }
+                
+                # Filter by focus areas if specified
+                if focus_areas:
+                    filtered_context = {}
+                    for area in focus_areas:
+                        if area in context:
+                            filtered_context[area] = context[area]
+                    
+                    if filtered_context:
+                        result["context"] = filtered_context
+                
+                return [create_text_response(json.dumps(result, indent=2))]
+            except Exception as e:
+                logging.error(f"Error in prime-context: {str(e)}")
+                traceback.print_exc()
+                return [create_text_response(f"Error: {str(e)}", is_error=True)]
+        
         elif name == "get-project-settings":
             logger.info("Getting project settings (defaults to user's home directory)")
             
@@ -646,7 +909,7 @@ async def handle_call_tool(
             
             try:
                 # Use the get_safe_project_path function
-                safe_path, source = get_safe_project_path({"project_path": proposed_path} if proposed_path else None)
+                safe_path, is_root, source = get_safe_project_path({"project_path": proposed_path} if proposed_path else None)
                 
                 # Create response for successful case
                 response_data = {
@@ -840,6 +1103,251 @@ async def handle_call_tool(
     except Exception as e:
         logger.error(f"Error in tool call: {str(e)}")
         return [create_text_response(str(e), is_error=True)]
+
+def extract_markdown_title(content):
+    """Extract the title from markdown content.
+    
+    Args:
+        content (str): Markdown content
+        
+    Returns:
+        str: The title of the document, or "Untitled" if no title found
+    """
+    lines = content.split('\n')
+    for line in lines:
+        # Look for level 1 heading
+        if line.strip().startswith('# '):
+            return line.strip()[2:].strip()
+    
+    return "Untitled"
+
+def extract_status(content):
+    """Extract the status from markdown content.
+    
+    Args:
+        content (str): Markdown content
+        
+    Returns:
+        str: The status of the document, or "Unknown" if no status found
+    """
+    # Check for "## Status" section
+    status_pattern = r"^\s*##\s+Status\s*$"
+    status_section = None
+    lines = content.split('\n')
+    
+    for i, line in enumerate(lines):
+        if re.search(status_pattern, line, re.IGNORECASE):
+            status_section = i
+            break
+    
+    if status_section is not None:
+        # Look for status value in the lines after the section heading
+        for i in range(status_section + 1, min(status_section + 10, len(lines))):
+            line = lines[i].strip()
+            if line and not line.startswith('#'):
+                # Extract status value which could be in formats like:
+                # - Status: Draft
+                # - Draft
+                # - **Status**: Draft
+                
+                # Remove markdown formatting and list markers
+                line = re.sub(r'^\s*[-*]\s+', '', line)
+                line = re.sub(r'\*\*([^*]+)\*\*', r'\1', line)
+                
+                # Check if line contains a status indicator
+                if ':' in line:
+                    parts = line.split(':', 1)
+                    if parts[1].strip():
+                        return parts[1].strip()
+                
+                # If no colon, check for common status values
+                statuses = ["Draft", "In Progress", "Complete", "Approved", "Current", "Future"]
+                for status in statuses:
+                    if status.lower() in line.lower():
+                        return status
+                
+                # If we got to a non-empty line but didn't find a status, use the whole line
+                return line
+    
+    return "Unknown"
+
+def summarize_content(content, depth="standard"):
+    """Summarize markdown content based on depth.
+    
+    Args:
+        content (str): Markdown content
+        depth (str): Summarization depth ('minimal', 'standard', or 'comprehensive')
+        
+    Returns:
+        str: Summarized content
+    """
+    lines = content.split('\n')
+    
+    if depth == "minimal":
+        # Just return the title and a few key sections
+        result = []
+        
+        # Extract title
+        title = extract_markdown_title(content)
+        if title:
+            result.append(f"# {title}")
+        
+        # Look for Status section
+        status_section = None
+        for i, line in enumerate(lines):
+            if re.match(r"^\s*##\s+Status\s*$", line, re.IGNORECASE):
+                status_section = i
+                break
+        
+        if status_section is not None:
+            result.append(lines[status_section])
+            # Add a few lines after the Status heading
+            for i in range(status_section + 1, min(status_section + 5, len(lines))):
+                if not lines[i].startswith('#'):
+                    result.append(lines[i])
+                else:
+                    break
+        
+        return '\n'.join(result)
+    
+    elif depth == "standard":
+        # Return all headings and their first paragraph
+        result = []
+        current_heading = None
+        paragraph_lines = []
+        
+        for line in lines:
+            if line.startswith('#'):
+                # If we were building a paragraph, add it to result
+                if paragraph_lines:
+                    result.append('\n'.join(paragraph_lines))
+                    paragraph_lines = []
+                
+                # Add the heading
+                result.append(line)
+                current_heading = line
+            elif line.strip() == '' and paragraph_lines:
+                # End of paragraph
+                result.append('\n'.join(paragraph_lines))
+                paragraph_lines = []
+            elif current_heading is not None and line.strip():
+                # Add line to current paragraph
+                paragraph_lines.append(line)
+        
+        # Add any remaining paragraph
+        if paragraph_lines:
+            result.append('\n'.join(paragraph_lines))
+        
+        return '\n'.join(result)
+    
+    else:  # comprehensive or any other value
+        return content
+
+def extract_task_completion(content):
+    """Extract task completion information from markdown content.
+    
+    Args:
+        content (str): Markdown content
+        
+    Returns:
+        dict: Task completion information
+    """
+    lines = content.split('\n')
+    total = 0
+    completed = 0
+    
+    # Look for task items (- [ ] or - [x])
+    for line in lines:
+        line = line.strip()
+        if re.match(r'^\s*-\s*\[\s*\]\s+', line):
+            total += 1
+        elif re.match(r'^\s*-\s*\[\s*x\s*\]\s+', line):
+            total += 1
+            completed += 1
+    
+    return {
+        "total": total,
+        "completed": completed,
+        "percentage": round(completed / total * 100) if total > 0 else 0
+    }
+
+def extract_makefile_commands(makefile_path):
+    """Extract key shell commands from a Makefile.
+    
+    Args:
+        makefile_path (str): Path to the Makefile
+        
+    Returns:
+        dict: Dictionary of command categories and their commands
+    """
+    if not os.path.exists(makefile_path):
+        return None
+    
+    try:
+        with open(makefile_path, 'r') as file:
+            content = file.read()
+        
+        # Parse Makefile content to extract commands and targets
+        commands = {}
+        lines = content.split('\n')
+        current_target = None
+        
+        for i, line in enumerate(lines):
+            # Skip comments and empty lines
+            if line.strip().startswith('#') or not line.strip():
+                continue
+                
+            # Look for target definitions (lines ending with a colon)
+            if ':' in line and not line.strip().startswith('\t'):
+                # Extract target name (everything before the colon and optional dependencies)
+                target_parts = line.split(':')[0].strip().split()
+                if target_parts:
+                    current_target = target_parts[0]
+                    
+                    # Skip phony targets or other special targets
+                    if current_target.startswith('.'):
+                        current_target = None
+                        continue
+                        
+                    # Look for the command in the next lines
+                    for j in range(i + 1, len(lines)):
+                        cmd_line = lines[j].strip()
+                        # Commands in Makefiles typically start with a tab
+                        if cmd_line and lines[j].startswith('\t'):
+                            # Remove the tab
+                            command = cmd_line
+                            
+                            # Categorize the command
+                            if any(keyword in current_target.lower() for keyword in ['test', 'pytest', 'check']):
+                                category = 'testing'
+                            elif any(keyword in current_target.lower() for keyword in ['build', 'compile', 'install', 'setup']):
+                                category = 'build'
+                            elif any(keyword in current_target.lower() for keyword in ['run', 'start', 'serve', 'dev']):
+                                category = 'run'
+                            elif any(keyword in current_target.lower() for keyword in ['clean', 'clear', 'reset']):
+                                category = 'clean'
+                            elif any(keyword in current_target.lower() for keyword in ['deploy', 'publish', 'release', 'dist']):
+                                category = 'deploy'
+                            elif any(keyword in current_target.lower() for keyword in ['lint', 'format', 'style', 'check']):
+                                category = 'lint'
+                            else:
+                                category = 'other'
+                            
+                            if category not in commands:
+                                commands[category] = []
+                            
+                            commands[category].append({
+                                'target': current_target,
+                                'command': command
+                            })
+                            break
+                    
+                    current_target = None
+        
+        return commands
+    except Exception as e:
+        logger.error(f"Error parsing Makefile: {str(e)}")
+        return None
 
 async def run_server():
     """
