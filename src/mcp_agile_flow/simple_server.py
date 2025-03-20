@@ -16,6 +16,8 @@ import glob
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any, Union
 import traceback
+import threading
+import importlib.resources
 
 from .utils import get_project_settings
 
@@ -68,7 +70,7 @@ def parse_greeting_command(message: str) -> Tuple[str, Dict[str, Any]]:
     
     return cmd_name, cmd_args
 
-def get_safe_project_path(arguments: Optional[dict] = None, environment_variable: str = None, default: str = None) -> str:
+def get_safe_project_path(arguments: Optional[dict] = None, environment_variable: str = None, default: str = None) -> Tuple[str, bool, str]:
     """
     Get a safe project path that is guaranteed to be writable.
     
@@ -78,8 +80,13 @@ def get_safe_project_path(arguments: Optional[dict] = None, environment_variable
         default: Optional default path to use if 'project_path' is not provided and environment variable is not set
         
     Returns:
-        str: The safe project path
+        Tuple[str, bool, str]: The safe project path, whether it's root, and the source of the path
     """
+    print("get_safe_project_path called with arguments:", arguments)
+    source = "unknown"
+    path = ""
+    is_root = False
+    
     # First check if project_path is provided in arguments
     if arguments and "project_path" in arguments and arguments["project_path"].strip() != '':
         raw_path = arguments["project_path"].strip()
@@ -131,7 +138,9 @@ def get_safe_project_path(arguments: Optional[dict] = None, environment_variable
         else:
             # Use current dir as fallback
             logger.warning(f"Path {path} does not exist. Falling back to current directory: {current_dir}")
-            return current_dir
+            path = current_dir
+            source = "current directory (fallback from non-existent path)"
+            is_root = current_dir == '/'
     
     if not os.access(path, os.W_OK):
         # Path is not writable - check if current dir is root
@@ -142,9 +151,11 @@ def get_safe_project_path(arguments: Optional[dict] = None, environment_variable
         else:
             # Use current dir as fallback
             logger.warning(f"Path {path} is not writable. Falling back to current directory: {current_dir}")
-            return current_dir
+            path = current_dir
+            source = "current directory (fallback from non-writable path)"
+            is_root = current_dir == '/'
     
-    return path
+    return path, is_root, source
 
 @mcp.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
@@ -262,6 +273,7 @@ async def handle_call_tool(
             # Get a safe project path using the utility function
             try:
                 project_path, is_root, source = get_safe_project_path(arguments)
+                logger.info(f"Using project_path from {source}: {project_path}")
             except ValueError as e:
                 # Handle case where current directory is root
                 current_dir = os.getcwd()
@@ -535,16 +547,22 @@ async def handle_call_tool(
                     logging.info(f"Using project path from arguments: {project_path}")
                 else:
                     # Only if not provided in arguments, try environment variables
-                    project_path = get_safe_project_path(
-                        None,
-                        environment_variable="AGILE_FLOW_PROJECT_PATH"
-                    )
-                    if project_path is None:
-                        project_path = get_safe_project_path(
+                    try:
+                        project_path, is_root, source = get_safe_project_path(
                             None,
-                            environment_variable="PROJECT_PATH",
-                            default=os.getcwd()
+                            environment_variable="AGILE_FLOW_PROJECT_PATH"
                         )
+                        logging.info(f"Using project path from {source}: {project_path}")
+                    except ValueError:
+                        try:
+                            project_path, is_root, source = get_safe_project_path(
+                                None,
+                                environment_variable="PROJECT_PATH",
+                                default=os.getcwd()
+                            )
+                            logging.info(f"Using project path from {source}: {project_path}")
+                        except ValueError as e:
+                            return [create_text_response(f"Error: {str(e)}", is_error=True)]
                     
                 if project_path == "/":
                     return [create_text_response("Error: Current directory is root. This is likely not the correct project path.", is_error=True)]
@@ -915,6 +933,7 @@ async def handle_call_tool(
                 response_data = {
                     "safe_path": safe_path,
                     "source": source,
+                    "is_root": is_root,
                     "is_writable": os.access(safe_path, os.W_OK),
                     "exists": os.path.exists(safe_path),
                     "current_directory": os.getcwd()
