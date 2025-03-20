@@ -1,0 +1,114 @@
+---
+description: Use when creating or updating Business Requirements Documents to ensure proper structure and business context
+globs: "**/brd.md,**/BRD.md,**/businessrequirements.md"
+---
+
+# Business Requirements Documentation
+
+## Context
+- When user asks to create a Business Requirements Document (BRD)
+- When updating an existing BRD
+- When analyzing business requirements for a project
+- When positioning requirements in the documentation hierarchy
+
+## Requirements
+- BRD must be created and maintained at the highest level of the document hierarchy
+- BRD should link to the PRD when available
+- All required sections must be included
+- Document must follow standardized formatting
+- Document must be placed in the ai-docs directory
+- Document must use the official template
+
+## BRD Structure
+
+The BRD establishes the business context and rationale for a project. It sits above the PRD in the documentation hierarchy and focuses on:
+
+1. **Executive Summary**: Concise overview of the business need and solution approach
+2. **Business Objectives**: Clear, measurable business goals driving the project
+3. **Market Problem Analysis**: Detailed examination of market gaps and customer pain points
+4. **Success Metrics**: Quantifiable measures of project success with baseline and target values
+5. **Customer Needs**: Segmented analysis of user requirements
+6. **Business Constraints**: Limitations on budget, time, resources, technology, and regulations
+7. **Assumptions**: Explicit business, market, technical, and resource assumptions
+8. **Stakeholders**: Key stakeholders with roles, responsibilities, and decision authority
+9. **Related Documents**: Links to supporting documents, particularly the PRD
+
+## Document Status Flow
+
+The BRD follows a defined status progression:
+1. **Draft**: Initial creation and iteration
+2. **In Review**: Shared with stakeholders for feedback
+3. **Approved**: Finalized and accepted by key stakeholders
+4. **Superseded**: When replaced by a newer version
+
+## Implementation Guidance
+
+### When Creating a BRD
+
+1. Use the template from `.ai-templates/template-brd.md`
+2. Ensure all required sections are included
+3. Document should be stored in `ai-docs/brd.md`
+4. Input specific project information where indicated by placeholders
+5. Set status to "Draft" during initial creation
+6. Generate the current date for "Created" and "Last Updated" fields
+7. Set initial version to 0.1
+
+### When Updating a BRD
+
+1. Preserve the original structure
+2. Update only specific sections as needed
+3. Increment the version number appropriately
+   - Minor changes: 0.1 → 0.2
+   - Significant changes: 0.9 → 1.0
+4. Update the "Last Updated" date
+5. Update status if appropriate
+6. Add links to PRD once available
+
+### When Linking Documents
+
+1. BRD should link to the PRD in the "Related Documents" section
+2. PRD should reference the BRD to maintain bidirectional links
+3. Both documents should maintain consistent project nomenclature
+
+## Examples
+<example>
+# Business Requirements Document (BRD) for TaskMaster Pro
+
+## Document Control
+- **Status:** Draft
+- **Created:** 2023-04-12
+- **Last Updated:** 2023-04-12
+- **Version:** 0.1
+
+## Executive Summary
+
+TaskMaster Pro addresses the critical need for streamlined task management in enterprise environments where existing solutions fail to integrate effectively with common workflows. Our research indicates a 34% productivity loss due to inadequate task coordination tools. TaskMaster Pro will provide a comprehensive solution that bridges departmental silos and creates measurable efficiency improvements.
+
+## Business Objectives
+
+- Increase team productivity by 25% through improved task coordination
+- Reduce project delivery delays by 40% via enhanced visibility and accountability
+- Decrease administrative overhead by 30% through automation of routine task management
+- Improve cross-departmental collaboration by enabling transparent task dependencies
+- Achieve positive ROI within 6 months of implementation
+</example>
+
+<example type="invalid">
+# TaskMaster Business Document
+
+This is a business document for TaskMaster. We want to make a task management app because it seems like a good market opportunity. We should try to make it better than competitors.
+
+Goals:
+- Make money
+- Get users
+- Be successful
+</example>
+
+## Critical Rules
+- BRD must follow the template structure exactly
+- All placeholder values must be replaced with real content
+- Document must include quantifiable business objectives
+- Success metrics must include current values, target values, and measurement methods
+- Status must follow the defined progression
+- Document must be stored in the correct location
+- BRD should be created before the PRD in the document hierarchy 

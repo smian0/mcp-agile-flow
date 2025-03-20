@@ -1,0 +1,120 @@
+---
+description: Use when creating or updating Product Requirements Documents to ensure proper structure and content
+globs: ai-docs/prd.md
+alwaysApply: false
+---
+
+# Product Requirements Document Standards
+
+## Context
+- When creating a new Product Requirements Document
+- When updating an existing PRD
+- When reviewing PRD approval status
+- When defining project scope and requirements
+
+## Requirements
+- Follow standardized PRD structure
+- Include all required sections
+- Maintain proper documentation hierarchy
+- Use consistent formatting
+- Define clear project goals and features
+- Include epic structure and story outlines
+
+## Template Structure
+
+### Required Sections
+
+#### 1. Header
+- Title: "Product Requirements Document (PRD) for {project-name}"
+
+#### 2. Status
+- Draft
+- Approved
+
+#### 3. Introduction
+- Clear description of {project-name}
+- Overview of the project scope
+- Business context and drivers
+- Target users/stakeholders
+
+#### 4. Goals
+- Clear project objectives
+- Measurable outcomes
+- Success criteria
+- Key performance indicators (KPIs)
+
+#### 5. Features and Requirements
+- Functional requirements
+- Non-functional requirements
+- User experience requirements
+- Integration requirements
+- Compliance requirements
+
+#### 6. Epic Structure
+- At least one Epic must be defined
+- Format: Epic-{N}-{descriptive-suffix}: {Title} ({Status})
+  - {N} is the sequential number
+  - {descriptive-suffix} is 1-3 meaningful words separated by hyphens
+  - Example: Epic-1-user-auth, Epic-2-task-management
+
+## Commands
+- "Create a new PRD for {project-name}": Generates a new PRD file
+- "Update PRD status to {status}": Updates PRD status
+- "Add Epic {epic-title} to PRD": Adds a new epic to the PRD (must include 1-3 word suffix)
+
+## Examples
+<example>
+# Product Requirements Document (PRD) for Task Management App
+
+## Status
+Draft
+
+## Introduction
+TaskMaster is a task management application designed to help individuals and small teams organize their work efficiently. The application will provide a simple, intuitive interface for creating, tracking, and completing tasks.
+
+## Goals
+- Provide a user-friendly task management solution
+- Enable collaboration among team members
+- Increase productivity through organized task tracking
+- Support mobile and desktop platforms
+
+## Features and Requirements
+### Functional Requirements
+- User authentication and account management
+- Task creation, editing, and deletion
+- Task categorization and tagging
+- Due date and priority assignment
+- Team sharing and collaboration
+
+### Non-functional Requirements
+- Response time less than 1 second
+- 99.9% uptime
+- Secure data storage and transmission
+- Support for 1000+ concurrent users
+
+## Epic Structure
+- Epic-1-user-auth: User Authentication and Account Management (Current)
+- Epic-2-task-core: Task Management Core Features (Future)
+- Epic-3-team-collab: Team Collaboration Features (Future)
+- Epic-4-mobile-app: Mobile Application Development (Future)
+</example>
+
+<example type="invalid">
+# Task App Requirements
+
+- Login system
+- Task lists
+- Due dates
+
+Epic-1: Login
+Epic-2: Tasks
+
+TODO: Add more details later
+</example>
+
+## Critical Rules
+- PRD must have clear, measurable goals
+- All sections must be included and properly formatted
+- Epic structure must be defined and follow the correct format
+- PRD must progress through appropriate status stages
+- Introduction must clearly define the project scope and users 
