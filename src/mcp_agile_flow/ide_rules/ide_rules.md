@@ -2,7 +2,7 @@
 description: Generic IDE Rules Template - Master file containing all rules for IDE integration
 version: 1.0.0
 created_at: 2023-09-15
-updated_at: 2023-09-25
+updated_at: 2023-03-20
 -->
 
 # IDE Rules
@@ -80,6 +80,13 @@ ai-docs/                      # Output documents directory (visible to user)
 - "Add story to Epic-{N}-{epic-suffix}: {story-title} with suffix {story-suffix}"
 - "Generate user story for {epic-name} with suffix {story-suffix}"
 
+#### Git Workflow Commands
+- "How do I format a Git commit message?"
+- "What is the correct commit format?"
+- "Help me write a commit message for {changes}"
+- "Review my commit message"
+- "Generate a commit message for {changes}"
+
 ### Examples
 <example>
 User: "Create a new PRD for TaskMaster App"
@@ -90,6 +97,33 @@ AI Action:
 3. Create `prd.md` file in `ai-docs` directory using the template
 4. Add project-specific details
 5. Confirm creation with: "Created Product Requirements Document for TaskMaster App in `ai-docs/prd.md`"
+</example>
+
+<example>
+User: "Help me write a commit message for adding user authentication"
+
+AI Action:
+1. Identify the commit message format: conventional commits
+2. Apply the template from template-git-commit.md
+3. Prompt for file changes if not provided
+4. Generate a structured commit message:
+```
+feat(auth): add user authentication system
+
+Changes made in this commit:
+- Modified: src/auth/services.js, src/components/Login.js
+- Added: src/auth/oauth.js, src/auth/jwt.js
+
+Key changes:
+- Implement JWT token-based authentication
+- Add Google OAuth integration
+- Create login form components
+- Add authentication middleware
+
+Implements the core authentication system required for user accounts.
+Relates to #45
+```
+5. Confirm with: "I've formatted your commit message following our Git standards. Feel free to modify the details before committing."
 </example>
 
 ### Critical Rules
@@ -527,3 +561,127 @@ Stories follow a defined status progression:
 2. In Progress - During active development
 3. Complete - When all tasks are finished
 4. Cancelled - When the story is no longer needed
+
+## Version Control Standards
+
+### Git Commit Message Standards
+
+#### Context
+- When creating a new Git commit
+- When reviewing commit messages
+- When documenting changes in version control
+- When generating changelogs from commit history
+
+#### Requirements
+- Follow conventional commits format: type(scope): description
+- Include detailed change summary
+- Group changes by category (added, modified, deleted)
+- Provide context for non-obvious changes
+- Reference issues when applicable
+- Structure commit messages consistently
+- Support GitHub and GitLab reference formats
+- Keep subject line under 72 characters
+
+#### Format
+```
+type(scope): brief description
+
+Changes made in this commit:
+- Modified: [list of modified files]
+- Added: [list of added files]
+- Deleted: [list of deleted files]
+
+Key changes:
+- [specific change 1]
+- [specific change 2]
+...
+
+[Detailed explanation if needed]
+
+Closes #issue_number (if applicable)
+```
+
+#### Types
+- **feat**: A new feature
+- **fix**: A bug fix
+- **docs**: Documentation changes
+- **style**: Changes that don't affect code functionality (formatting, etc.)
+- **refactor**: Code changes that neither fix bugs nor add features
+- **perf**: Performance improvements
+- **test**: Adding or correcting tests
+- **chore**: Changes to the build process or auxiliary tools
+- **ci**: Changes to CI configuration
+- **revert**: Revert a previous commit
+
+#### GitHub and GitLab Integration
+##### GitHub Issue References
+- Use `Fixes #123` to automatically close an issue
+- Use `Relates to #123` for related issues without closing
+- Supports keywords: close, closes, closed, fix, fixes, fixed, resolve, resolves, resolved
+
+##### GitLab Issue and Merge Request References
+- Use `Closes #123` to automatically close an issue
+- Use `Relates to #123` for related issues without closing
+- Use `!123` to reference merge requests
+
+#### CI/CD Integration
+- Use `[skip ci]` or `[ci skip]` in the commit message to skip CI/CD pipelines when appropriate
+- For GitLab, you can also use `[skip gitlab-ci]`
+
+#### Examples
+<example>
+✅ feat(auth): add login with Google OAuth
+
+Changes made in this commit:
+- Modified: src/auth/providers.js, src/components/Login.js
+- Added: src/auth/google.js
+
+Key changes:
+- Add GoogleAuthProvider class
+- Integrate OAuth flow in login component
+- Add configuration options for Google client ID
+
+Implements the Google authentication option requested in the
+product requirements document.
+
+Closes #42
+</example>
+
+<example>
+✅ fix(ui): correct button alignment on mobile
+
+Changes made in this commit:
+- Modified: src/components/Button.css
+
+Key changes:
+- Fix flex layout for small screens
+- Adjust padding for touch targets
+
+Fixes the issue where buttons were overlapping on
+mobile devices smaller than 375px width.
+
+Fixes #78
+</example>
+
+<example type="invalid">
+❌ Added login feature
+
+This adds the login feature we discussed yesterday. It seems to be working
+but might need more testing. I also changed some CSS.
+</example>
+
+<example type="invalid">
+❌ feat(auth) - Added Google login feature and fixed the CSS bug with the dropdown menu that was reported by the QA team last week. Also did some refactoring of the auth module to make it cleaner.
+</example>
+
+#### Critical Rules
+- Always use the conventional commits format (type(scope): description)
+- Keep the subject line under 72 characters
+- Include a list of modified/added/deleted files
+- Use imperative mood in descriptions ("add" not "added")
+- Don't capitalize the first letter of the description
+- No period at the end of the subject line
+- Separate subject from body with a blank line
+- Reference issues when applicable using the correct format
+- Be specific about what was changed and why
+- When combining multiple changes, consider splitting into separate commits
