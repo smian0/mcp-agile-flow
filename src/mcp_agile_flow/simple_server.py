@@ -14,23 +14,26 @@ import shutil
 import datetime
 from typing import Dict, List, Optional, Tuple, Any
 
+from .utils import get_project_settings
+
 from mcp.server import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 from mcp.server import stdio
 
 # Import local modules
-from .rules_migration import migrate_cursor_to_windsurf
-from .memory_graph import register_memory_tools
+from .memory_graph import register_memory_tools, KnowledgeGraphManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Store notes as a simple key-value dict to demonstrate state management
-notes: Dict[str, str] = {}
+# Initialize memory graph tools and manager after server starts
+# This will be done in the run_server function
+memory_tools = []
+memory_manager = None
 
-# Keep track of tool invocations for debugging
-tool_invocations = []
+# Create an MCP server
+mcp = Server("MCP Agile Flow - Simple")
 
 def create_text_response(text: str, is_error: bool = False) -> types.TextContent:
     """Helper function to create properly formatted TextContent responses."""
@@ -39,141 +42,6 @@ def create_text_response(text: str, is_error: bool = False) -> types.TextContent
         text=text,
         isError=is_error
     )
-
-def log_tool_invocation(name: str, arguments: Optional[dict], response: Any) -> None:
-    """
-    Log a tool invocation to help with debugging.
-    
-    Args:
-        name: The name of the tool that was invoked
-        arguments: The arguments passed to the tool
-        response: The response returned by the tool
-    """
-    # Create a log entry
-    invocation = {
-        "timestamp": datetime.datetime.now().isoformat(),
-        "tool": name,
-        "arguments": arguments or {},
-        "response_summary": str(response)[:100] + ("..." if len(str(response)) > 100 else "")
-    }
-    
-    # Add to the in-memory log
-    tool_invocations.append(invocation)
-    
-    # Write to debug log
-    logger.debug(f"Tool invocation: {json.dumps(invocation)}")
-
-# Create an MCP server
-mcp = Server("MCP Agile Flow - Simple")
-
-# Register memory graph tools
-register_memory_tools(mcp)
-
-@mcp.list_tools()
-async def handle_list_tools() -> list[types.Tool]:
-    """
-    List available tools.
-    Each tool specifies its arguments using JSON Schema validation.
-    
-    Returns:
-        A list of Tool objects defining the available tools and their arguments.
-    """
-    return [
-        types.Tool(
-            name="initialize-ide-rules",
-            description="Initialize a project with rules for a specific IDE",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "ide": {
-                        "type": "string", 
-                        "description": "IDE to initialize (cursor, windsurf, cline, or copilot)",
-                        "enum": ["cursor", "windsurf", "cline", "copilot"]
-                    }
-                },
-                "required": ["ide"],
-            },
-        ),
-        types.Tool(
-            name="initialize-rules",
-            description="Initialize Cursor rules for the project (for backward compatibility, use initialize-ide-rules for other IDEs)",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                },
-                "required": [],
-            },
-        ),
-        types.Tool(
-            name="migrate-rules-to-windsurf",
-            description="Migrate rules from Cursor to Windsurf",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "specific_file": {
-                        "type": "string",
-                        "description": "Specific file to migrate (without .mdc extension). If not provided, migrates all files."
-                    },
-                    "verbose": {
-                        "type": "boolean",
-                        "description": "Whether to show detailed information during migration.",
-                        "default": False
-                    },
-                    "no_truncate": {
-                        "type": "boolean",
-                        "description": "Skip truncation even for IDEs with character limits.",
-                        "default": False
-                    }
-                },
-            },
-        ),
-        types.Tool(
-            name="add-note",
-            description="Add a new note",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "content": {"type": "string"},
-                },
-                "required": ["name", "content"],
-            },
-        ),
-        types.Tool(
-            name="get-project-settings",
-            description="Returns comprehensive project settings including project path, knowledge graph directory, AI docs directory, and other agile flow configuration. Use this to understand your project's structure and agile workflow settings.",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": [],
-            },
-        ),
-        types.Tool(
-            name="get-project-path",
-            description="[DEPRECATED: Use get-project-settings instead] Returns information about the project path",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": [],
-            },
-        ),
-
-        types.Tool(
-            name="debug-tools",
-            description="Get debug information about recent tool invocations",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "count": {
-                        "type": "integer",
-                        "description": "Number of recent invocations to show (default: 5)",
-                        "default": 5
-                    },
-                },
-                "required": [],
-            },
-        )
-    ]
 
 def check_for_greeting(message: str) -> bool:
     """Check if a message contains a greeting for Sho."""
@@ -197,6 +65,59 @@ def parse_greeting_command(message: str) -> Tuple[str, Dict[str, Any]]:
     
     return cmd_name, cmd_args
 
+@mcp.list_tools()
+async def handle_list_tools() -> list[types.Tool]:
+    """
+    List available tools.
+    Each tool specifies its arguments using JSON Schema validation.
+    
+    Returns:
+        A list of Tool objects defining the available tools and their arguments.
+    """
+    # Start with the standard tools
+    tools = [
+        types.Tool(
+            name="initialize-ide-rules",
+            description="Initialize a project with rules for a specific IDE. The project path will default to the AGILE_FLOW_PROJECT_PATH environment variable if set, falling back to PROJECT_PATH, or the current directory if neither is set.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "ide": {
+                        "type": "string", 
+                        "description": "IDE to initialize (cursor, windsurf, cline, or copilot)",
+                        "enum": ["cursor", "windsurf", "cline", "copilot"]
+                    }
+                },
+                "required": ["ide"],
+            },
+        ),
+        types.Tool(
+            name="initialize-rules",
+            description="Initialize Cursor rules for the project (for backward compatibility, use initialize-ide-rules for other IDEs). The project path will default to the AGILE_FLOW_PROJECT_PATH environment variable if set, falling back to PROJECT_PATH, or the current directory if neither is set.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                },
+                "required": [],
+            },
+        ),
+        types.Tool(
+            name="get-project-settings",
+            description="Returns comprehensive project settings including project path (defaults to user's home directory), knowledge graph directory, AI docs directory, and other agile flow configuration. Use this to understand your project's structure and agile workflow settings. The project path will default to the user's home directory if AGILE_FLOW_PROJECT_PATH or PROJECT_PATH environment variable is not set. AGILE_FLOW_PROJECT_PATH takes precedence over PROJECT_PATH if both are set.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        ),
+    ]
+    
+    # Add memory graph tools if available
+    if 'memory_tools' in globals() and memory_tools is not None:
+        tools.extend(memory_tools)
+    
+    return tools
+
 @mcp.call_tool()
 async def handle_call_tool(
     name: str, arguments: Optional[dict]
@@ -217,14 +138,27 @@ async def handle_call_tool(
     logger.info(f"Handling tool call: {name}")
     logger.debug(f"Tool arguments: {arguments or {}}")
     
+    # Validate arguments if they exist
+    if arguments is None and name not in ["get_project_info", "get_mermaid_diagram", "update_markdown_with_mermaid", "update_mermaid_diagram"]:
+        return [create_text_response(f"Error: The tool '{name}' requires arguments, but none were provided.", is_error=True)]
+    
     try:
         if name == "initialize-ide-rules":
-            # Get project path from environment variable or use current directory
-            project_path = os.environ.get("PROJECT_PATH")
+            # Get project path from environment variables or use current directory
+            # First check AGILE_FLOW_PROJECT_PATH (preferred)
+            agile_flow_project_path = os.environ.get("AGILE_FLOW_PROJECT_PATH")
+            # Then check PROJECT_PATH for backward compatibility
+            project_path_env = os.environ.get("PROJECT_PATH")
             
-            # If environment variable is not set, use current directory
-            if project_path:
-                source = "environment variable"
+            # First check AGILE_FLOW_PROJECT_PATH
+            if agile_flow_project_path is not None and agile_flow_project_path.strip() != '':
+                project_path = agile_flow_project_path
+                source = "AGILE_FLOW_PROJECT_PATH environment variable"
+            # Then check PROJECT_PATH for backward compatibility
+            elif project_path_env is not None and project_path_env.strip() != '':
+                project_path = project_path_env
+                source = "PROJECT_PATH environment variable (legacy)"
+            # Default to current directory if neither is set
             else:
                 project_path = os.getcwd()
                 source = "current directory"
@@ -423,12 +357,21 @@ async def handle_call_tool(
                 raise ValueError(f"Unknown IDE: {ide}. Supported values are 'cursor', 'windsurf', 'cline', or 'copilot'")
         
         elif name == "initialize-rules":
-            # Get project path from environment variable or use current directory
-            project_path = os.environ.get("PROJECT_PATH")
+            # Get project path from environment variables or use current directory
+            # First check AGILE_FLOW_PROJECT_PATH (preferred)
+            agile_flow_project_path = os.environ.get("AGILE_FLOW_PROJECT_PATH")
+            # Then check PROJECT_PATH for backward compatibility
+            project_path_env = os.environ.get("PROJECT_PATH")
             
-            # If environment variable is not set, use current directory
-            if project_path:
-                source = "environment variable"
+            # First check AGILE_FLOW_PROJECT_PATH
+            if agile_flow_project_path is not None and agile_flow_project_path.strip() != '':
+                project_path = agile_flow_project_path
+                source = "AGILE_FLOW_PROJECT_PATH environment variable"
+            # Then check PROJECT_PATH for backward compatibility
+            elif project_path_env is not None and project_path_env.strip() != '':
+                project_path = project_path_env
+                source = "PROJECT_PATH environment variable (legacy)"
+            # Default to current directory if neither is set
             else:
                 project_path = os.getcwd()
                 source = "current directory"
@@ -520,141 +463,178 @@ async def handle_call_tool(
             
             return [create_text_response(json.dumps(response_data, indent=2))]
             
-        elif name == "migrate-rules-to-windsurf":
-            # Get project path from environment variable or use current directory
-            project_path = os.environ.get("PROJECT_PATH")
-            
-            # If environment variable is not set, use current directory
-            if project_path:
-                source = "environment variable"
-            else:
-                project_path = os.getcwd()
-                source = "current directory"
-                
-            logger.info(f"Using project_path from {source}: {project_path}")
-            print(f"migrate-rules-to-windsurf using project_path from {source}: {project_path}")
-            
-            # Validate that the project path exists
-            if not os.path.exists(project_path):
-                raise ValueError(f"Project path does not exist: {project_path}")
-                
-            specific_file = arguments.get("specific_file")
-            verbose = arguments.get("verbose", False)
-            no_truncate = arguments.get("no_truncate", False)
-            
-            result = migrate_cursor_to_windsurf(
-                project_path=project_path,
-                specific_file=specific_file,
-                verbose=verbose,
-                no_truncate=no_truncate
-            )
-            
-            if result["success"]:
-                response_text = f"Rules migration completed successfully.\n"
-                response_text += f"Files processed: {result['files_processed']}\n"
-                response_text += f"Character count: {result['character_count']}\n"
-                
-                if result.get("truncated"):
-                    response_text += "NOTE: Content was truncated to fit within the 6000 character limit.\n"
-                
-                response_text += f"Output file: {result.get('message', '')}"
-            else:
-                response_text = f"Rules migration failed: {result.get('error', 'Unknown error')}"
-            
-            return [create_text_response(response_text)]
-            
-        elif name == "add-note":
-            if not arguments or "name" not in arguments or "content" not in arguments:
-                raise ValueError("Missing required arguments: name and content")
-            
-            note_name = arguments["name"]
-            note_content = arguments["content"]
-            
-            # Store the note
-            notes[note_name] = note_content
-            
-            return [create_text_response(f"Note '{note_name}' added successfully")]
-            
         elif name == "get-project-settings":
-            logger.info("Getting project settings")
+            logger.info("Getting project settings (defaults to user's home directory)")
             
-            # Get the PROJECT_PATH environment variable
-            project_path_env = os.environ.get("PROJECT_PATH")
+            # Use the common utility function to get project settings
+            response_data = get_project_settings()
             
-            # Determine if the project path was manually set
-            is_manually_set = project_path_env is not None
-            
-            # If PROJECT_PATH is not set, use the current working directory
-            project_path = project_path_env if is_manually_set else os.getcwd()
-            
-            # Get current working directory
-            current_directory = os.getcwd()
-            
-            # Define knowledge graph directory (primarily ai-kngr, with fallbacks)
-            knowledge_graph_dir = os.path.join(project_path, "ai-kngr")
-            if not os.path.exists(knowledge_graph_dir):
-                # Check fallback directories
-                for fallback in [".kg", ".knowledge"]:
-                    fallback_dir = os.path.join(project_path, fallback)
-                    if os.path.exists(fallback_dir):
-                        knowledge_graph_dir = fallback_dir
-                        break
-                else:  # No fallback found - append the proper suffix to project_path
-                    knowledge_graph_dir = os.path.join(project_path, "ai-kngr")
-            
-            # Define AI docs directory (primarily ai-docs, with fallbacks)
-            ai_docs_dir = os.path.join(project_path, "ai-docs")
-            if not os.path.exists(ai_docs_dir):
-                # Check fallback directories
-                for fallback in [".ai", ".docs", "docs"]:
-                    fallback_dir = os.path.join(project_path, fallback)
-                    if os.path.exists(fallback_dir):
-                        ai_docs_dir = fallback_dir
-                        break
-                else:  # No fallback found - append the proper suffix to project_path
-                    ai_docs_dir = os.path.join(project_path, "ai-docs")
-            
-            # Create response
-            response_data = {
-                "project_path": project_path,
-                "current_directory": current_directory,
-                "is_project_path_manually_set": is_manually_set,  # Renamed for clarity
-                "knowledge_graph_directory": knowledge_graph_dir,
-                "ai_docs_directory": ai_docs_dir
-            }
+            # Log the response for debugging
+            logger.info(f"Project settings response: {response_data}")
             
             return [create_text_response(json.dumps(response_data, indent=2))]
+        
+        # Handle memory graph tools
+        elif name in ["get_project_info", "get_mermaid_diagram", "update_mermaid_diagram", "update_markdown_with_mermaid", "create_entities", "create_relations", "add_observations", 
+                    "delete_entities", "delete_observations", "delete_relations",
+                    "read_graph", "search_nodes", "open_nodes"]:
+            # Check if memory_manager is initialized
+            if memory_manager is None:
+                return [create_text_response("Memory graph manager is not initialized yet. Please try again in a moment.", is_error=True)]
             
-        elif name == "get-project-path":
-            logger.info("Getting project paths (deprecated, use get-project-settings instead)")
-            
-            # Call get-project-settings and filter the response
-            settings_response = await handle_call_tool("get-project-settings", None)
-            settings_data = json.loads(settings_response[0].text)
-            
-            # Create response with only the project path fields
-            response_data = {
-                "project_path": settings_data["project_path"],
-                "current_directory": settings_data["current_directory"],
-                "is_manually_set": settings_data["is_project_path_manually_set"]  # Use the new field name
-            }
-            
-            return [create_text_response(json.dumps(response_data, indent=2))]
-            
-
-            
-        elif name == "debug-tools":
-            count = arguments.get("count", 5)
-            
-            # Get the most recent invocations
-            recent = tool_invocations[-count:] if tool_invocations else []
-            
-            # Format the response
-            response_text = f"Last {len(recent)} tool invocations:\n\n"
-            for invocation in recent:
-                response_text += json.dumps(invocation, indent=2) + "\n\n"
-            
-            return [create_text_response(response_text)]
+            if name == "get_project_info":
+                project_info = memory_manager.get_project_info()
+                md_path = memory_manager.graph_path.replace(".json", ".md")
+                md_exists = os.path.exists(md_path)
+                
+                response = {
+                    "project_type": project_info["project_type"],
+                    "project_metadata": project_info["project_metadata"],
+                    "graph_path": memory_manager.graph_path,
+                    "markdown_path": md_path,
+                    "markdown_exists": md_exists,
+                    "entity_count": len(memory_manager.graph.entities),
+                    "relation_count": len(memory_manager.graph.relations)
+                }
+                
+                return [create_text_response(json.dumps(response, indent=2))]
+                
+            elif name in ["get_mermaid_diagram", "update_mermaid_diagram", "update_markdown_with_mermaid"]:
+                # Generate and save the Markdown file with embedded Mermaid diagram
+                mermaid_content = memory_manager.update_markdown_with_mermaid()
+                md_path = memory_manager.graph_path.replace(".json", ".md")
+                
+                # Create a descriptive status message
+                if os.path.exists(md_path):
+                    save_status = f"Markdown file with embedded Mermaid diagram saved to {md_path}"
+                else:
+                    save_status = f"Warning: Failed to save Markdown file with embedded Mermaid diagram to {md_path}"
+                
+                response = {
+                    "markdown_content": mermaid_content,
+                    "markdown_path": md_path,
+                    "entity_count": len(memory_manager.graph.entities),
+                    "relation_count": len(memory_manager.graph.relations),
+                    "save_status": save_status
+                }
+                
+                # Return both the Markdown content and the save status
+                return [create_text_response(f"{mermaid_content}\n\n{save_status}")]
+                
+            elif name == "create_entities":
+                try:
+                    if "entities" not in arguments:
+                        return [create_text_response("Error: Missing 'entities' field in arguments", is_error=True)]
+                    
+                    entities_arg = arguments["entities"]
+                    if not isinstance(entities_arg, list):
+                        return [create_text_response("Error: 'entities' must be a list", is_error=True)]
+                    
+                    # Validate each entity in the list
+                    for i, entity in enumerate(entities_arg):
+                        if not isinstance(entity, dict):
+                            return [create_text_response(f"Error: Entity at index {i} is not a valid object", is_error=True)]
+                        
+                        if "name" not in entity:
+                            return [create_text_response(f"Error: Entity at index {i} is missing required 'name' field", is_error=True)]
+                        
+                        if "entityType" not in entity:
+                            return [create_text_response(f"Error: Entity at index {i} is missing required 'entityType' field", is_error=True)]
+                        
+                        if "observations" in entity and not isinstance(entity["observations"], list):
+                            return [create_text_response(f"Error: 'observations' for entity '{entity['name']}' must be a list", is_error=True)]
+                    
+                    # If validation passes, create the entities
+                    entities = memory_manager.create_entities(entities_arg)
+                    return [create_text_response(f"{len(entities)} entities created successfully")]
+                except Exception as e:
+                    logger.error(f"Error creating entities: {str(e)}")
+                    return [create_text_response(f"Error creating entities: {str(e)}", is_error=True)]
+                
+            elif name == "create_relations":
+                try:
+                    if "relations" not in arguments:
+                        return [create_text_response("Error: Missing 'relations' field in arguments", is_error=True)]
+                    
+                    relations_arg = arguments["relations"]
+                    if not isinstance(relations_arg, list):
+                        return [create_text_response("Error: 'relations' must be a list", is_error=True)]
+                    
+                    # Validate each relation in the list
+                    for i, relation in enumerate(relations_arg):
+                        if not isinstance(relation, dict):
+                            return [create_text_response(f"Error: Relation at index {i} is not a valid object", is_error=True)]
+                        
+                        if "from" not in relation:
+                            return [create_text_response(f"Error: Relation at index {i} is missing required 'from' field", is_error=True)]
+                        
+                        if "to" not in relation:
+                            return [create_text_response(f"Error: Relation at index {i} is missing required 'to' field", is_error=True)]
+                        
+                        if "relationType" not in relation:
+                            return [create_text_response(f"Error: Relation at index {i} is missing required 'relationType' field", is_error=True)]
+                    
+                    # If validation passes, create the relations
+                    relations = memory_manager.create_relations(relations_arg)
+                    return [create_text_response(f"{len(relations)} relations created successfully")]
+                except Exception as e:
+                    logger.error(f"Error creating relations: {str(e)}")
+                    return [create_text_response(f"Error creating relations: {str(e)}", is_error=True)]
+                
+            elif name == "add_observations":
+                try:
+                    if "observations" not in arguments:
+                        return [create_text_response("Error: Missing 'observations' field in arguments", is_error=True)]
+                    
+                    observations_arg = arguments["observations"]
+                    if not isinstance(observations_arg, list):
+                        return [create_text_response("Error: 'observations' must be a list", is_error=True)]
+                    
+                    # Validate each observation in the list
+                    for i, observation in enumerate(observations_arg):
+                        if not isinstance(observation, dict):
+                            return [create_text_response(f"Error: Observation at index {i} is not a valid object", is_error=True)]
+                        
+                        if "entityName" not in observation:
+                            return [create_text_response(f"Error: Observation at index {i} is missing required 'entityName' field", is_error=True)]
+                        
+                        if "contents" not in observation:
+                            return [create_text_response(f"Error: Observation at index {i} is missing required 'contents' field", is_error=True)]
+                        
+                        if not isinstance(observation["contents"], list):
+                            return [create_text_response(f"Error: 'contents' for entity '{observation['entityName']}' must be a list", is_error=True)]
+                    
+                    # If validation passes, add the observations
+                    results = memory_manager.add_observations(observations_arg)
+                    total_observations = sum(len(r["addedObservations"]) for r in results)
+                    return [create_text_response(f"{total_observations} observations added to {len(results)} entities")]
+                except Exception as e:
+                    logger.error(f"Error adding observations: {str(e)}")
+                    return [create_text_response(f"Error adding observations: {str(e)}", is_error=True)]
+                
+            elif name == "delete_entities":
+                graph = memory_manager.delete_entities(arguments["entityNames"])
+                return [create_text_response(f"Entities deleted. Graph now has {len(graph.entities)} entities and {len(graph.relations)} relations")]
+                
+            elif name == "delete_observations":
+                graph = memory_manager.delete_observations(arguments["deletions"])
+                return [create_text_response(f"Observations deleted. Graph updated with {len(graph.entities)} entities")]
+                
+            elif name == "delete_relations":
+                graph = memory_manager.delete_relations(arguments["relations"])
+                return [create_text_response(f"Relations deleted. Graph now has {len(graph.relations)} relations")]
+                
+            elif name == "read_graph":
+                graph = memory_manager.read_graph()
+                return [create_text_response(f"Graph contains {len(graph.entities)} entities and {len(graph.relations)} relations")]
+                
+            elif name == "search_nodes":
+                result_graph = memory_manager.search_nodes(arguments["query"])
+                return [create_text_response(f"Found {len(result_graph.entities)} entities and {len(result_graph.relations)} relations matching query")]
+                
+            elif name == "open_nodes":
+                result_graph = memory_manager.open_nodes(arguments["names"])
+                return [create_text_response(f"Opened {len(result_graph.entities)} entities with {len(result_graph.relations)} relations")]
             
         else:
             raise ValueError(f"Unknown tool: {name}")
@@ -662,9 +642,6 @@ async def handle_call_tool(
     except Exception as e:
         logger.error(f"Error in tool call: {str(e)}")
         return [create_text_response(str(e), is_error=True)]
-    finally:
-        # Log the tool invocation for debugging
-        log_tool_invocation(name, arguments, None)
 
 async def run_server():
     """
@@ -673,8 +650,21 @@ async def run_server():
     This sets up the MCP server to communicate over stdin/stdout,
     which allows it to be used with the MCP protocol directly.
     """
+    global memory_tools, memory_manager
+    
     logger.info("Starting Simple server (stdin/stdout mode)")
     print("Starting MCP Agile Flow Simple server...", file=sys.stderr)
+    
+    # Initialize memory graph tools and manager
+    try:
+        # Register memory tools with the MCP server
+        memory_tools, memory_manager = register_memory_tools(mcp)
+        logger.info(f"Initialized memory graph manager with path: {memory_manager.graph_path}")
+        print(f"Initialized memory graph manager with path: {memory_manager.graph_path}", file=sys.stderr)
+    except Exception as e:
+        logger.error(f"Error initializing memory graph manager: {e}")
+        print(f"Error initializing memory graph manager: {e}", file=sys.stderr)
+        # Continue without memory graph functionality
     
     async with stdio.stdio_server() as (read_stream, write_stream):
         await mcp.run(

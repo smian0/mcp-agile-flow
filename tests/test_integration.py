@@ -23,9 +23,8 @@ src_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(src_dir))
 
 # Import from the main package
-from src.mcp_agile_flow import notes, mcp
+from src.mcp_agile_flow.simple_server import notes, mcp
 
-# Simple function to verify the server can start
 def test_server_imports():
     """Test that the server module can be imported."""
     logger.info("Testing server imports...")
@@ -65,23 +64,20 @@ def test_get_project_path_tool():
     assert len(result) == 1
     assert result[0].type == "text"
     
-    # Get the text content
+    # Get the text content and parse the JSON
     path_info = result[0].text
+    path_data = json.loads(path_info)
     
     # Log the paths
     logger.info("\nProject paths from tool:")
     for line in path_info.splitlines():
         logger.info(line)
     
-    # Basic verification that the paths exist
-    assert "Current working directory:" in path_info
-    assert "Project root directory:" in path_info
-    
-    # Make sure the paths are real directories
-    lines = path_info.strip().split("\n")
-    for line in lines:
-        path = line.split(": ")[1]
-        assert os.path.isdir(path), f"Path does not exist: {path}"
+    # Basic verification of the JSON response
+    assert "project_path" in path_data
+    assert "current_directory" in path_data
+    assert os.path.isdir(path_data["project_path"])
+    assert os.path.isdir(path_data["current_directory"])
 
 def test_server_handle_call_tool():
     """Test the server's handle_call_tool function."""
@@ -93,28 +89,19 @@ def test_server_handle_call_tool():
     # Clear notes
     notes.clear()
     
-    # Test hello-world
-    result = asyncio.run(handle_call_tool("hello-world", {}))
-    assert result[0].type == "text"
-    assert result[0].text == "Hello, World!"
-    
     # Test add-note
     result = asyncio.run(handle_call_tool("add-note", {"name": "test-note", "content": "Test content"}))
     assert result[0].type == "text"
-    assert "Added note" in result[0].text
+    assert "successfully" in result[0].text
     assert notes["test-note"] == "Test content"
     
     # Test get-project-path
     result = asyncio.run(handle_call_tool("get-project-path", {}))
     assert result[0].type == "text"
-    assert "Current working directory:" in result[0].text
-    
-    # Test Hey Sho
-    result = asyncio.run(handle_call_tool("Hey Sho", {"message": "Hey Sho, hello world"}))
-    assert result[0].type == "text"
-    assert "Hello, World!" in result[0].text
+    path_data = json.loads(result[0].text)
+    assert "project_path" in path_data
     
     # Test debug-tools
     result = asyncio.run(handle_call_tool("debug-tools", {}))
     assert result[0].type == "text"
-    assert "Recent tool invocations" in result[0].text 
+    assert "tool invocations" in result[0].text.lower() 

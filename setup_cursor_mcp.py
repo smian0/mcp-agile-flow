@@ -34,19 +34,8 @@ def main():
             "autoApprove": [
                 "hello-world",
                 "add-note",
-                "get-project-path"
-            ],
-            "disabled": False
-        },
-        "mcp-agile-flow-simple": {
-            "command": python_path,
-            "args": [
-                str(project_root / "simple_server.py")
-            ],
-            "autoApprove": [
-                "hello-world",
-                "add-note",
                 "get-project-path",
+                "get-project-settings",
                 "Hey Sho",
                 "debug-tools"
             ],

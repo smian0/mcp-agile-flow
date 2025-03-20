@@ -3,7 +3,7 @@
 A simple MCP server implementation for managing agile workflow rules and templates.
 
 ### Available Server
-- `simple_server.py`: MCP server implementation with agile workflow capabilities
+- `run_mcp_server.py`: Consolidated MCP server implementation with agile workflow capabilities
 
 ### Available Tools Reference
 
