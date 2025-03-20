@@ -41,6 +41,7 @@ A simple MCP server implementation for managing agile workflow rules and templat
    ```
    Returns: Safe project path or error requesting user input
    - If proposed path is writable, returns that path
+   - If proposed path is not provided, checks PROJECT_PATH environment variable
    - If current directory is not root, uses it as fallback for safety
    - If current directory is root, returns error requesting user to provide a specific path
    - Never allows operations in the root directory
@@ -81,7 +82,7 @@ A simple MCP server implementation for managing agile workflow rules and templat
      }
    }
    ```
-   Returns: Current project paths
+   Returns: Current project paths, including the active project directory (from PROJECT_PATH environment variable or fallback to user's home directory)
 
 7. **debug-tools**
    ```json

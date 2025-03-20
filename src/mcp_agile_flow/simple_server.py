@@ -85,45 +85,27 @@ def get_safe_project_path(arguments: Optional[dict] = None) -> Tuple[str, str]:
         else:
             path = os.path.abspath(raw_path)
             source = "arguments parameter"
-    # Then check AGILE_FLOW_PROJECT_PATH (preferred)
+    # Then check PROJECT_PATH environment variable
     else:
-        agile_flow_project_path = os.environ.get("AGILE_FLOW_PROJECT_PATH")
-        # Then check PROJECT_PATH for backward compatibility
         project_path_env = os.environ.get("PROJECT_PATH")
         
-        # First check AGILE_FLOW_PROJECT_PATH
-        if agile_flow_project_path is not None and agile_flow_project_path.strip() != '':
-            # Check if the environment variable points to root
-            if agile_flow_project_path.strip() == '/' or agile_flow_project_path.strip() == '\\':
-                # If env var points to root, check if current dir is root
-                current_dir = os.getcwd()
-                if current_dir == '/':
-                    # Both env var and current dir are root - need user input
-                    raise ValueError("Environment variable points to root directory and current directory is also root. Please provide a specific project path.")
-                else:
-                    # Use current dir as fallback
-                    path = current_dir
-                    source = "current directory (env var was root path)"
-            else:
-                path = os.path.abspath(agile_flow_project_path)
-                source = "AGILE_FLOW_PROJECT_PATH environment variable"
-        # Then check PROJECT_PATH for backward compatibility
-        elif project_path_env is not None and project_path_env.strip() != '':
+        # Check if PROJECT_PATH is set
+        if project_path_env is not None and project_path_env.strip() != '':
             # Check if the environment variable points to root
             if project_path_env.strip() == '/' or project_path_env.strip() == '\\':
                 # If env var points to root, check if current dir is root
                 current_dir = os.getcwd()
                 if current_dir == '/':
                     # Both env var and current dir are root - need user input
-                    raise ValueError("Environment variable points to root directory and current directory is also root. Please provide a specific project path.")
+                    raise ValueError("Environment variable PROJECT_PATH points to root directory and current directory is also root. Please provide a specific project path.")
                 else:
                     # Use current dir as fallback
                     path = current_dir
                     source = "current directory (env var was root path)"
             else:
                 path = os.path.abspath(project_path_env)
-                source = "PROJECT_PATH environment variable (legacy)"
-        # Default to current directory if neither is set
+                source = "PROJECT_PATH environment variable"
+        # Default to current directory if not set
         else:
             current_dir = os.getcwd()
             # Check if current directory is root
@@ -186,7 +168,7 @@ async def handle_list_tools() -> list[types.Tool]:
     tools = [
         types.Tool(
             name="initialize-ide-rules",
-            description="Initialize a project with rules for a specific IDE. The project path will default to the AGILE_FLOW_PROJECT_PATH environment variable if set, falling back to PROJECT_PATH, or the current directory if neither is set.",
+            description="Initialize a project with rules for a specific IDE. The project path will default to the PROJECT_PATH environment variable if set, or the current directory if not set.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -197,7 +179,7 @@ async def handle_list_tools() -> list[types.Tool]:
                     },
                     "project_path": {
                         "type": "string",
-                        "description": "Custom project path to use (optional). If not provided, will use environment variables or current directory."
+                        "description": "Custom project path to use (optional). If not provided, will use PROJECT_PATH environment variable or current directory."
                     }
                 },
                 "required": ["ide"],
@@ -205,13 +187,13 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="initialize-rules",
-            description="Initialize Cursor rules for the project (for backward compatibility, use initialize-ide-rules for other IDEs). The project path will default to the AGILE_FLOW_PROJECT_PATH environment variable if set, falling back to PROJECT_PATH, or the current directory if neither is set.",
+            description="Initialize Cursor rules for the project (for backward compatibility, use initialize-ide-rules for other IDEs). The project path will default to the PROJECT_PATH environment variable if set, or the current directory if not set.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "project_path": {
                         "type": "string",
-                        "description": "Custom project path to use (optional). If not provided, will use environment variables or current directory."
+                        "description": "Custom project path to use (optional). If not provided, will use PROJECT_PATH environment variable or current directory."
                     }
                 },
                 "required": [],
@@ -219,7 +201,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get-project-settings",
-            description="Returns comprehensive project settings including project path (defaults to user's home directory), knowledge graph directory, AI docs directory, and other agile flow configuration. Use this to understand your project's structure and agile workflow settings. The project path will default to the user's home directory if AGILE_FLOW_PROJECT_PATH or PROJECT_PATH environment variable is not set. AGILE_FLOW_PROJECT_PATH takes precedence over PROJECT_PATH if both are set.",
+            description="Returns comprehensive project settings including project path (defaults to user's home directory), knowledge graph directory, AI docs directory, and other agile flow configuration. Use this to understand your project's structure and agile workflow settings. The project path will default to the user's home directory if PROJECT_PATH environment variable is not set.",
             inputSchema={
                 "type": "object",
                 "properties": {},

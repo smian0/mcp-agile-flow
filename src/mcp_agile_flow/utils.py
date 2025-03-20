@@ -17,7 +17,7 @@ def get_project_settings() -> Dict[str, Any]:
         Dict with the following keys:
             - project_path: The project path (defaults to user's home directory if not set)
             - current_directory: The current working directory
-            - is_project_path_manually_set: Whether AGILE_FLOW_PROJECT_PATH or PROJECT_PATH was set manually
+            - is_project_path_manually_set: Whether PROJECT_PATH was set manually
             - knowledge_graph_directory: Path to the knowledge graph directory
             - ai_docs_directory: Path to the AI docs directory
     """
@@ -32,29 +32,20 @@ def get_project_settings() -> Dict[str, Any]:
     home_directory = os.path.expanduser("~")
     logger.info(f"User's home directory: {home_directory}")
     
-    # Get the AGILE_FLOW_PROJECT_PATH environment variable (preferred)
-    agile_flow_project_path = os.environ.get("AGILE_FLOW_PROJECT_PATH")
-    logger.info(f"AGILE_FLOW_PROJECT_PATH environment variable: {agile_flow_project_path}")
-    
-    # Get the PROJECT_PATH environment variable (for backward compatibility)
+    # Get the PROJECT_PATH environment variable
     project_path_env = os.environ.get("PROJECT_PATH")
     logger.info(f"PROJECT_PATH environment variable: {project_path_env}")
     
-    # Determine if the project path was manually set (check new variable first, then fallback)
+    # Determine if the project path was manually set
     is_manually_set = False
     project_path = None
     
-    # First check AGILE_FLOW_PROJECT_PATH
-    if agile_flow_project_path is not None and agile_flow_project_path.strip() != '':
-        is_manually_set = True
-        project_path = agile_flow_project_path
-        logger.info(f"Using AGILE_FLOW_PROJECT_PATH environment variable: {project_path}")
-    # Then check PROJECT_PATH for backward compatibility
-    elif project_path_env is not None and project_path_env.strip() != '':
+    # Check PROJECT_PATH
+    if project_path_env is not None and project_path_env.strip() != '':
         is_manually_set = True
         project_path = project_path_env
-        logger.info(f"Using PROJECT_PATH environment variable (legacy): {project_path}")
-    # Default to home directory if neither is set
+        logger.info(f"Using PROJECT_PATH environment variable: {project_path}")
+    # Default to home directory if not set
     else:
         project_path = home_directory
         logger.info(f"Using user's home directory as project_path: {project_path}")

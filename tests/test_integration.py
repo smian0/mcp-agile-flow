@@ -216,7 +216,7 @@ def test_initialize_ide_rules_with_env_root_path(monkeypatch):
     from src.mcp_agile_flow.simple_server import handle_call_tool
     
     # Set environment variable to root
-    monkeypatch.setenv("AGILE_FLOW_PROJECT_PATH", "/")
+    monkeypatch.setenv("PROJECT_PATH", "/")
     
     # Call initialize-ide-rules without a project_path (should use environment variable which points to root)
     result = asyncio.run(handle_call_tool("initialize-ide-rules", {
