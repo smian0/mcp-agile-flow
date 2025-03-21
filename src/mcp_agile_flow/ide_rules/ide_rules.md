@@ -1,5 +1,5 @@
 <!-- 
-description: Generic IDE Rules Template - Master file containing all rules for IDE integration
+description: IDE Rules Template - Master file containing all rules for IDE integration
 version: 1.0.0
 created_at: 2023-09-15
 updated_at: 2023-03-20
@@ -7,50 +7,52 @@ updated_at: 2023-03-20
 
 # IDE Rules
 
-This file contains all rules for IDE integration, organized by rule type and priority. It's designed to be used by multiple IDEs including Windsurf, Cline, and Copilot.
+This file contains all rules for IDE integration, organized by rule type and priority.
 
 ## Document Generation Process
 
 ### Context
 - When creating or updating project documentation
 - When generating structured documents from templates
-- When implementing cross-IDE document standards
+- When implementing document standards
 
 ### Requirements
 - Use the shared .ai-templates directory for all document templates
 - Output all generated documents to the ai-docs directory
-- Maintain consistent structure across all IDEs
-- Use identical document generation process regardless of IDE
+- Maintain consistent structure
 - Follow the standard template formats and document hierarchy
 
 ### Document Flow
-1. **Templates Source**: All document templates are stored in the IDE-agnostic `.ai-templates` directory
+1. **Templates Source**: All document templates are stored in the `.ai-templates` directory
 2. **Output Location**: All AI-produced documents are stored in the `ai-docs` directory
-3. **Cross-IDE Consistency**: The exact same document generation process is used across all IDEs
-4. **Available Templates**:
+3. **Available Templates**:
    - `template-brd.md`: Business Requirements Document template
    - `template-prd.md`: Product Requirements Document template
    - `template-arch.md`: Architecture Document template
    - `template-story.md`: User Story template
-5. **Document Structure**: Follow the hierarchical structure defined below for all generated documents
+   - `template-epic-summary.md`: Epic Summary template
+4. **Document Structure**: Follow the hierarchical structure defined below for all generated documents
 
 ### Directory Structure
 ```
-.ai-templates/                 # Source templates directory (not visible to user)
-├── template-brd.md           # BRD template
-├── template-prd.md           # PRD template
-├── template-arch.md          # Architecture template
-└── template-story.md         # Story template
+.ai-templates/               # Templates directory
+├── template-brd.md          # BRD template
+├── template-prd.md          # PRD template
+├── template-arch.md         # Architecture template
+├── template-story.md        # Story template
+└── template-epic-summary.md # Epic Summary template
 
-ai-docs/                      # Output documents directory (visible to user)
-├── brd.md                    # Business Requirements Document
-├── prd.md                    # Product Requirements Document
-├── arch.md                   # Architecture Document
-├── epic-1-user-auth/         # Epic directory with descriptive suffix
-│   ├── story-1-login-flow.md   # Story files with descriptive suffixes
+ai-docs/                     # Documents directory
+├── brd.md                   # Business Requirements Document
+├── prd.md                   # Product Requirements Document
+├── arch.md                  # Architecture Document
+├── epic-1-user-auth/        # Epic directory with descriptive suffix
+│   ├── epic-summary.md      # Epic Summary file
+│   ├── story-1-login-flow.md # Story files with descriptive suffixes
 │   ├── story-2-signup-form.md
 │   └── ...
-├── epic-2-task-core/         # Another epic with descriptive suffix
+├── epic-2-task-core/        # Another epic with descriptive suffix
+│   ├── epic-summary.md      # Epic Summary file
 │   └── ...
 └── ...
 ```
@@ -75,10 +77,24 @@ ai-docs/                      # Output documents directory (visible to user)
 - "Initialize architecture for {project}"
 - "Generate technical architecture for {project}"
 
+#### Epic Summary Commands
+- "Create epic summary for Epic-{N}-{epic-suffix}"
+- "Initialize epic summary for Epic-{N}-{epic-suffix} with title {epic-title}"
+- "Generate epic overview for Epic-{N}-{epic-suffix}"
+
 #### Story Commands
 - "Create a story for Epic-{N}-{epic-suffix}"
 - "Add story to Epic-{N}-{epic-suffix}: {story-title} with suffix {story-suffix}"
 - "Generate user story for {epic-name} with suffix {story-suffix}"
+
+#### Epic Summary Updates
+- "Update epic summary status to {status} for Epic-{N}-{epic-suffix}"
+- "Add objective {objective} to Epic-{N}-{epic-suffix}"
+- "Update epic description for Epic-{N}-{epic-suffix}: {description}"
+- "Refresh stories list for Epic-{N}-{epic-suffix}"
+- "Add technical consideration {consideration} to Epic-{N}-{epic-suffix}"
+- "Set acceptance criteria for Epic-{N}-{epic-suffix}: {criteria}"
+- "Add dependency {dependency} to Epic-{N}-{epic-suffix}"
 
 #### Git Workflow Commands
 - "How do I format a Git commit message?"
@@ -97,6 +113,29 @@ AI Action:
 3. Create `prd.md` file in `ai-docs` directory using the template
 4. Add project-specific details
 5. Confirm creation with: "Created Product Requirements Document for TaskMaster App in `ai-docs/prd.md`"
+
+User: "Create epic summary for Epic-1-user-auth with title User Authentication System"
+
+AI Action:
+1. Identify template to use: `.ai-templates/template-epic-summary.md`
+2. Verify that the epic directory exists: `ai-docs/epic-1-user-auth`
+3. Create `epic-summary.md` file in `ai-docs/epic-1-user-auth` directory using the template
+4. Replace placeholders with provided information:
+   - {N} → 1
+   - {epic-title} → User Authentication System
+   - {status} → Planning (default)
+   - Other placeholders with default values
+5. Confirm creation with: "Created Epic Summary for Epic-1-user-auth in `ai-docs/epic-1-user-auth/epic-summary.md`"
+
+User: "Refresh stories list for Epic-1-user-auth"
+
+AI Action:
+1. Scan the `ai-docs/epic-1-user-auth` directory for story files
+2. For each story file:
+   - Extract story title and status
+   - Create a link to the story file
+3. Update the Stories section in `epic-summary.md` with the formatted list
+4. Confirm update with: "Updated stories list in Epic Summary for Epic-1-user-auth"
 </example>
 
 <example>
@@ -118,16 +157,12 @@ Key changes:
 - Implement JWT token-based authentication
 - Add Google OAuth integration
 - Create login form components
-- Add authentication middleware
 
-Implements the core authentication system required for user accounts.
 Relates to #45
 ```
-5. Confirm with: "I've formatted your commit message following our Git standards. Feel free to modify the details before committing."
 </example>
 
 ### Critical Rules
-- Process must be identical across all supported IDEs (Cursor, Windsurf, Cline, Copilot)
 - Templates must always be sourced from the .ai-templates directory
 - Documents must always be created in the ai-docs directory
 - Templates must be applied consistently
@@ -135,6 +170,9 @@ Relates to #45
 - Status progression must be enforced
 - File naming must follow the established conventions
 - Always confirm successful command execution
+- When creating a new epic, automatically create an epic summary file
+- When creating/updating stories, refresh the epic summary's stories list
+- Epic summaries must accurately reflect the current state of all stories
 
 ## Document Standards
 
@@ -267,8 +305,10 @@ Relates to #45
    - Current state
    - Story justification
 5. **Estimation**:
-   - Story Points format: SP: {points}
-   - 1 SP = 1 day of Human Development = 10 minutes of AI development
+   - Story Points: {story_points} (1 story_point = 1 day of Human Development is equal to 10 minutes of AI development)
+   - Implementation Time Estimates:
+     - Human Development: {story_points} days
+     - AI-Assisted Development: {story_points/60} days (~{story_points*10} minutes)
 6. **Tasks**:
    - Checkbox format: - [ ] for incomplete, - [x] for complete
    - Start with testing tasks (TDD approach)
@@ -350,10 +390,10 @@ function example(): void {
 }
 ```
 
-| Name  | Type   | Description  |
-|:------|:------:|-------------:|
-| id    | number | Primary key  |
-| name  | string | User's name  |
+| Name | Type | Description |
+|:-----|:----:|------------:|
+| id | number | Primary key |
+| name | string | User's name |
 
 > 💡 **Tip:** Helpful suggestion.
 ```
@@ -381,44 +421,34 @@ function withoutLanguageSpecified() {
 - Include clear titles for Mermaid diagrams using the `---` syntax
 - Keep table structure clean with proper alignment indicators
 - Format Mermaid diagrams with descriptive node labels and comments
-- Close XML tags on their own line at the parent indentation level 
+- Close XML tags on their own line at the parent indentation level
 
 ## Rule Implementation Guidelines
 
 ### Context
 - When implementing IDE-specific rule implementations
-- When creating or updating rule files for different IDEs
-- When ensuring cross-IDE compatibility of rules
+- When creating or updating rule files
+- When ensuring compatibility of rules
 
 ### Requirements
-- Maintain consistent rule implementation across all IDEs
+- Maintain consistent rule implementation 
 - Follow the rule format specific to each IDE
 - Ensure rules are applied in the correct context
-- Rules must produce identical results across all IDEs
-- Rules should be well-organized and easily maintainable
+- Rules must produce identical results
+- Rules should be well-organized
 
-### IDE-Specific Rule Implementation
-
-Each IDE may have a different way of implementing rules, but the core concepts and requirements should remain consistent:
-
-#### Cursor
-- Rules are implemented as separate `.md` files in the cursor_rules directory
-- Each rule file follows a specific naming convention (prefix-name.md)
-- Rules include YAML frontmatter with description, globs, and alwaysApply properties
-- Rules are organized by category (core, templates, documentation, etc.)
-
-#### Other IDEs (Windsurf, Cline, Copilot)
-- Rules are consolidated in this single file (ide_rules.md)
+#### Rule Implementation
+- Rules are consolidated in this single file
 - Rules are organized by sections with clear headings
 - Each rule section includes context, requirements, examples, and critical rules
-- The format is consistent with Cursor's rules, but consolidated for simplicity
+
 
 ### Critical Rules
-- All rule implementations must produce identical results across IDEs
-- Rule files must be properly formatted according to IDE-specific requirements
-- Rules must be regularly updated to maintain consistency
-- When a rule is updated in one IDE, it must be updated in all IDE implementations
-- Rule format must follow the documentation standards outlined in this file
+- All rule implementations must produce identical results
+- Rule files must be properly formatted
+- Rules must be regularly updated
+- When a rule is updated in one IDE, it must be updated in all implementations
+- Rule format must follow the documentation standards
 
 ## Build and Automation Standards
 
