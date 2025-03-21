@@ -31,7 +31,6 @@ Closes #issue_number (if applicable)
 ```
 
 ### Types
-
 - **feat**: A new feature
 - **fix**: A bug fix
 - **docs**: Documentation changes
