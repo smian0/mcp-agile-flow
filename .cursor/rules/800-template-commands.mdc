@@ -31,6 +31,7 @@ alwaysApply: true
    - `template-prd.md`: Product Requirements Document template
    - `template-arch.md`: Architecture Document template
    - `template-story.md`: User Story template
+   - `template-epic-summary.md`: Epic Summary template
 5. **Document Structure**: Follow the hierarchical structure defined below for all generated documents
 
 ## Command Processing
@@ -51,6 +52,11 @@ alwaysApply: true
 - "Create architecture document for {project}"
 - "Initialize architecture for {project}"
 - "Generate technical architecture for {project}"
+
+#### Epic Summary Commands
+- "Create epic summary for Epic-{N}-{epic-suffix}"
+- "Initialize epic summary for Epic-{N}-{epic-suffix} with title {epic-title}"
+- "Generate epic overview for Epic-{N}-{epic-suffix}"
 
 #### Story Commands
 - "Create a story for Epic-{N}-{epic-suffix}"
@@ -73,6 +79,15 @@ alwaysApply: true
 - "Mark task {task} as complete in story {story-id}"
 - "Add task {task} to story {story-id}"
 
+#### Epic Summary Updates
+- "Update epic summary status to {status} for Epic-{N}-{epic-suffix}"
+- "Add objective {objective} to Epic-{N}-{epic-suffix}"
+- "Update epic description for Epic-{N}-{epic-suffix}: {description}"
+- "Refresh stories list for Epic-{N}-{epic-suffix}"
+- "Add technical consideration {consideration} to Epic-{N}-{epic-suffix}"
+- "Set acceptance criteria for Epic-{N}-{epic-suffix}: {criteria}"
+- "Add dependency {dependency} to Epic-{N}-{epic-suffix}"
+
 ### Progress Tracking Commands
 
 #### Story Progress Updates
@@ -94,17 +109,20 @@ alwaysApply: true
 ├── template-brd.md           # BRD template
 ├── template-prd.md           # PRD template
 ├── template-arch.md          # Architecture template
-└── template-story.md         # Story template
+├── template-story.md         # Story template
+└── template-epic-summary.md  # Epic Summary template
 
 ai-docs/                      # Output documents directory (visible to user)
 ├── brd.md                    # Business Requirements Document
 ├── prd.md                    # Product Requirements Document
 ├── arch.md                   # Architecture Document
 ├── epic-1-user-auth/         # Epic directory with descriptive suffix
+│   ├── epic-summary.md         # Epic Summary file
 │   ├── story-1-login-flow.md   # Story files with descriptive suffixes
 │   ├── story-2-signup-form.md
 │   └── ...
 ├── epic-2-task-core/         # Another epic with descriptive suffix
+│   ├── epic-summary.md         # Epic Summary file
 │   └── ...
 └── ...
 ```
@@ -138,6 +156,29 @@ AI Action:
 4. Create `story-1-login-flow.md` file in `ai-docs/epic-1-user-auth` directory using the template
 5. Add story-specific details
 6. Confirm creation with: "Created Story-1-login-flow for Epic-1-user-auth: User Authentication in `ai-docs/epic-1-user-auth/story-1-login-flow.md`"
+
+User: "Create epic summary for Epic-1-user-auth with title User Authentication System"
+
+AI Action:
+1. Identify template to use: `.ai-templates/template-epic-summary.md`
+2. Verify that the epic directory exists: `ai-docs/epic-1-user-auth`
+3. Create `epic-summary.md` file in `ai-docs/epic-1-user-auth` directory using the template
+4. Replace placeholders with provided information:
+   - {N} → 1
+   - {epic-title} → User Authentication System
+   - {status} → Planning (default)
+   - Other placeholders with default values
+5. Confirm creation with: "Created Epic Summary for Epic-1-user-auth in `ai-docs/epic-1-user-auth/epic-summary.md`"
+
+User: "Refresh stories list for Epic-1-user-auth"
+
+AI Action:
+1. Scan the `ai-docs/epic-1-user-auth` directory for story files
+2. For each story file:
+   - Extract story title and status
+   - Create a link to the story file
+3. Update the Stories section in `epic-summary.md` with the formatted list
+4. Confirm update with: "Updated stories list in Epic Summary for Epic-1-user-auth"
 </example>
 
 <example type="invalid">
@@ -161,3 +202,6 @@ Creates a story file but doesn't link it to an epic or follow the proper format.
 - Status progression must be enforced
 - File naming must follow the established conventions
 - Always confirm successful command execution 
+- When creating a new epic, automatically create an epic summary file
+- When creating/updating stories, refresh the epic summary's stories list
+- Epic summaries must accurately reflect the current state of all stories 

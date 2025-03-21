@@ -49,8 +49,11 @@ alwaysApply: false
 - Relevant history from previous stories
 
 #### 5. Estimation
-- Story Points format: SP: {points}
-- 1 SP = 1 day of Human Development = 10 minutes of AI development
+**Story Points**: {story_points} (1 SP = 1 day of Human Development = 10 minutes of AI development)
+
+**Implementation Time Estimates**:
+- **Human Development**: {story_points} days
+- **AI-Assisted Development**: {story_points/60} days (~{story_points*10} minutes)
 
 #### 6. Tasks
 - Organized in task groups
