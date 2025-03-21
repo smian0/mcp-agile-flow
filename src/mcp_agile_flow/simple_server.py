@@ -32,13 +32,16 @@ from .memory_graph import register_memory_tools, KnowledgeGraphManager
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Initialize memory graph tools and manager after server starts
-# This will be done in the run_server function
+# Initialize MCP server globally so it can be imported by IDE plugins
+mcp = Server("agile-flow")  # Must match entry point name in pyproject.toml
+
+# Initialize memory graph tools and manager
+# These will be populated when run() is called
 memory_tools = []
 memory_manager = None
 
-# Create an MCP server
-mcp = Server("MCP Agile Flow - Simple")
+# Export the server instance for MCP plugins
+__mcp__ = mcp
 
 def create_text_response(text: str, is_error: bool = False) -> types.TextContent:
     """Helper function to create properly formatted TextContent responses."""
@@ -169,6 +172,38 @@ async def handle_list_tools() -> list[types.Tool]:
     # Start with the standard tools
     tools = [
         types.Tool(
+            name="migrate-mcp-config",
+            description="Migrate MCP configuration between different IDEs with smart merging and conflict resolution.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "from_ide": {
+                        "type": "string",
+                        "enum": ["cursor", "windsurf", "windsurf-next", "cline", "roo"],
+                        "description": "Source IDE to migrate configuration from"
+                    },
+                    "to_ide": {
+                        "type": "string",
+                        "enum": ["cursor", "windsurf", "windsurf-next", "cline", "roo"],
+                        "description": "Target IDE to migrate configuration to"
+                    },
+                    "backup": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "Whether to create backups before modifying files"
+                    },
+                    "conflict_resolutions": {
+                        "type": "object",
+                        "description": "Mapping of server names to resolution choices (true = use source, false = keep target)",
+                        "additionalProperties": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "required": ["from_ide", "to_ide"],
+            },
+        ),
+        types.Tool(
             name="initialize-ide",
             description="Initialize a project with rules for a specific IDE. The project path will default to the PROJECT_PATH environment variable if set, or the current directory if not set.",
             inputSchema={
@@ -269,7 +304,134 @@ async def handle_call_tool(
         return [create_text_response(f"Error: The tool '{name}' requires arguments, but none were provided.", is_error=True)]
     
     try:
-        if name == "initialize-ide":
+        if name == "migrate-mcp-config":
+            # Import the migration tool functions
+            from .migration_tool import (
+                migrate_config, 
+                merge_configurations,
+                get_ide_path,
+                create_backup
+            )
+            
+            # Validate required arguments
+            if not arguments or "from_ide" not in arguments or "to_ide" not in arguments:
+                return [create_text_response("Error: Both 'from_ide' and 'to_ide' arguments are required.", is_error=True)]
+            
+            # Get backup preference
+            backup = arguments.get("backup", True)
+            
+            # Check if we have conflict resolutions
+            has_resolutions = "conflict_resolutions" in arguments
+            
+            if has_resolutions:
+                # Perform migration with conflict resolutions
+                from_ide = arguments["from_ide"]
+                to_ide = arguments["to_ide"]
+                resolutions = arguments["conflict_resolutions"]
+                
+                # First check if these resolutions match actual conflicts
+                success, error, conflicts, conflict_details = migrate_config(from_ide, to_ide, backup)
+                
+                if not success and error:
+                    return [create_text_response(json.dumps({
+                        "success": False,
+                        "error": error
+                    }, indent=2), is_error=True)]
+                
+                # Verify all resolutions are for actual conflicts
+                invalid_resolutions = [server for server in resolutions if server not in conflicts]
+                if invalid_resolutions:
+                    return [create_text_response(json.dumps({
+                        "success": False,
+                        "error": f"Invalid conflict resolutions provided for servers: {invalid_resolutions}",
+                        "actual_conflicts": conflicts
+                    }, indent=2), is_error=True)]
+                
+                # Verify all conflicts have resolutions
+                missing_resolutions = [server for server in conflicts if server not in resolutions]
+                if missing_resolutions:
+                    return [create_text_response(json.dumps({
+                        "success": False,
+                        "error": f"Missing conflict resolutions for servers: {missing_resolutions}",
+                        "needs_resolution": True,
+                        "conflicts": conflicts,
+                        "conflict_details": conflict_details
+                    }, indent=2), is_error=True)]
+                
+                # All resolutions are valid, perform final merge with resolutions
+                source_path = get_ide_path(from_ide)
+                target_path = get_ide_path(to_ide)
+                
+                with open(source_path, 'r') as f:
+                    source_config = json.load(f)
+                with open(target_path, 'r') as f:
+                    target_config = json.load(f)
+                
+                merged_config = merge_configurations(source_config, target_config, resolutions)
+                
+                # Write the merged configuration
+                if backup:
+                    backup_path = create_backup(target_path)
+                
+                with open(target_path, 'w') as f:
+                    json.dump(merged_config, f, indent=2)
+                
+                return [create_text_response(json.dumps({
+                    "success": True,
+                    "message": f"Successfully migrated MCP configuration from {from_ide} to {to_ide} with conflict resolutions",
+                    "resolved_conflicts": list(resolutions.keys()),
+                    "source_path": source_path,
+                    "target_path": target_path
+                }, indent=2))]
+            
+            # No resolutions provided, perform initial migration call
+            success, error, conflicts, conflict_details = migrate_config(
+                arguments["from_ide"], 
+                arguments["to_ide"], 
+                backup
+            )
+            
+            # Handle errors
+            if not success and error:
+                return [create_text_response(json.dumps({
+                    "success": False,
+                    "error": error
+                }, indent=2), is_error=True)]
+            
+            # Handle conflicts
+            if conflicts:
+                # Get path information for source and target
+                source_path = get_ide_path(arguments["from_ide"])
+                target_path = get_ide_path(arguments["to_ide"])
+                
+                # Return response indicating conflicts that need resolution
+                return [create_text_response(json.dumps({
+                    "success": True,
+                    "needs_resolution": True,
+                    "conflicts": conflicts,
+                    "conflict_details": conflict_details,
+                    "source_path": source_path,
+                    "target_path": target_path,
+                    "message": "Conflicts detected. Please specify how to handle each conflicting server.",
+                    "example_resolution": {
+                        "from_ide": arguments["from_ide"],
+                        "to_ide": arguments["to_ide"],
+                        "conflict_resolutions": {
+                            conflict: True  # True = use source, False = keep target
+                            for conflict in conflicts
+                        }
+                    }
+                }, indent=2))]
+            
+            # Success with no conflicts
+            return [create_text_response(json.dumps({
+                "success": True,
+                "message": f"Successfully migrated MCP configuration from {arguments['from_ide']} to {arguments['to_ide']}",
+                "source_path": get_ide_path(arguments['from_ide']),
+                "target_path": get_ide_path(arguments['to_ide'])
+            }, indent=2))]
+            
+        elif name == "initialize-ide":
             # Get a safe project path using the utility function
             try:
                 project_path, is_root, source = get_safe_project_path(arguments)
@@ -1572,7 +1734,7 @@ async def run_server():
             read_stream,
             write_stream,
             initialization_options=InitializationOptions(
-                server_name="MCP Agile Flow - Simple",
+                server_name="agile-flow",
                 server_version="0.1.0",
                 capabilities=mcp.get_capabilities(
                     notification_options=NotificationOptions(),
@@ -1586,4 +1748,4 @@ def run():
     asyncio.run(run_server())
 
 if __name__ == "__main__":
-    run() 
+    run()

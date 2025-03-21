@@ -25,7 +25,7 @@ def main():
         python_path = str(venv_path)
     
     # Create the MCP configuration
-    mcp_config = {
+    mcp_server_config = {
         "mcp-agile-flow": {
             "command": python_path,
             "args": [
@@ -52,12 +52,16 @@ def main():
     mcp_file = cursor_dir / "mcp.json"
     
     # Load existing config if any
-    existing_config = {}
+    existing_config = {"mcpServers": {}}
     if mcp_file.exists():
         try:
             with open(mcp_file, "r") as f:
                 existing_config = json.load(f)
             
+            # Ensure mcpServers key exists
+            if "mcpServers" not in existing_config:
+                existing_config["mcpServers"] = {}
+                
             # Back up the existing file
             backup_file = mcp_file.with_suffix(".json.bak")
             shutil.copy2(mcp_file, backup_file)
@@ -65,27 +69,22 @@ def main():
         except Exception as e:
             print(f"Error reading existing config: {e}")
             print("Creating a new configuration file")
+            existing_config = {"mcpServers": {}}
     
     # Update the config with our new servers
-    if existing_config:
-        existing_config.update(mcp_config)
-    else:
-        existing_config = mcp_config
+    existing_config["mcpServers"].update(mcp_server_config)
     
     # Write the updated config
     with open(mcp_file, "w") as f:
         json.dump(existing_config, f, indent=2)
     
     print(f"Updated Cursor MCP configuration at {mcp_file}")
-    print(f"MCP servers registered: mcp-agile-flow, mcp-agile-flow-simple")
-    print("\nYou can now use these MCP servers in Cursor.\n")
-    print("For standard MCP server:")
+    print(f"MCP server registered: mcp-agile-flow")
+    print("\nYou can now use the MCP server in Cursor.\n")
+    print("For MCP Agile Flow server:")
     print("  - Command will run: " + python_path)
     print("  - Arguments: " + str(project_root / "run_mcp_server.py"))
-    print("\nFor Simple server with 'Hey Sho' tool:")
-    print("  - Command will run: " + python_path)
-    print("  - Arguments: " + str(project_root / "simple_server.py"))
-    print("\nTest the Simple server with these MCP tool calls:")
+    print("\nTest the server with these MCP tool calls:")
     print('  {"name": "Hey Sho", "arguments": {"message": "Hey Sho, get project path"}}')
     print('  {"name": "debug-tools", "arguments": {}}')
 

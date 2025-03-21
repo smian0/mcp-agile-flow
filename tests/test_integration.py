@@ -459,3 +459,9 @@ def test_get_safe_project_path_tool():
     finally:
         # Restore original getcwd
         os.getcwd = original_getcwd 
+
+# === Tests for MCP Config Migration have been moved to test_mcp_config_migration.py ===
+# The following tests were moved:
+# - test_migrate_mcp_config_with_conflicts
+# - test_migrate_mcp_config_resolve_conflicts
+# - test_migrate_mcp_config_invalid_resolutions 

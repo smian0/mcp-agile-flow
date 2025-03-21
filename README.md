@@ -1,34 +1,99 @@
 # MCP Agile Flow
 
-A simple MCP server implementation for managing agile workflow rules and templates.
+A Model Context Protocol (MCP) server that enhances agile workflows with knowledge graph capabilities and project management tools.
 
-### Available Server
-- `run_mcp_server.py`: Consolidated MCP server implementation with agile workflow capabilities
+## Getting Started
 
-### Available Tools Reference
+### Prerequisites
+- Python 3.10+
+- uv (Python package manager)
+- Cursor IDE
 
-1. **initialize-ide-rules**
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/mcp-agile-flow.git
+   cd mcp-agile-flow
+   ```
+
+2. Create a virtual environment and install dependencies:
+   ```bash
+   uv venv .venv
+   uv pip install -e .
+   ```
+
+3. Set up the MCP server in Cursor:
+   ```bash
+   python setup_cursor_mcp.py
+   ```
+
+4. Alternatively, manually configure the MCP server in your `~/.cursor/mcp.json` file:
    ```json
    {
-     "name": "initialize-ide-rules",
-     "arguments": {
-       "ide": "cursor",
-       "project_path": "/path/to/project"
+     "mcpServers": {
+       "mcp-agile-flow": {
+         "command": "/path/to/mcp-agile-flow/.venv/bin/python",
+         "args": [
+           "-m",
+           "mcp_agile_flow.simple_server"
+         ],
+         "disabled": false,
+         "autoApprove": [
+           "initialize-ide-rules",
+           "initialize-rules",
+           "get-project-path",
+           "get-project-settings",
+           "create_entities",
+           "create_relations",
+           "read_graph",
+           "debug-tools",
+           "get_mermaid_diagram",
+           "add_observations",
+           "delete_entities",
+           "get-safe-project-path",
+           "initialize-ide"
+         ],
+         "timeout": 30
+       }
      }
    }
    ```
-   Returns: Success status and details about initialized files
 
-2. **initialize-rules**
+## Using the MCP Server
+
+After installation, you can use the MCP tools directly in Cursor through Claude or other supporting AI assistants.
+
+### Key Features
+
+- **Knowledge Graph Management**: Create, track, and visualize project entities and relationships
+- **IDE Rules Integration**: Initialize and manage AI rules across different IDEs
+- **Project Context Management**: Track project paths, settings, and documentation
+- **MCP Configuration Migration**: Easily migrate MCP settings between different IDEs
+
+### Available Tools
+
+#### Project Setup and Management
+
+1. **initialize-ide**
    ```json
    {
-     "name": "initialize-rules",
+     "name": "initialize-ide",
      "arguments": {
-       "project_path": "/path/to/project"
+       "ide": "cursor"  // Options: cursor, windsurf, cline, copilot
      }
    }
    ```
-   Returns: Success status and details about initialized files
+   Initializes a project with the appropriate rules for the specified IDE.
+
+2. **get-project-settings**
+   ```json
+   {
+     "name": "get-project-settings",
+     "arguments": {}
+   }
+   ```
+   Returns comprehensive project settings including paths and configuration.
 
 3. **get-safe-project-path**
    ```json
@@ -39,172 +104,96 @@ A simple MCP server implementation for managing agile workflow rules and templat
      }
    }
    ```
-   Returns: Safe project path or error requesting user input
-   - If proposed path is writable, returns that path
-   - If proposed path is not provided, checks PROJECT_PATH environment variable
-   - If current directory is not root, uses it as fallback for safety
-   - If current directory is root, returns error requesting user to provide a specific path
-   - Never allows operations in the root directory
-   - Always prompts for explicit path instead of using unsafe defaults
+   Returns a safe, writable project path for file operations.
 
-4. **migrate-rules-to-windsurf**
+#### Knowledge Graph Management
+
+1. **create_entities**
    ```json
    {
-     "name": "migrate-rules-to-windsurf",
+     "name": "create_entities",
      "arguments": {
-       "project_path": "/path/to/project",
-       "specific_file": "optional-file-name",
-       "verbose": false,
-       "no_truncate": false
+       "entities": [
+         {
+           "name": "Login Feature",
+           "entityType": "Feature",
+           "observations": ["Required for user authentication"]
+         }
+       ]
      }
    }
    ```
-   Returns: Migration status and details
+   Creates new entities in the knowledge graph.
 
-5. **add-note**
+2. **create_relations**
    ```json
    {
-     "name": "add-note",
+     "name": "create_relations",
      "arguments": {
-       "name": "note-name",
-       "content": "note content"
+       "relations": [
+         {
+           "from": "Login Feature",
+           "relationType": "dependsOn",
+           "to": "User Database"
+         }
+       ]
      }
    }
    ```
-   Returns: Success status
+   Creates relationships between entities.
 
-6. **get-project-settings**
+3. **read_graph**
    ```json
    {
-     "name": "get-project-settings",
-     "arguments": {
-       "random_string": "dummy-value"
-     }
-   }
-   ```
-   Returns: Current project paths, including the active project directory (from PROJECT_PATH environment variable or fallback to user's home directory)
-
-7. **debug-tools**
-   ```json
-   {
-     "name": "debug-tools",
-     "arguments": {
-       "count": 5
-     }
-   }
-   ```
-   Returns: Debug information about recent tool invocations
-
-### Viewing Available Tools
-
-To see all available tools:
-
-```python
-from src.mcp_agile_flow.simple_server import get_tool_definitions
-tools = get_tool_definitions()
-for tool in tools:
-    print(f"Tool: {tool.name}")
-    print(f"Description: {tool.description}")
-    print("---")
-```
-
-### Example Usage
-
-1. Initialize Cursor Rules (with path check):
-   ```json
-   # First, check if the path is safe and writable
-   {
-     "name": "get-safe-project-path",
+     "name": "read_graph",
      "arguments": {}
    }
-   # Then use the returned safe path in the initialize-rules command
-   {
-     "name": "initialize-rules",
-     "arguments": {
-       "project_path": "/path/from/previous/step"
-     }
-   }
    ```
+   Returns the entire knowledge graph.
 
-2. Initialize Rules for a specific IDE:
+4. **get_mermaid_diagram**
    ```json
    {
-     "name": "initialize-ide-rules",
-     "arguments": {
-       "ide": "windsurf",
-       "project_path": "/path/to/project"
-     }
+     "name": "get_mermaid_diagram",
+     "arguments": {}
    }
    ```
+   Returns a Mermaid.js diagram visualization of the knowledge graph.
 
-3. Add a Note:
+#### MCP Configuration Management
+
+1. **migrate-mcp-config**
    ```json
    {
-     "name": "add-note",
+     "name": "migrate-mcp-config",
      "arguments": {
-       "name": "todo",
-       "content": "Fix the bug"
+       "from_ide": "cursor",        // Source IDE
+       "to_ide": "windsurf",        // Target IDE
+       "backup": true,              // Create backups before modifying
+       "conflict_resolutions": {    // Optional conflict resolutions
+         "server-name": true        // true = use source, false = keep target
+       }
      }
    }
    ```
+   Migrates MCP configuration between different IDEs with smart merging.
 
-4. Get Project Path:
-   ```json
-   {
-     "name": "get-project-path",
-     "arguments": {
-       "random_string": "dummy"
-     }
-   }
-   ```
+## Troubleshooting
 
-5. Migrate to Windsurf:
-   ```json
-   {
-     "name": "migrate-rules-to-windsurf",
-     "arguments": {
-       "project_path": "/path/to/project"
-     }
-   }
-   ```
-   This creates a single `.windsurfrules` file in your project root that contains all rules in a Windsurf-compatible format.
+### Common Issues
 
-6. Debug Tool Invocations:
-   ```json
-   {
-     "name": "debug-tools",
-     "arguments": {
-       "count": 5
-     }
-   }
-   ```
+1. **Connection Error**: If you see an error like "ModuleNotFoundError: No module named...", check your MCP configuration. Make sure you're using:
+   - The correct Python path (from your virtual environment)
+   - The correct module path (`-m mcp_agile_flow.simple_server`) 
+   - No `.py` extension in the module name when using `-m`
 
-### Development
+2. **Permission Issues**: Ensure your Python virtual environment has the necessary permissions to run.
 
-#### Prerequisites
-- Python 3.8+
-- pip
-
-#### Installation
-1. Clone the repository
-2. Install dependencies:
+3. **Missing Modules**: If modules are missing, try reinstalling the package with:
    ```bash
-   pip install -e .
+   uv pip install -e .
    ```
 
-#### Running Tests
-```bash
-python -m pytest
-```
+## License
 
-#### Development Tasks
-All development tasks are managed through the `Makefile`. Check the `Makefile` for available commands like testing, running servers, and code formatting.
-
-### Contributing
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
-
-### License
-MIT License - See [LICENSE](LICENSE) file for details.
-
-### Authors
-- Your Name - Initial work
+This project is licensed under the MIT License - See [LICENSE](LICENSE) file for details.

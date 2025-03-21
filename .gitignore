@@ -46,6 +46,9 @@ tests/test_outputs/
 Thumbs.db
 test_sample*
 repomix
-repo-analysis
 sample-project
 .ai-templates
+.cursor
+.github/copilot-instructions.md
+.clinerules
+.windsurfrules
