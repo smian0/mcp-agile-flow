@@ -258,6 +258,27 @@ def test_environment_variable_override(temp_dir):
         path = get_ide_path("cursor")
         assert path == custom_path
 
+def test_claude_desktop_path():
+    """Test that the Claude Desktop path is correct."""
+    # We'll test that the get_ide_path function works for claude-desktop
+    expected_path = None
+    
+    # Determine the expected path based on the platform
+    platform = "darwin" if os.name == "posix" and os.uname().sysname == "Darwin" else \
+              "linux" if os.name == "posix" else \
+              "windows"
+    
+    if platform == "darwin":
+        expected_path = os.path.expanduser("~/Library/Application Support/Claude/claude_desktop_config.json")
+    elif platform == "linux":
+        expected_path = os.path.expanduser("~/.config/Claude/claude_desktop_config.json")
+    elif platform == "windows":
+        expected_path = os.path.expandvars("%APPDATA%\\Claude\\claude_desktop_config.json")
+    
+    # Test that get_ide_path returns the expected path
+    actual_path = get_ide_path("claude-desktop")
+    assert actual_path == expected_path
+
 # === API Integration Tests ===
 
 def test_migrate_mcp_config_with_conflicts(tmp_path):
@@ -586,3 +607,94 @@ def test_migrate_mcp_config_invalid_resolutions(tmp_path):
     finally:
         # Restore the original function
         src.mcp_agile_flow.migration_tool.get_ide_path = original_get_ide_path 
+
+def test_migrate_cursor_to_claude_desktop(tmp_path):
+    """Test migration from Cursor to Claude Desktop."""
+    logger.info("Testing migration from Cursor to Claude Desktop...")
+    
+    # Import the handler and IDE path functions
+    from src.mcp_agile_flow.simple_server import handle_call_tool
+    from src.mcp_agile_flow.migration_tool import get_ide_path
+    
+    # Create temporary directories for test configs
+    test_cursor_dir = tmp_path / "cursor"
+    test_claude_dir = tmp_path / "claude"
+    test_cursor_dir.mkdir()
+    test_claude_dir.mkdir(parents=True)
+    
+    # Create source config file (cursor)
+    cursor_config_path = test_cursor_dir / "mcp.json"
+    
+    # Sample configuration with a few servers
+    cursor_config = {
+        "mcpServers": {
+            "weather": {
+                "command": "node",
+                "args": ["/path/to/weather-server.js"],
+                "env": {"API_KEY": "cursor-key"}
+            },
+            "search": {
+                "command": "python",
+                "args": ["-m", "search_server"],
+                "env": {}
+            }
+        }
+    }
+    
+    # Write the cursor configuration
+    with open(cursor_config_path, 'w') as f:
+        json.dump(cursor_config, f)
+    
+    # Claude Desktop config path
+    claude_config_path = test_claude_dir / "claude_desktop_config.json"
+    
+    # Mock the get_ide_path function to return our test paths
+    original_get_ide_path = get_ide_path
+    
+    def mock_get_ide_path(ide):
+        if ide == "cursor":
+            return str(cursor_config_path)
+        elif ide == "claude-desktop":
+            return str(claude_config_path)
+        return original_get_ide_path(ide)
+    
+    # Apply the mock
+    import src.mcp_agile_flow.migration_tool
+    src.mcp_agile_flow.migration_tool.get_ide_path = mock_get_ide_path
+    
+    try:
+        # Call migrate-mcp-config
+        result = asyncio.run(handle_call_tool("migrate-mcp-config", {
+            "from_ide": "cursor",
+            "to_ide": "claude-desktop",
+            "backup": True
+        }))
+        
+        # Verify the result
+        assert result[0].type == "text"
+        response = json.loads(result[0].text)
+        
+        # Check the structure of the response
+        assert response["success"] == True
+        assert not response.get("needs_resolution", False)
+        
+        # Verify target file was created
+        assert os.path.exists(claude_config_path)
+        
+        # Read the migrated configuration
+        with open(claude_config_path, 'r') as f:
+            migrated_config = json.load(f)
+        
+        # Verify the servers were migrated correctly
+        assert "mcpServers" in migrated_config
+        assert "weather" in migrated_config["mcpServers"]
+        assert "search" in migrated_config["mcpServers"]
+        assert migrated_config["mcpServers"]["weather"]["env"]["API_KEY"] == "cursor-key"
+        
+        # Save the response for inspection
+        save_test_output("migrate_cursor_to_claude_desktop_response", response)
+        save_test_output("migrated_claude_desktop_config", migrated_config)
+        
+    finally:
+        # Restore the original function
+        src.mcp_agile_flow.migration_tool.get_ide_path = original_get_ide_path

@@ -178,6 +178,14 @@ After installation, you can use the MCP tools directly in Cursor through Claude 
    ```
    Migrates MCP configuration between different IDEs with smart merging.
 
+   Supported IDEs:
+   - `cursor`: Cursor IDE (~/.cursor/mcp.json)
+   - `windsurf`: Windsurf IDE (~/.codeium/windsurf/mcp_config.json)
+   - `windsurf-next`: Windsurf Next IDE (~/.codeium/windsurf-next/mcp_config.json)
+   - `cline`: Cline IDE (VSCode extension)
+   - `roo`: Roo IDE (VSCode extension)
+   - `claude-desktop`: Claude Desktop app (~/Library/Application Support/Claude/claude_desktop_config.json)
+
 ## Troubleshooting
 
 ### Common Issues
