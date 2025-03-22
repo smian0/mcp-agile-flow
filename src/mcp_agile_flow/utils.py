@@ -32,8 +32,9 @@ def get_project_settings() -> Dict[str, Any]:
     home_directory = os.path.expanduser("~")
     logger.info(f"User's home directory: {home_directory}")
     
-    # Get the PROJECT_PATH environment variable
+    # Get the environment variable for project path
     project_path_env = os.environ.get("PROJECT_PATH")
+    
     logger.info(f"PROJECT_PATH environment variable: {project_path_env}")
     
     # Determine if the project path was manually set

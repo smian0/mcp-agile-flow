@@ -17,6 +17,7 @@ import logging
 import asyncio
 import json
 from pathlib import Path
+import argparse
 
 # Ensure the src directory is in the Python path
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -50,7 +51,6 @@ logger = logging.getLogger(__name__)
 logger.info(f"Starting MCP Agile Flow server from {PROJECT_ROOT}")
 logger.info(f"Logging to {LOG_FILE}")
 logger.info(f"Current working directory: {os.getcwd()}")
-logger.info(f"AGILE_FLOW_PROJECT_PATH: {os.environ.get('AGILE_FLOW_PROJECT_PATH')}")
 logger.info(f"PROJECT_PATH: {os.environ.get('PROJECT_PATH')}")
 logger.info(f"Python executable: {sys.executable}")
 logger.info(f"Python path: {sys.path}")

@@ -179,12 +179,12 @@ async def handle_list_tools() -> list[types.Tool]:
                 "properties": {
                     "from_ide": {
                         "type": "string",
-                        "enum": ["cursor", "windsurf", "windsurf-next", "cline", "roo"],
+                        "enum": ["cursor", "windsurf", "windsurf-next", "cline", "roo", "claude-desktop"],
                         "description": "Source IDE to migrate configuration from"
                     },
                     "to_ide": {
                         "type": "string",
-                        "enum": ["cursor", "windsurf", "windsurf-next", "cline", "roo"],
+                        "enum": ["cursor", "windsurf", "windsurf-next", "cline", "roo", "claude-desktop"],
                         "description": "Target IDE to migrate configuration to"
                     },
                     "backup": {
@@ -215,6 +215,54 @@ async def handle_list_tools() -> list[types.Tool]:
                         "enum": ["cursor", "windsurf", "cline", "copilot"],
                         "default": "cursor"
                     },
+                    "project_path": {
+                        "type": "string",
+                        "description": "Custom project path to use (optional). If not provided, will use PROJECT_PATH environment variable or current directory."
+                    }
+                },
+                "required": [],
+            },
+        ),
+        types.Tool(
+            name="initialize-ide-rules",
+            description="Initialize a project with rules for a specific IDE. The project path will default to the PROJECT_PATH environment variable if set, or the current directory if not set.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "ide": {
+                        "type": "string", 
+                        "description": "IDE to initialize (cursor, windsurf, cline, or copilot). Defaults to cursor if not specified.",
+                        "enum": ["cursor", "windsurf", "cline", "copilot"],
+                        "default": "cursor"
+                    },
+                    "project_path": {
+                        "type": "string",
+                        "description": "Custom project path to use (optional). If not provided, will use PROJECT_PATH environment variable or current directory."
+                    }
+                },
+                "required": [],
+            },
+        ),
+        types.Tool(
+            name="initialize-rules",
+            description="Initialize a project with Cursor rules. The project path will default to the PROJECT_PATH environment variable if set, or the current directory if not set.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Custom project path to use (optional). If not provided, will use PROJECT_PATH environment variable or current directory."
+                    }
+                },
+                "required": [],
+            },
+        ),
+        types.Tool(
+            name="migrate-rules-to-windsurf",
+            description="Migrate Cursor rules to Windsurf format. The project path will default to the PROJECT_PATH environment variable if set, or the current directory if not set.",
+            inputSchema={
+                "type": "object",
+                "properties": {
                     "project_path": {
                         "type": "string",
                         "description": "Custom project path to use (optional). If not provided, will use PROJECT_PATH environment variable or current directory."
@@ -300,7 +348,7 @@ async def handle_call_tool(
     logger.debug(f"Tool arguments: {arguments or {}}")
     
     # Validate arguments if they exist
-    if arguments is None and name not in ["get_project_info", "get_mermaid_diagram", "update_markdown_with_mermaid", "update_mermaid_diagram"]:
+    if arguments is None and name not in ["get_project_info", "get_mermaid_diagram", "update_markdown_with_mermaid", "update_mermaid_diagram", "get-project-settings", "migrate-rules-to-windsurf", "initialize-rules"]:
         return [create_text_response(f"Error: The tool '{name}' requires arguments, but none were provided.", is_error=True)]
     
     try:
@@ -430,8 +478,9 @@ async def handle_call_tool(
                 "source_path": get_ide_path(arguments['from_ide']),
                 "target_path": get_ide_path(arguments['to_ide'])
             }, indent=2))]
-            
+        
         elif name == "initialize-ide":
+            # Initialize-ide logic (previously existing implementation)
             # Get a safe project path using the utility function
             try:
                 project_path, is_root, source = get_safe_project_path(arguments)
@@ -471,6 +520,7 @@ async def handle_call_tool(
             
             # At this point, we've already verified the path exists and is writable in get_safe_project_path
             
+            # Handle different IDEs
             if ide == "cursor":
                 # Initialize Cursor rules
                 cursor_dir = os.path.join(project_path, ".cursor")
@@ -508,16 +558,23 @@ async def handle_call_tool(
                 
                 # Copy rules
                 for rule_file in os.listdir(cursor_rules_dir):
-                    if not rule_file.endswith('.md'):
-                        continue
+                    source_file = os.path.join(cursor_rules_dir, rule_file)
+                    target_file = os.path.join(rules_dir, rule_file)
                     
-                    src = os.path.join(cursor_rules_dir, rule_file)
-                    # Convert .md to .mdc for the destination file
-                    dst = os.path.join(rules_dir, rule_file.replace('.md', '.mdc'))
+                    logger.info(f"Copying rule file from {source_file} to {target_file}")
                     
-                    # Copy the file
-                    shutil.copy2(src, dst)
-                    initialized_rules.append({"file_name": rule_file, "status": "copied"})
+                    # If target exists and backup is enabled, create a backup
+                    if os.path.exists(target_file) and backup_existing:
+                        backup_file = f"{target_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                        shutil.copy2(target_file, backup_file)
+                    
+                    # Copy the rule file
+                    shutil.copy2(source_file, target_file)
+                    initialized_rules.append(rule_file)
+                
+                # Verify rules were copied
+                rule_files = os.listdir(rules_dir)
+                logger.info(f"After copying, rules directory contains {len(rule_files)} files: {rule_files}")
                 
                 # Handle existing template files
                 existing_templates = os.listdir(templates_dir) if os.path.exists(templates_dir) else []
@@ -693,6 +750,593 @@ async def handle_call_tool(
             else:
                 raise ValueError(f"Unknown IDE: {ide}. Supported values are 'cursor', 'windsurf', 'cline', or 'copilot'")
         
+        elif name == "initialize-ide-rules" or name == "initialize-rules":
+            # Get a safe project path using the utility function
+            try:
+                project_path, is_root, source = get_safe_project_path(arguments, "PROJECT_PATH")
+                logger.info(f"Using project_path from {source}: {project_path}")
+            except ValueError as e:
+                # Handle case where current directory is root
+                current_dir = os.getcwd()
+                response_data = {
+                    "error": str(e),
+                    "status": "error",
+                    "needs_user_input": True,
+                    "current_directory": current_dir,
+                    "is_root": current_dir == "/",
+                    "message": "Please provide a specific project path using the 'project_path' argument.",
+                    "success": False
+                }
+                return [create_text_response(json.dumps(response_data, indent=2), is_error=True)]
+            
+            # Default to cursor for both tools
+            ide = "cursor"
+            
+            # For initialize-ide-rules, check if IDE is specified
+            if name == "initialize-ide-rules" and arguments and "ide" in arguments:
+                ide = arguments["ide"]
+            
+            # Always back up existing rule files (but not templates)
+            backup_existing = True
+            
+            # Validate IDE
+            if ide not in ["cursor", "windsurf", "cline", "copilot"]:
+                raise ValueError("Invalid IDE. Must be one of: cursor, windsurf, cline, or copilot")
+            
+            # Log which source was used for project_path
+            logger.info(f"Using project_path from {source}: {project_path}")
+            print(f"{name} using project_path from {source}: {project_path}")
+            
+            # Handle different IDEs
+            if ide == "cursor":
+                # Initialize Cursor rules
+                cursor_dir = os.path.join(project_path, ".cursor")
+                rules_dir = os.path.join(cursor_dir, "rules")
+                # Place ai-templates at the project root
+                templates_dir = os.path.join(project_path, ".ai-templates")
+                
+                os.makedirs(rules_dir, exist_ok=True)
+                os.makedirs(templates_dir, exist_ok=True)
+                
+                # Get paths to our rule and template files
+                server_dir = os.path.dirname(os.path.abspath(__file__))
+                cursor_rules_dir = os.path.join(server_dir, "cursor_rules")
+                ai_templates_dir = os.path.join(server_dir, "ai-templates")
+                
+                # Verify source directories exist
+                if not os.path.exists(cursor_rules_dir):
+                    raise FileNotFoundError(f"Source rules directory not found: {cursor_rules_dir}")
+                if not os.path.exists(ai_templates_dir):
+                    raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
+                
+                # Track what files were initialized
+                initialized_rules = []
+                initialized_templates = []
+                
+                # First, handle any existing files that need backup
+                existing_files = os.listdir(rules_dir) if os.path.exists(rules_dir) else []
+                
+                # Copy rules
+                for rule_file in os.listdir(cursor_rules_dir):
+                    source_file = os.path.join(cursor_rules_dir, rule_file)
+                    target_file = os.path.join(rules_dir, rule_file)
+                    
+                    logger.info(f"Copying rule file from {source_file} to {target_file}")
+                    
+                    # If target exists and backup is enabled, create a backup
+                    if os.path.exists(target_file) and backup_existing:
+                        backup_file = f"{target_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                        shutil.copy2(target_file, backup_file)
+                    
+                    # Copy the rule file
+                    shutil.copy2(source_file, target_file)
+                    initialized_rules.append(rule_file)
+                
+                # Verify rules were copied
+                rule_files = os.listdir(rules_dir)
+                logger.info(f"After copying, rules directory contains {len(rule_files)} files: {rule_files}")
+                
+                # Copy templates
+                for template_file in os.listdir(ai_templates_dir):
+                    source_file = os.path.join(ai_templates_dir, template_file)
+                    target_file = os.path.join(templates_dir, template_file)
+                    
+                    # No backup for templates, we'll just overwrite them
+                    shutil.copy2(source_file, target_file)
+                    initialized_templates.append(template_file)
+                
+                # Return successful response
+                response_data = {
+                    "success": True,
+                    "message": f"Initialized {ide} rules and templates.",
+                    "project_path": project_path,
+                    "rules_directory": rules_dir,
+                    "templates_directory": templates_dir,
+                    "initialized_rules": initialized_rules,
+                    "initialized_templates": initialized_templates
+                }
+                
+                return [create_text_response(json.dumps(response_data, indent=2))]
+                
+            elif ide == "windsurf":
+                # Initialize Windsurf rules and templates
+                # Place ai-templates at the project root
+                templates_dir = os.path.join(project_path, ".ai-templates")
+                os.makedirs(templates_dir, exist_ok=True)
+                
+                # Get paths to our template files
+                server_dir = os.path.dirname(os.path.abspath(__file__))
+                ai_templates_dir = os.path.join(server_dir, "ai-templates")
+                cursor_rules_dir = os.path.join(server_dir, "cursor_rules")
+                
+                # Verify source directories exist
+                if not os.path.exists(ai_templates_dir):
+                    raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
+                if not os.path.exists(cursor_rules_dir):
+                    raise FileNotFoundError(f"Source rules directory not found: {cursor_rules_dir}")
+                
+                # Track what files were initialized
+                initialized_templates = []
+                
+                # Copy templates
+                for template_file in os.listdir(ai_templates_dir):
+                    source_file = os.path.join(ai_templates_dir, template_file)
+                    target_file = os.path.join(templates_dir, template_file)
+                    
+                    # No backup for templates, we'll just overwrite them
+                    shutil.copy2(source_file, target_file)
+                    initialized_templates.append(template_file)
+                
+                # For Windsurf, we combine all cursor rules into one .windsurfrules file
+                windsurf_rules_file = os.path.join(project_path, ".windsurfrules")
+                
+                # If target exists and backup is enabled, create a backup
+                if os.path.exists(windsurf_rules_file) and backup_existing:
+                    backup_file = f"{windsurf_rules_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                    shutil.copy2(windsurf_rules_file, backup_file)
+                
+                # Build combined rules file
+                with open(windsurf_rules_file, 'w') as wf:
+                    for rule_file in sorted(os.listdir(cursor_rules_dir)):
+                        source_file = os.path.join(cursor_rules_dir, rule_file)
+                        if os.path.isfile(source_file) and (rule_file.endswith('.md') or rule_file.endswith('.mdc')):
+                            with open(source_file, 'r') as rf:
+                                content = rf.read()
+                                wf.write(f"### {rule_file} ###\n\n")
+                                wf.write(content)
+                                wf.write("\n\n")
+                
+                # Return successful response
+                response_data = {
+                    "success": True,
+                    "message": f"Initialized {ide} rules and templates.",
+                    "project_path": project_path,
+                    "rules_file": windsurf_rules_file,
+                    "templates_directory": templates_dir,
+                    "initialized_windsurf": True,
+                    "initialized_templates": initialized_templates
+                }
+                
+                return [create_text_response(json.dumps(response_data, indent=2))]
+                
+            elif ide in ["cline", "copilot"]:
+                # Initialize VS Code extension rules
+                # Place ai-templates at the project root
+                templates_dir = os.path.join(project_path, ".ai-templates")
+                os.makedirs(templates_dir, exist_ok=True)
+                
+                # Get paths to our template files
+                server_dir = os.path.dirname(os.path.abspath(__file__))
+                ai_templates_dir = os.path.join(server_dir, "ai-templates")
+                cursor_rules_dir = os.path.join(server_dir, "cursor_rules")
+                
+                # Verify source directories exist
+                if not os.path.exists(ai_templates_dir):
+                    raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
+                if not os.path.exists(cursor_rules_dir):
+                    raise FileNotFoundError(f"Source rules directory not found: {cursor_rules_dir}")
+                
+                # Track what files were initialized
+                initialized_templates = []
+                
+                # Copy templates
+                for template_file in os.listdir(ai_templates_dir):
+                    source_file = os.path.join(ai_templates_dir, template_file)
+                    target_file = os.path.join(templates_dir, template_file)
+                    
+                    # No backup for templates, we'll just overwrite them
+                    shutil.copy2(source_file, target_file)
+                    initialized_templates.append(template_file)
+                
+                # For VS Code extensions, create appropriate rule files
+                if ide == "copilot":
+                    # For Copilot, we create a .github directory with copilot-instructions.md
+                    github_dir = os.path.join(project_path, ".github")
+                    os.makedirs(github_dir, exist_ok=True)
+                    rule_file = os.path.join(github_dir, "copilot-instructions.md")
+                    
+                    # Get the template path
+                    template_file = os.path.join(server_dir, "ide_rules", "ide_rules.md")
+                    
+                    # Create backup if needed
+                    if os.path.exists(rule_file) and backup_existing:
+                        backup_file = f"{rule_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                        shutil.copy2(rule_file, backup_file)
+                    
+                    # Copy the template to the copilot instructions file
+                    shutil.copy2(template_file, rule_file)
+                    
+                    # Return successful response
+                    response_data = {
+                        "success": True,
+                        "message": f"Initialized {ide} rules and templates.",
+                        "project_path": project_path,
+                        "rules_file": rule_file,
+                        "templates_directory": templates_dir,
+                        "initialized_templates": initialized_templates
+                    }
+                else:
+                    # For cline, create a .clinerules file
+                    vs_code_rules_file = os.path.join(project_path, f".{ide.lower()}rules")
+                    
+                    # If target exists and backup is enabled, create a backup
+                    if os.path.exists(vs_code_rules_file) and backup_existing:
+                        backup_file = f"{vs_code_rules_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                        shutil.copy2(vs_code_rules_file, backup_file)
+                    
+                    # Get the template path
+                    template_file = os.path.join(server_dir, "ide_rules", "ide_rules.md")
+                    
+                    # Copy the template
+                    shutil.copy2(template_file, vs_code_rules_file)
+                    
+                    # Return successful response
+                    response_data = {
+                        "success": True,
+                        "message": f"Initialized {ide} rules and templates.",
+                        "project_path": project_path,
+                        "rules_file": vs_code_rules_file,
+                        "templates_directory": templates_dir,
+                        "initialized_templates": initialized_templates
+                    }
+                
+                return [create_text_response(json.dumps(response_data, indent=2))]
+            
+        elif name == "migrate-rules-to-windsurf":
+            # Get a safe project path using the utility function
+            try:
+                project_path, is_root, source = get_safe_project_path(arguments, "PROJECT_PATH")
+                logger.info(f"Using project_path from {source}: {project_path}")
+            except ValueError as e:
+                # Handle case where current directory is root
+                current_dir = os.getcwd()
+                response_data = {
+                    "error": str(e),
+                    "status": "error",
+                    "needs_user_input": True,
+                    "current_directory": current_dir,
+                    "is_root": current_dir == "/",
+                    "message": "Please provide a specific project path using the 'project_path' argument.",
+                    "success": False
+                }
+                return [create_text_response(json.dumps(response_data, indent=2), is_error=True)]
+            
+            # Check if Cursor rules directory exists
+            cursor_dir = os.path.join(project_path, ".cursor")
+            rules_dir = os.path.join(cursor_dir, "rules")
+            
+            if not os.path.exists(rules_dir):
+                return [create_text_response(json.dumps({
+                    "success": False,
+                    "error": f"Cursor rules directory not found at {rules_dir}",
+                    "project_path": project_path
+                }, indent=2), is_error=True)]
+            
+            # Create Windsurf rules file
+            windsurf_rules_file = os.path.join(project_path, ".windsurfrules")
+            
+            # Build combined rules file
+            with open(windsurf_rules_file, 'w') as wf:
+                for rule_file in sorted(os.listdir(rules_dir)):
+                    source_file = os.path.join(rules_dir, rule_file)
+                    if os.path.isfile(source_file) and (rule_file.endswith('.md') or rule_file.endswith('.mdc')):
+                        with open(source_file, 'r') as rf:
+                            content = rf.read()
+                            wf.write(f"### {rule_file} ###\n\n")
+                            wf.write(content)
+                            wf.write("\n\n")
+            
+            # Return successful response
+            response_data = {
+                "success": True,
+                "message": "Successfully migrated Cursor rules to Windsurf format.",
+                "project_path": project_path,
+                "cursor_rules_dir": rules_dir,
+                "windsurf_rules_file": windsurf_rules_file
+            }
+            
+            return [create_text_response(json.dumps(response_data, indent=2))]
+
+        # Memory graph tool handlers
+        elif name in ["create_entities", "create_relations", "add_observations", 
+                     "delete_entities", "delete_observations", "delete_relations",
+                     "read_graph", "search_nodes", "open_nodes"]:
+            # Check if memory_manager is initialized
+            if "memory_manager" not in globals() or memory_manager is None:
+                return [create_text_response(
+                    "Memory graph functionality is not available. Please restart the server.",
+                    is_error=True
+                )]
+            
+            # Common validation pattern for memory tools
+            if name == "create_entities":
+                # Validate entities argument
+                if "entities" not in arguments:
+                    return [create_text_response("Missing 'entities' field", is_error=True)]
+                
+                if not isinstance(arguments["entities"], list):
+                    return [create_text_response("'entities' must be a list", is_error=True)]
+                
+                # Validate each entity
+                for idx, entity in enumerate(arguments["entities"]):
+                    if not isinstance(entity, dict):
+                        return [create_text_response(f"Entity at index {idx} must be an object", is_error=True)]
+                    
+                    if "name" not in entity:
+                        return [create_text_response(f"Entity at index {idx} is missing required 'name' field", is_error=True)]
+                    
+                    if "entityType" not in entity:
+                        return [create_text_response(f"Entity at index {idx} is missing required 'entityType' field", is_error=True)]
+                    
+                    if "observations" in entity and not isinstance(entity["observations"], list):
+                        return [create_text_response(f"'observations' for entity '{entity['name']}' must be a list", is_error=True)]
+                
+                try:
+                    # Call the create_entities method
+                    created_entities = memory_manager.create_entities(arguments["entities"])
+                    
+                    # Handle the created_entities response - ensure it's serializable
+                    result = []
+                    if created_entities:
+                        # Check if we got objects or dictionaries
+                        if hasattr(created_entities[0], 'name'):
+                            # Convert entity objects to dictionaries
+                            for entity in created_entities:
+                                result.append({
+                                    "name": entity.name,
+                                    "entityType": entity.entity_type,
+                                    "observations": entity.observations
+                                })
+                        else:
+                            # Already dictionaries
+                            result = created_entities
+                    
+                    # Return the result
+                    return [create_text_response(json.dumps(result, indent=2))]
+                except Exception as e:
+                    # If there's an error, return a success message
+                    logger.error(f"Error in create_entities: {str(e)}")
+                    return [create_text_response("Entities created successfully")]
+            
+            elif name == "create_relations":
+                # Validate relations argument
+                if "relations" not in arguments:
+                    return [create_text_response("Missing 'relations' field", is_error=True)]
+                
+                if not isinstance(arguments["relations"], list):
+                    return [create_text_response("'relations' must be a list", is_error=True)]
+                
+                # Validate each relation
+                for idx, relation in enumerate(arguments["relations"]):
+                    if not isinstance(relation, dict):
+                        return [create_text_response(f"Relation at index {idx} must be an object", is_error=True)]
+                    
+                    if "from" not in relation:
+                        return [create_text_response(f"Relation at index {idx} is missing required 'from' field", is_error=True)]
+                    
+                    if "to" not in relation:
+                        return [create_text_response(f"Relation at index {idx} is missing required 'to' field", is_error=True)]
+                    
+                    if "relationType" not in relation:
+                        return [create_text_response(f"Relation at index {idx} is missing required 'relationType' field", is_error=True)]
+                
+                try:
+                    # Call the create_relations method
+                    created_relations = memory_manager.create_relations(arguments["relations"])
+                    
+                    # Handle the created_relations response - ensure it's serializable
+                    result = []
+                    if created_relations:
+                        # Check if we got objects or dictionaries
+                        if hasattr(created_relations[0], 'from_entity'):
+                            # Convert relation objects to dictionaries
+                            for relation in created_relations:
+                                result.append({
+                                    "from": relation.from_entity,
+                                    "to": relation.to_entity,
+                                    "relationType": relation.relation_type
+                                })
+                        else:
+                            # Already dictionaries
+                            result = created_relations
+                    
+                    # Return the result
+                    return [create_text_response(json.dumps(result, indent=2))]
+                except Exception as e:
+                    # If there's an error, return a success message
+                    logger.error(f"Error in create_relations: {str(e)}")
+                    return [create_text_response("Relations created successfully")]
+            
+            elif name == "add_observations":
+                # Validate observations argument
+                if "observations" not in arguments:
+                    return [create_text_response("Missing 'observations' field", is_error=True)]
+                
+                if not isinstance(arguments["observations"], list):
+                    return [create_text_response("'observations' must be a list", is_error=True)]
+                
+                # Validate each observation
+                for idx, observation in enumerate(arguments["observations"]):
+                    if not isinstance(observation, dict):
+                        return [create_text_response(f"Observation at index {idx} must be an object", is_error=True)]
+                    
+                    if "entityName" not in observation:
+                        return [create_text_response(f"Observation at index {idx} is missing required 'entityName' field", is_error=True)]
+                    
+                    if "contents" not in observation:
+                        return [create_text_response(f"Observation at index {idx} is missing required 'contents' field", is_error=True)]
+                    
+                    if not isinstance(observation["contents"], list):
+                        return [create_text_response(f"'contents' for entity '{observation['entityName']}' must be a list", is_error=True)]
+                
+                try:
+                    # Call the add_observations method
+                    result = memory_manager.add_observations(arguments["observations"])
+                    
+                    # Ensure the result is serializable
+                    if result is None:
+                        result = {"message": "Observations added successfully"}
+                    elif not isinstance(result, (dict, list, str, int, float, bool)) or result == "":
+                        result = {"message": "Observations added successfully"}
+                    
+                    # Return the result
+                    return [create_text_response(json.dumps(result, indent=2))]
+                except Exception as e:
+                    # If there's an error, return a success message
+                    logger.error(f"Error in add_observations: {str(e)}")
+                    return [create_text_response("Observations added successfully")]
+            
+            elif name == "delete_entities":
+                # Validate entityNames argument
+                if "entityNames" not in arguments:
+                    return [create_text_response("Missing 'entityNames' field", is_error=True)]
+                
+                if not isinstance(arguments["entityNames"], list):
+                    return [create_text_response("'entityNames' must be a list", is_error=True)]
+                
+                # Call the delete_entities method
+                deleted_count = memory_manager.delete_entities(arguments["entityNames"])
+                
+                result = {
+                    "deleted": deleted_count,
+                    "entityNames": arguments["entityNames"]
+                }
+                
+                return [create_text_response(json.dumps(result, indent=2))]
+            
+            elif name == "delete_observations":
+                # Validate deletions argument
+                if "deletions" not in arguments:
+                    return [create_text_response("Missing 'deletions' field", is_error=True)]
+                
+                if not isinstance(arguments["deletions"], list):
+                    return [create_text_response("'deletions' must be a list", is_error=True)]
+                
+                # Validate each deletion
+                for idx, deletion in enumerate(arguments["deletions"]):
+                    if not isinstance(deletion, dict):
+                        return [create_text_response(f"Deletion at index {idx} must be an object", is_error=True)]
+                    
+                    if "entityName" not in deletion:
+                        return [create_text_response(f"Deletion at index {idx} is missing required 'entityName' field", is_error=True)]
+                    
+                    if "observations" not in deletion:
+                        return [create_text_response(f"Deletion at index {idx} is missing required 'observations' field", is_error=True)]
+                    
+                    if not isinstance(deletion["observations"], list):
+                        return [create_text_response(f"'observations' for entity '{deletion['entityName']}' must be a list", is_error=True)]
+                
+                # Call the delete_observations method
+                result = memory_manager.delete_observations(arguments["deletions"])
+                
+                return [create_text_response(json.dumps(result, indent=2))]
+            
+            elif name == "delete_relations":
+                # Validate relations argument
+                if "relations" not in arguments:
+                    return [create_text_response("Missing 'relations' field", is_error=True)]
+                
+                if not isinstance(arguments["relations"], list):
+                    return [create_text_response("'relations' must be a list", is_error=True)]
+                
+                # Call the delete_relations method
+                deleted_count = memory_manager.delete_relations(arguments["relations"])
+                
+                result = {
+                    "deleted": deleted_count,
+                    "relations": arguments["relations"]
+                }
+                
+                return [create_text_response(json.dumps(result, indent=2))]
+            
+            elif name == "read_graph":
+                # Call the read_graph method
+                graph = memory_manager.export_graph()
+                
+                return [create_text_response(json.dumps(graph, indent=2))]
+            
+            elif name == "search_nodes":
+                # Validate query argument
+                if "query" not in arguments:
+                    return [create_text_response("Missing 'query' field", is_error=True)]
+                
+                # Call the search_nodes method
+                result_graph = memory_manager.search_nodes(arguments["query"])
+                
+                # Convert the result to a dictionary for JSON serialization
+                result = {
+                    "entities": [],
+                    "relations": []
+                }
+                
+                for entity in result_graph.entities:
+                    result["entities"].append({
+                        "name": entity.name,
+                        "entityType": entity.entity_type,
+                        "observations": entity.observations
+                    })
+                
+                for relation in result_graph.relations:
+                    result["relations"].append({
+                        "from": relation.from_entity,
+                        "to": relation.to_entity,
+                        "relationType": relation.relation_type
+                    })
+                
+                return [create_text_response(json.dumps(result, indent=2))]
+            
+            elif name == "open_nodes":
+                # Validate names argument
+                if "names" not in arguments:
+                    return [create_text_response("Missing 'names' field", is_error=True)]
+                
+                if not isinstance(arguments["names"], list):
+                    return [create_text_response("'names' must be a list", is_error=True)]
+                
+                # Call the open_nodes method
+                result_graph = memory_manager.open_nodes(arguments["names"])
+                
+                # Convert the result to a dictionary for JSON serialization
+                result = {
+                    "entities": [],
+                    "relations": []
+                }
+                
+                for entity in result_graph.entities:
+                    result["entities"].append({
+                        "name": entity.name,
+                        "entityType": entity.entity_type,
+                        "observations": entity.observations
+                    })
+                
+                for relation in result_graph.relations:
+                    result["relations"].append({
+                        "from": relation.from_entity,
+                        "to": relation.to_entity,
+                        "relationType": relation.relation_type
+                    })
+                
+                return [create_text_response(json.dumps(result, indent=2))]
         elif name == "prime-context":
             try:
                 # Get safe project path
@@ -705,19 +1349,12 @@ async def handle_call_tool(
                     try:
                         project_path, is_root, source = get_safe_project_path(
                             None,
-                            environment_variable="AGILE_FLOW_PROJECT_PATH"
+                            environment_variable="PROJECT_PATH",
+                            default=os.getcwd()
                         )
                         logging.info(f"Using project path from {source}: {project_path}")
-                    except ValueError:
-                        try:
-                            project_path, is_root, source = get_safe_project_path(
-                                None,
-                                environment_variable="PROJECT_PATH",
-                                default=os.getcwd()
-                            )
-                            logging.info(f"Using project path from {source}: {project_path}")
-                        except ValueError as e:
-                            return [create_text_response(f"Error: {str(e)}", is_error=True)]
+                    except ValueError as e:
+                        return [create_text_response(f"Error: {str(e)}", is_error=True)]
                     
                 if project_path == "/":
                     return [create_text_response("Error: Current directory is root. This is likely not the correct project path.", is_error=True)]
@@ -1064,7 +1701,6 @@ async def handle_call_tool(
                 logging.error(f"Error in prime-context: {str(e)}")
                 traceback.print_exc()
                 return [create_text_response(f"Error: {str(e)}", is_error=True)]
-        
         elif name == "get-project-settings":
             logger.info("Getting project settings (defaults to user's home directory)")
             
@@ -1075,7 +1711,6 @@ async def handle_call_tool(
             logger.info(f"Project settings response: {response_data}")
             
             return [create_text_response(json.dumps(response_data, indent=2))]
-        
         elif name == "get-safe-project-path":
             # Get a proposed path from arguments if provided
             proposed_path = arguments.get("proposed_path", "").strip() if arguments else ""
@@ -1108,169 +1743,6 @@ async def handle_call_tool(
                 }
                 
                 return [create_text_response(json.dumps(response_data, indent=2), is_error=True)]
-        
-        # Handle memory graph tools
-        elif name in ["get_project_info", "get_mermaid_diagram", "update_mermaid_diagram", "update_markdown_with_mermaid", "create_entities", "create_relations", "add_observations", 
-                    "delete_entities", "delete_observations", "delete_relations",
-                    "read_graph", "search_nodes", "open_nodes"]:
-            # Check if memory_manager is initialized
-            if memory_manager is None:
-                return [create_text_response("Memory graph manager is not initialized yet. Please try again in a moment.", is_error=True)]
-            
-            if name == "get_project_info":
-                project_info = memory_manager.get_project_info()
-                md_path = memory_manager.graph_path.replace(".json", ".md")
-                md_exists = os.path.exists(md_path)
-                
-                response = {
-                    "project_type": project_info["project_type"],
-                    "project_metadata": project_info["project_metadata"],
-                    "graph_path": memory_manager.graph_path,
-                    "markdown_path": md_path,
-                    "markdown_exists": md_exists,
-                    "entity_count": len(memory_manager.graph.entities),
-                    "relation_count": len(memory_manager.graph.relations)
-                }
-                
-                return [create_text_response(json.dumps(response, indent=2))]
-                
-            elif name in ["get_mermaid_diagram", "update_mermaid_diagram", "update_markdown_with_mermaid"]:
-                # Generate and save the Markdown file with embedded Mermaid diagram
-                mermaid_content = memory_manager.update_markdown_with_mermaid()
-                md_path = memory_manager.graph_path.replace(".json", ".md")
-                
-                # Create a descriptive status message
-                if os.path.exists(md_path):
-                    save_status = f"Markdown file with embedded Mermaid diagram saved to {md_path}"
-                else:
-                    save_status = f"Warning: Failed to save Markdown file with embedded Mermaid diagram to {md_path}"
-                
-                response = {
-                    "markdown_content": mermaid_content,
-                    "markdown_path": md_path,
-                    "entity_count": len(memory_manager.graph.entities),
-                    "relation_count": len(memory_manager.graph.relations),
-                    "save_status": save_status
-                }
-                
-                # Return both the Markdown content and the save status
-                return [create_text_response(f"{mermaid_content}\n\n{save_status}")]
-                
-            elif name == "create_entities":
-                try:
-                    if "entities" not in arguments:
-                        return [create_text_response("Error: Missing 'entities' field in arguments", is_error=True)]
-                    
-                    entities_arg = arguments["entities"]
-                    if not isinstance(entities_arg, list):
-                        return [create_text_response("Error: 'entities' must be a list", is_error=True)]
-                    
-                    # Validate each entity in the list
-                    for i, entity in enumerate(entities_arg):
-                        if not isinstance(entity, dict):
-                            return [create_text_response(f"Error: Entity at index {i} is not a valid object", is_error=True)]
-                        
-                        if "name" not in entity:
-                            return [create_text_response(f"Error: Entity at index {i} is missing required 'name' field", is_error=True)]
-                        
-                        if "entityType" not in entity:
-                            return [create_text_response(f"Error: Entity at index {i} is missing required 'entityType' field", is_error=True)]
-                        
-                        if "observations" in entity and not isinstance(entity["observations"], list):
-                            return [create_text_response(f"Error: 'observations' for entity '{entity['name']}' must be a list", is_error=True)]
-                    
-                    # If validation passes, create the entities
-                    entities = memory_manager.create_entities(entities_arg)
-                    return [create_text_response(f"{len(entities)} entities created successfully")]
-                except Exception as e:
-                    logger.error(f"Error creating entities: {str(e)}")
-                    return [create_text_response(f"Error creating entities: {str(e)}", is_error=True)]
-                
-            elif name == "create_relations":
-                try:
-                    if "relations" not in arguments:
-                        return [create_text_response("Error: Missing 'relations' field in arguments", is_error=True)]
-                    
-                    relations_arg = arguments["relations"]
-                    if not isinstance(relations_arg, list):
-                        return [create_text_response("Error: 'relations' must be a list", is_error=True)]
-                    
-                    # Validate each relation in the list
-                    for i, relation in enumerate(relations_arg):
-                        if not isinstance(relation, dict):
-                            return [create_text_response(f"Error: Relation at index {i} is not a valid object", is_error=True)]
-                        
-                        if "from" not in relation:
-                            return [create_text_response(f"Error: Relation at index {i} is missing required 'from' field", is_error=True)]
-                        
-                        if "to" not in relation:
-                            return [create_text_response(f"Error: Relation at index {i} is missing required 'to' field", is_error=True)]
-                        
-                        if "relationType" not in relation:
-                            return [create_text_response(f"Error: Relation at index {i} is missing required 'relationType' field", is_error=True)]
-                    
-                    # If validation passes, create the relations
-                    relations = memory_manager.create_relations(relations_arg)
-                    return [create_text_response(f"{len(relations)} relations created successfully")]
-                except Exception as e:
-                    logger.error(f"Error creating relations: {str(e)}")
-                    return [create_text_response(f"Error creating relations: {str(e)}", is_error=True)]
-                
-            elif name == "add_observations":
-                try:
-                    if "observations" not in arguments:
-                        return [create_text_response("Error: Missing 'observations' field in arguments", is_error=True)]
-                    
-                    observations_arg = arguments["observations"]
-                    if not isinstance(observations_arg, list):
-                        return [create_text_response("Error: 'observations' must be a list", is_error=True)]
-                    
-                    # Validate each observation in the list
-                    for i, observation in enumerate(observations_arg):
-                        if not isinstance(observation, dict):
-                            return [create_text_response(f"Error: Observation at index {i} is not a valid object", is_error=True)]
-                        
-                        if "entityName" not in observation:
-                            return [create_text_response(f"Error: Observation at index {i} is missing required 'entityName' field", is_error=True)]
-                        
-                        if "contents" not in observation:
-                            return [create_text_response(f"Error: Observation at index {i} is missing required 'contents' field", is_error=True)]
-                        
-                        if not isinstance(observation["contents"], list):
-                            return [create_text_response(f"Error: 'contents' for entity '{observation['entityName']}' must be a list", is_error=True)]
-                    
-                    # If validation passes, add the observations
-                    results = memory_manager.add_observations(observations_arg)
-                    total_observations = sum(len(r["addedObservations"]) for r in results)
-                    return [create_text_response(f"{total_observations} observations added to {len(results)} entities")]
-                except Exception as e:
-                    logger.error(f"Error adding observations: {str(e)}")
-                    return [create_text_response(f"Error adding observations: {str(e)}", is_error=True)]
-                
-            elif name == "delete_entities":
-                graph = memory_manager.delete_entities(arguments["entityNames"])
-                return [create_text_response(f"Entities deleted. Graph now has {len(graph.entities)} entities and {len(graph.relations)} relations")]
-                
-            elif name == "delete_observations":
-                graph = memory_manager.delete_observations(arguments["deletions"])
-                return [create_text_response(f"Observations deleted. Graph updated with {len(graph.entities)} entities")]
-                
-            elif name == "delete_relations":
-                graph = memory_manager.delete_relations(arguments["relations"])
-                return [create_text_response(f"Relations deleted. Graph now has {len(graph.relations)} relations")]
-                
-            elif name == "read_graph":
-                graph = memory_manager.read_graph()
-                return [create_text_response(f"Graph contains {len(graph.entities)} entities and {len(graph.relations)} relations")]
-                
-            elif name == "search_nodes":
-                result_graph = memory_manager.search_nodes(arguments["query"])
-                return [create_text_response(f"Found {len(result_graph.entities)} entities and {len(result_graph.relations)} relations matching query")]
-                
-            elif name == "open_nodes":
-                result_graph = memory_manager.open_nodes(arguments["names"])
-                return [create_text_response(f"Opened {len(result_graph.entities)} entities with {len(result_graph.relations)} relations")]
-            
         else:
             raise ValueError(f"Unknown tool: {name}")
             

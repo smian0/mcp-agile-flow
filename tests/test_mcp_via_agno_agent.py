@@ -70,7 +70,7 @@ def run_with_mcp_tools(func):
             command="/Users/smian/development/mcp-agile-flow/.venv/bin/python",
             args=["-m", "mcp_agile_flow"],
             env={
-                "AGILE_FLOW_PROJECT_PATH": project_path
+                "PROJECT_PATH": project_path
             },
         )
         

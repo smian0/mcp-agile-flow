@@ -166,7 +166,7 @@ def test_initialize_rules_with_custom_path(tmp_path):
     assert templates_dir.exists()
     
     # Verify that rules files were copied
-    rule_files = list(rules_dir.glob("*.mdc"))
+    rule_files = list(rules_dir.glob("*"))
     assert len(rule_files) > 0
     
     # Verify that template files were copied
@@ -222,7 +222,7 @@ def test_initialize_ide_rules_with_custom_path(tmp_path):
             assert rules_dir.exists()
             
             # Verify that rule files were copied
-            rule_files = list(rules_dir.glob("*.mdc"))
+            rule_files = list(rules_dir.glob("*"))
             assert len(rule_files) > 0
         else:
             # For other IDEs, check for their rule files
