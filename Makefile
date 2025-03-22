@@ -88,7 +88,7 @@ test-core: venv
 	$(UV) pip install -e ".[test]"
 	$(UV) pip install -e .
 	@echo "Running core tests only (migration and integration)..."
-	$(UV) run pytest $(PYTEST_FLAGS) -s --show-capture=all --tb=short tests/test_mcp_config_migration.py tests/test_integration.py::test_server_imports tests/test_integration.py::test_get_project_settings_tool tests/test_integration.py::test_server_handle_call_tool tests/test_integration.py::test_get_safe_project_path_tool
+	$(UV) run pytest $(PYTEST_FLAGS) -s --show-capture=all --tb=short tests/test_mcp_config_migration.py tests/test_integration.py::test_server_imports tests/test_project_configuration.py::test_get_project_settings_tool tests/test_integration.py::test_server_handle_call_tool tests/test_integration.py::test_get_project_settings_tool_with_proposed_path
 
 test-full: venv
 	@echo "Installing full development dependencies..."

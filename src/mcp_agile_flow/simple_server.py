@@ -44,121 +44,39 @@ memory_manager = None
 __mcp__ = mcp
 
 def create_text_response(text: str, is_error: bool = False) -> types.TextContent:
-    """Helper function to create properly formatted TextContent responses."""
-    return types.TextContent(
-        type="text",
-        text=text,
-        isError=is_error
-    )
+    """Create a text response with optional error flag."""
+    if is_error:
+        logger.error(text)
+    response = types.TextContent(type="text", text=text, isError=is_error)
+    # Set is_error for backwards compatibility 
+    setattr(response, "is_error", is_error)
+    return response
 
 def check_for_greeting(message: str) -> bool:
-    """Check if a message contains a greeting for Sho."""
-    return message and "hey sho" in message.lower()
+    """Check if a message contains a greeting."""
+    greeting_patterns = [r"^hello\b", r"^hi\b", r"^hey\b", r"^greetings\b"]
+    return any(re.search(pattern, message.lower()) for pattern in greeting_patterns)
 
 def parse_greeting_command(message: str) -> Tuple[str, Dict[str, Any]]:
-    """Parse a greeting command into a tool name and arguments."""
-    # Remove the greeting
-    command = message.lower().replace("hey sho", "").strip()
+    """Parse a greeting message for potential command and arguments."""
+    command_pattern = r"(hello|hi|hey|greetings),?\s+please\s+([\w\-]+)(?:\s+with\s+(.+))?"
+    match = re.search(command_pattern, message.lower())
     
-    # Extract command name and arguments
-    parts = command.split(" ", 1)
-    cmd_name = parts[0]
-    cmd_args = {}
-    
-    if len(parts) > 1:
-        try:
-            cmd_args = json.loads(parts[1])
-        except json.JSONDecodeError:
-            cmd_args = {"message": parts[1]}
-    
-    return cmd_name, cmd_args
-
-def get_safe_project_path(arguments: Optional[dict] = None, environment_variable: str = None, default: str = None) -> Tuple[str, bool, str]:
-    """
-    Get a safe project path that is guaranteed to be writable.
-    
-    Args:
-        arguments: Optional arguments dictionary that might contain 'project_path'
-        environment_variable: Optional environment variable to use if 'project_path' is not provided
-        default: Optional default path to use if 'project_path' is not provided and environment variable is not set
+    if not match:
+        return "", {}
         
-    Returns:
-        Tuple[str, bool, str]: The safe project path, whether it's root, and the source of the path
-    """
-    print("get_safe_project_path called with arguments:", arguments)
-    source = "unknown"
-    path = ""
-    is_root = False
+    command = match.group(2)
+    args_str = match.group(3) if match.group(3) else ""
     
-    # First check if project_path is provided in arguments
-    if arguments and "project_path" in arguments and arguments["project_path"].strip() != '':
-        raw_path = arguments["project_path"].strip()
-        # If using relative path notation like "." or "./", convert to absolute
-        if raw_path == "." or raw_path == "./":
-            path = os.getcwd()
-            source = "current directory (from relative path)"
-        else:
-            path = os.path.abspath(raw_path)
-            source = "arguments parameter"
-    # Then check environment variable
-    elif environment_variable and os.environ.get(environment_variable) is not None and os.environ.get(environment_variable).strip() != '':
-        path = os.path.abspath(os.environ.get(environment_variable))
-        source = f"{environment_variable} environment variable"
-    # Default to current directory if not set
-    else:
-        current_dir = os.getcwd()
-        # Check if current directory is root
-        if current_dir == '/':
-            # Current directory is root - need user input
-            raise ValueError("Current directory is the root directory. Please provide a specific project path.")
-        else:
-            path = current_dir
-            source = "current directory"
+    # Parse simple key=value arguments
+    args = {}
+    if args_str:
+        for arg in args_str.split(","):
+            parts = arg.strip().split("=", 1)
+            if len(parts) == 2:
+                args[parts[0].strip()] = parts[1].strip()
     
-    # Safety check: Never write to root directory
-    is_root = path == '/' or path == '\\'
-    if is_root:
-        # Root directory was specified either by argument or env var
-        # Check if current directory is also root
-        current_dir = os.getcwd()
-        if current_dir == '/':
-            # Both specified path and current dir are root - need user input
-            raise ValueError("Specified path is root directory and current directory is also root. Please provide a non-root project path.")
-        else:
-            # Use current dir as fallback
-            path = current_dir
-            source = "current directory (safety fallback from root)"
-            is_root = False
-            logger.warning("Attempted to use root directory. Falling back to current working directory for safety.")
-    
-    # Check if path exists and is writable
-    if not os.path.exists(path):
-        # Path doesn't exist - check if current dir is root
-        current_dir = os.getcwd()
-        if current_dir == '/':
-            # Current directory is root - need user input
-            raise ValueError(f"Path {path} does not exist, and current directory is root. Please provide a valid project path.")
-        else:
-            # Use current dir as fallback
-            logger.warning(f"Path {path} does not exist. Falling back to current directory: {current_dir}")
-            path = current_dir
-            source = "current directory (fallback from non-existent path)"
-            is_root = current_dir == '/'
-    
-    if not os.access(path, os.W_OK):
-        # Path is not writable - check if current dir is root
-        current_dir = os.getcwd()
-        if current_dir == '/':
-            # Current directory is root - need user input
-            raise ValueError(f"Path {path} is not writable, and current directory is root. Please provide a valid, writable project path.")
-        else:
-            # Use current dir as fallback
-            logger.warning(f"Path {path} is not writable. Falling back to current directory: {current_dir}")
-            path = current_dir
-            source = "current directory (fallback from non-writable path)"
-            is_root = current_dir == '/'
-    
-    return path, is_root, source
+    return command, args
 
 @mcp.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
@@ -284,22 +202,13 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get-project-settings",
-            description="Returns comprehensive project settings including project path (defaults to user's home directory), knowledge graph directory, AI docs directory, and other agile flow configuration. Use this to understand your project's structure and agile workflow settings. The project path will default to the user's home directory if PROJECT_PATH environment variable is not set.",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": [],
-            },
-        ),
-        types.Tool(
-            name="get-safe-project-path",
-            description="Get a safe, writable project path that can be used for file operations. If the root directory is detected, this will automatically use the current working directory instead.",
+            description="Returns comprehensive project settings including project path, knowledge graph directory, AI docs directory, and other configuration. Also validates the path to ensure it's safe and writable. If the root directory or a non-writable path is detected, it will automatically use a safe alternative path. Takes an optional 'proposed_path' parameter to check a specific path.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "proposed_path": {
                         "type": "string",
-                        "description": "Optional path to check. If not provided, standard environment variables or current directory will be used."
+                        "description": "Optional path to check. If not provided, standard environment variables or default paths will be used."
                     }
                 },
                 "required": [],
@@ -509,7 +418,11 @@ async def handle_call_tool(
             
             try:
                 # Get project path
-                project_path, is_root, source = get_safe_project_path(arguments, "PROJECT_PATH")
+                project_settings = get_project_settings(
+                    proposed_path=arguments.get("project_path") if arguments else None
+                )
+                project_path = project_settings["project_path"]
+                source = project_settings["source"]
                 
                 print(f"initialize-ide using project_path from {source}: {project_path}")
                 
@@ -602,10 +515,14 @@ async def handle_call_tool(
         elif name == "initialize-ide-rules":
             # Get a safe project path using the utility function
             try:
-                project_path, is_root, source = get_safe_project_path(arguments, "PROJECT_PATH")
+                project_settings = get_project_settings(
+                    proposed_path=arguments.get("project_path") if arguments else None
+                )
+                project_path = project_settings["project_path"]
+                source = project_settings["source"]
                 logger.info(f"Using project_path from {source}: {project_path}")
-            except ValueError as e:
-                # Handle case where current directory is root
+            except Exception as e:
+                # Handle case where the path is problematic
                 current_dir = os.getcwd()
                 response_data = {
                     "error": str(e),
@@ -864,21 +781,26 @@ async def handle_call_tool(
         elif name == "migrate-rules-to-windsurf":
             # Get a safe project path using the utility function
             try:
-                project_path, is_root, source = get_safe_project_path(arguments, "PROJECT_PATH")
+                project_settings = get_project_settings(
+                    proposed_path=arguments.get("project_path") if arguments else None
+                )
+                project_path = project_settings["project_path"]
+                source = project_settings["source"]
                 logger.info(f"Using project_path from {source}: {project_path}")
-            except ValueError as e:
-                # Handle case where current directory is root
-                current_dir = os.getcwd()
+            except Exception as e:
+                # Handle case where the path is problematic
                 response_data = {
                     "error": str(e),
                     "status": "error",
                     "needs_user_input": True,
-                    "current_directory": current_dir,
-                    "is_root": current_dir == "/",
+                    "current_directory": os.getcwd(),
                     "message": "Please provide a specific project path using the 'project_path' argument.",
                     "success": False
                 }
                 return [create_text_response(json.dumps(response_data, indent=2), is_error=True)]
+            
+            # Remove the override to current working directory - respect the project_path from settings
+            # This override was causing the environment variable to be ignored
             
             # Check if Cursor rules directory exists
             cursor_dir = os.path.join(project_path, ".cursor")
@@ -1198,27 +1120,17 @@ async def handle_call_tool(
                 return [create_text_response(json.dumps(result, indent=2))]
         elif name == "prime-context":
             try:
-                # Get safe project path
-                project_path = None
-                if 'project_path' in arguments:
-                    project_path = arguments['project_path']
-                    logging.info(f"Using project path from arguments: {project_path}")
+                # Check if project_path is provided in arguments
+                if arguments and "project_path" in arguments and arguments["project_path"].strip() != '':
+                    project_settings = get_project_settings(proposed_path=arguments["project_path"])
+                    project_path = project_settings["project_path"]
+                    logger.info(f"Using project path from arguments: {project_path}")
                 else:
-                    # Only if not provided in arguments, try environment variables
-                    try:
-                        project_path, is_root, source = get_safe_project_path(
-                            None,
-                            environment_variable="PROJECT_PATH",
-                            default=os.getcwd()
-                        )
-                        logging.info(f"Using project path from {source}: {project_path}")
-                    except ValueError as e:
-                        return [create_text_response(f"Error: {str(e)}", is_error=True)]
+                    project_settings = get_project_settings()
+                    project_path = project_settings["project_path"]
+                    logger.info(f"Using project path from environment/defaults: {project_path}")
                     
-                if project_path == "/":
-                    return [create_text_response("Error: Current directory is root. This is likely not the correct project path.", is_error=True)]
-                
-                logging.info(f"Prime context using project path: {project_path}")
+                logger.info(f"Prime context using project path: {project_path}")
                 
                 # Parse arguments
                 depth = arguments.get("depth", "standard")
@@ -1561,47 +1473,18 @@ async def handle_call_tool(
                 traceback.print_exc()
                 return [create_text_response(f"Error: {str(e)}", is_error=True)]
         elif name == "get-project-settings":
-            logger.info("Getting project settings (defaults to user's home directory)")
+            logger.info("Getting project settings")
+            
+            # Get proposed path from arguments if provided
+            proposed_path = arguments.get("proposed_path", "") if arguments else ""
             
             # Use the common utility function to get project settings
-            response_data = get_project_settings()
+            response_data = get_project_settings(proposed_path=proposed_path if proposed_path else None)
             
             # Log the response for debugging
             logger.info(f"Project settings response: {response_data}")
             
             return [create_text_response(json.dumps(response_data, indent=2))]
-        elif name == "get-safe-project-path":
-            # Get a proposed path from arguments if provided
-            proposed_path = arguments.get("proposed_path", "").strip() if arguments else ""
-            
-            try:
-                # Use the get_safe_project_path function
-                safe_path, is_root, source = get_safe_project_path({"project_path": proposed_path} if proposed_path else None)
-                
-                # Create response for successful case
-                response_data = {
-                    "safe_path": safe_path,
-                    "source": source,
-                    "is_root": is_root,
-                    "is_writable": os.access(safe_path, os.W_OK),
-                    "exists": os.path.exists(safe_path),
-                    "current_directory": os.getcwd()
-                }
-                
-                return [create_text_response(json.dumps(response_data, indent=2))]
-            except ValueError as e:
-                # Handle case where current directory is root
-                current_dir = os.getcwd()
-                response_data = {
-                    "error": str(e),
-                    "needs_user_input": True,
-                    "current_directory": current_dir,
-                    "safe_path": None,
-                    "is_root": current_dir == "/",
-                    "message": "Please provide a specific project path using the 'proposed_path' argument."
-                }
-                
-                return [create_text_response(json.dumps(response_data, indent=2), is_error=True)]
         else:
             raise ValueError(f"Unknown tool: {name}")
             

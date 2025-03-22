@@ -264,70 +264,58 @@ def test_initialize_ide_rules_with_env_root_path():
         else:
             os.environ.pop("PROJECT_PATH", None)
 
-def test_get_safe_project_path_tool():
-    """Test the get-safe-project-path tool functionality."""
-    logger.info("Testing get-safe-project-path tool...")
+def test_get_project_settings_tool_with_proposed_path():
+    """Test the get-project-settings tool with proposed_path parameter."""
+    logger.info("Testing get-project-settings tool with proposed paths...")
     
     # Import the handler function
     from src.mcp_agile_flow.simple_server import handle_call_tool
     import os
     
-    # Test with no proposed path (should use current directory)
-    result = asyncio.run(handle_call_tool("get-safe-project-path", {}))
+    # Test with no proposed path (should use default paths)
+    result = asyncio.run(handle_call_tool("get-project-settings", {}))
     assert result[0].type == "text"
     response = json.loads(result[0].text)
     
     # Save the response to the test_outputs directory
-    save_test_output("get_safe_project_path_no_path", response)
+    save_test_output("get_project_settings_no_path", response)
     
-    # Current directory is not root in test environment, so should work
-    current_dir = os.getcwd()
-    if current_dir != '/':
-        assert "safe_path" in response
-        assert response["safe_path"] == current_dir
-        assert response["is_writable"] == True
-    else:
-        # Special case for when tests are run in root directory (unlikely)
-        assert "error" in response
-        assert response["needs_user_input"] == True
+    # Should have the expected keys
+    assert "project_path" in response
+    assert "is_project_path_manually_set" in response
+    assert "is_writable" in response
+    assert "exists" in response
     
     # Test with root path explicitly
-    result = asyncio.run(handle_call_tool("get-safe-project-path", {"proposed_path": "/"}))
+    result = asyncio.run(handle_call_tool("get-project-settings", {"proposed_path": "/"}))
     assert result[0].type == "text"
     
     # Save the response to the test_outputs directory
     response_root = json.loads(result[0].text)
-    save_test_output("get_safe_project_path_root", response_root)
+    save_test_output("get_project_settings_root", response_root)
     
-    # If current directory is not root, should fall back to it
-    if current_dir != '/':
-        assert response_root["safe_path"] == current_dir
-        assert "root" in response_root["source"].lower()
-    else:
-        # If current directory is root, should ask for user input
-        assert response_root["needs_user_input"] == True
-        assert "error" in response_root
+    # For root path, it should fall back to a safe path
+    assert response_root["project_path"] != "/"
+    assert "root" in response_root["source"].lower() or "fallback" in response_root["source"].lower()
     
     # Test with a valid path (parent directory)
+    current_dir = os.getcwd()
     parent_dir = os.path.dirname(current_dir)
     
     # Only test if parent_dir is writable and not root
     if parent_dir != '/' and os.access(parent_dir, os.W_OK):
-        result = asyncio.run(handle_call_tool("get-safe-project-path", {"proposed_path": parent_dir}))
+        result = asyncio.run(handle_call_tool("get-project-settings", {"proposed_path": parent_dir}))
         assert result[0].type == "text"
         response_parent = json.loads(result[0].text)
         
         # Save the response to the test_outputs directory
-        save_test_output("get_safe_project_path_parent", response_parent)
+        save_test_output("get_project_settings_parent", response_parent)
         
         # Should use the provided path
-        assert response_parent["safe_path"] == parent_dir
+        assert response_parent["project_path"] == parent_dir
         assert response_parent["is_writable"] == True
     
-    # Test with a temporary directory to simulate real non-writable paths 
-    # instead of using mocking
-    
-    # Create a temporary file that we'll use as a non-writable path
+    # Test with a non-existent path
     with tempfile.NamedTemporaryFile() as temp_file:
         # Create a path that definitely doesn't exist
         non_existent_path = os.path.join(
@@ -336,23 +324,20 @@ def test_get_safe_project_path_tool():
         )
         
         # Test with non-existent path
-        result = asyncio.run(handle_call_tool("get-safe-project-path", {"proposed_path": non_existent_path}))
+        result = asyncio.run(handle_call_tool("get-project-settings", {"proposed_path": non_existent_path}))
         assert result[0].type == "text"
         response_real = json.loads(result[0].text)
         
         # Save the response to the test_outputs directory
-        save_test_output("get_safe_project_path_real_non_existent", response_real)
+        save_test_output("get_project_settings_real_non_existent", response_real)
         
-        # The path doesn't exist, so we expect either:
-        # 1. is_writable is False if non-existent paths are allowed but marked non-writable
-        # 2. we've fallen back to current directory 
-        # 3. an error is returned
-        valid_response = (
-            ("safe_path" in response_real and response_real["safe_path"] == non_existent_path and response_real.get("is_writable") == False) or
-            ("safe_path" in response_real and response_real["safe_path"] == current_dir) or
-            "error" in response_real
-        )
-        assert valid_response, f"Unexpected response for non-existent path: {response_real}"
+        # The path doesn't exist, so we expect it to have fallen back to a valid path
+        assert "project_path" in response_real
+        assert response_real["exists"] == True
+        assert response_real["is_writable"] == True
+        assert "fallback" in response_real["source"].lower()
+        # Could be either current directory or home directory fallback
+        assert "directory" in response_real["source"].lower()
 
 # === Tests for MCP Config Migration have been moved to test_mcp_config_migration.py ===
 # The following tests were moved:

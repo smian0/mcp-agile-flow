@@ -54,7 +54,7 @@ def test_initialize_ide_with_explicit_path(temp_dir, env_cleanup):
     # Check the response
     assert len(result) == 1
     assert result[0].type == "text"
-    assert not result[0].isError
+    assert result[0].is_error == False
     
     # Parse the JSON response
     response_data = json.loads(result[0].text)
@@ -97,7 +97,7 @@ def test_initialize_ide_with_env_variable(temp_dir, env_cleanup):
     # Check the response
     assert len(result) == 1
     assert result[0].type == "text"
-    assert not result[0].isError
+    assert result[0].is_error == False
     
     # Parse the JSON response
     response_data = json.loads(result[0].text)
@@ -141,7 +141,7 @@ def test_initialize_ide_windsurf(temp_dir, env_cleanup):
     # Check the response
     assert len(result) == 1
     assert result[0].type == "text"
-    assert not result[0].isError
+    assert result[0].is_error == False
     
     # Parse the JSON response
     response_data = json.loads(result[0].text)
@@ -168,7 +168,7 @@ def test_initialize_ide_without_arguments():
     # Check the response is successful (uses current directory by default)
     assert len(result) == 1
     assert result[0].type == "text"
-    assert not result[0].isError  # No error since it defaults to current directory
+    assert result[0].is_error == False  # No error since it defaults to current directory
     
     # Parse the JSON response
     response_data = json.loads(result[0].text)
@@ -192,7 +192,7 @@ def test_cursor_rule_files_have_mdc_extension(temp_dir, env_cleanup):
     # Check the response
     assert len(result) == 1
     assert result[0].type == "text"
-    assert not result[0].isError
+    assert result[0].is_error == False
     
     # Parse the JSON response
     response_text = result[0].text
