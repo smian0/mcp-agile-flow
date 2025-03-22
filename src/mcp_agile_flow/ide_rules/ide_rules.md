@@ -1,6 +1,5 @@
 <!-- 
 description: IDE Rules Template - Master file containing all rules for IDE integration
-version: 1.0.0
 created_at: 2023-09-15
 updated_at: 2023-03-20
 -->
@@ -442,13 +441,8 @@ function withoutLanguageSpecified() {
 - Rules are organized by sections with clear headings
 - Each rule section includes context, requirements, examples, and critical rules
 
-
 ### Critical Rules
-- All rule implementations must produce identical results
-- Rule files must be properly formatted
-- Rules must be regularly updated
-- When a rule is updated in one IDE, it must be updated in all implementations
-- Rule format must follow the documentation standards
+- Files must be properly formatted for the IDE to read and follow
 
 ## Build and Automation Standards
 
@@ -471,32 +465,13 @@ function withoutLanguageSpecified() {
 - Provide descriptive help targets for self-documentation
 
 #### Makefile Structure
-1. **Core Components**:
-   - Variables: Define reusable variables at the top of the file
-   - Phony Targets: Mark non-file targets as .PHONY to avoid conflicts
-   - Default Target: The first target is the default when running `make` without arguments
-   - Dependencies: Clearly specify target dependencies
-   - Help Documentation: Include a help target that lists available commands
-   - Comments: Document each target's purpose with comments
-
-2. **Standard Target Categories**:
-   - Build: Compilation, installation, and setup (`build`, `install`, `setup`)
-   - Testing: Test execution and coverage (`test`, `pytest`, `check`)
-   - Running: Execution of the project (`run`, `start`, `serve`, `dev`)
-   - Cleaning: Removal of temporary files (`clean`, `clear`, `reset`)
-   - Deployment: Publishing and releasing (`deploy`, `publish`, `release`)
-   - Linting: Code formatting and style checking (`lint`, `format`, `style`)
-
-3. **Common Project Targets**:
-   - `all`: Build everything needed
-   - `clean`: Remove build artifacts
-   - `test`: Run tests
-   - `install`: Install dependencies
-   - `build`: Compile/build the project
-   - `run`/`start`: Execute the project
-   - `lint`: Check code style and format
-   - `help`: Show available commands
-   - `deploy`: Deploy to hosting/production
+1. **Components**:
+   - Variables: Define variables at the top
+   - Phony Targets: Mark non-file targets as .PHONY
+   - Default Target: First target is default
+   - Dependencies: Specify target dependencies
+   - Help: Include help target
+   - Comments: Document each target
 
 #### Examples
 - ✅ Check for Makefile first: "You can run the tests using `make test`"
