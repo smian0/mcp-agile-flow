@@ -37,7 +37,7 @@ graph TD
     subgraph MCP Core Components
         MCP --> SimpleServer[Simple Server]
         MCP --> MemoryGraph[Memory Graph]
-        MCP --> RulesMigration[Rules Migration]
+        MCP --> MigrationTool[Migration Tool]
         MCP --> Utils[Utilities]
     end
     
@@ -49,8 +49,8 @@ graph TD
     
     subgraph IDE Adapters
         SimpleServer --> CursorRules[Cursor Rules]
-        RulesMigration --> IDERules[IDE Rules]
-        RulesMigration --> WindsurfRules[Windsurf Rules]
+        MigrationTool --> IDERules[IDE Rules]
+        MigrationTool --> WindsurfRules[Windsurf Rules]
     end
     
     style IDE fill:#dfd,stroke:#333,stroke-width:2px
@@ -58,7 +58,7 @@ graph TD
     style MCP fill:#bbf,stroke:#333,stroke-width:2px
     style SimpleServer fill:#ffd,stroke:#333,stroke-width:2px
     style MemoryGraph fill:#ffd,stroke:#333,stroke-width:2px
-    style RulesMigration fill:#ffd,stroke:#333,stroke-width:2px
+    style MigrationTool fill:#ffd,stroke:#333,stroke-width:2px
     style Utils fill:#ffd,stroke:#333,stroke-width:2px
     style Templates fill:#ddf,stroke:#333,stroke-width:2px
     style Documents fill:#ddf,stroke:#333,stroke-width:2px
@@ -105,12 +105,12 @@ sequenceDiagram
 - Mermaid diagram generation ✅
 - Project type detection ✅
 
-### 3. Rules Migration (rules_migration.py) ✅
-- Cross-IDE rules conversion
-- Cursor to Windsurf migration
-- Template standardization
-- Format preservation
-- Content validation
+### 3. Migration Tool (migration_tool.py) ✅
+- Cross-IDE configuration migration
+- Smart conflict detection and resolution
+- Source and target configuration merging
+- Backup creation for safety
+- IDE-specific path handling
 
 ### 4. IDE Adapters ✅
 - Cursor rule templates and documentation
@@ -157,6 +157,17 @@ class KnowledgeGraph:
     project_metadata: Dict[str, Any] = field(default_factory=dict)
 ```
 
+## Template System Implementation
+
+The template system features a flexible, directory-based approach where:
+- All templates are stored in the package's `ai-templates` directory
+- During initialization, all files in this directory are automatically copied to the project's `.ai-templates` directory
+- No hardcoded list of template files is required, allowing for easy addition/removal of templates
+- Only files (not directories) are copied during initialization
+- Error handling provides appropriate messaging when templates cannot be copied or the source directory doesn't exist
+
+This design enables the system to adapt to different project requirements without code changes and allows for the addition of new template types without modifying the core codebase.
+
 ## Project Structure
 ```
 /
@@ -166,9 +177,8 @@ class KnowledgeGraph:
 │   │   ├── __main__.py                  # Module entry point
 │   │   ├── simple_server.py             # Core MCP server implementation
 │   │   ├── memory_graph.py              # Knowledge graph implementation
-│   │   ├── register_memory_tools.py     # Knowledge graph tools
+│   │   ├── migration_tool.py            # Cross-IDE configuration migration
 │   │   ├── utils.py                     # Utility functions
-│   │   ├── rules_migration.py           # Cross-IDE rules migration
 │   │   ├── cursor_rules/                # Cursor-specific rules
 │   │   │   ├── 000-cursor-rules.md      # Cursor rules management
 │   │   │   ├── 001-emoji-communication.md # Communication guidelines
@@ -182,134 +192,42 @@ class KnowledgeGraph:
 │   │   │   └── 905-makefile-usage.md    # Makefile usage
 │   │   ├── ide_rules/                   # IDE-specific rules
 │   │   │   └── ide_rules.md             # IDE rules documentation
-│   │   └── ai-templates/                # Document templates
-│   │       ├── template-brd.md          # BRD template
-│   │       ├── template-prd.md          # PRD template
-│   │       ├── template-arch.md         # Architecture template
-│   │       └── template-story.md        # Story template
-├── .ai-templates/                       # Source templates
-│   ├── template-brd.md                  # BRD template
-│   ├── template-prd.md                  # PRD template
-│   ├── template-arch.md                 # Architecture template
-│   └── template-story.md                # Story template
-├── ai-docs/                             # Generated documents
-│   ├── brd.md                           # Business Requirements Document
-│   ├── prd.md                           # Product Requirements Document
-│   ├── arch.md                          # Architecture Document
-│   ├── epic-1-git-workflow/             # Git workflow epic (documentation only)
-│   └── epic-2-minor-enhancements/       # Minor enhancements epic
+│   │   └── ai-templates/                # Document templates (all copied dynamically)
 ├── tests/                               # Test suite
 │   ├── archive/                         # Archived tests
-│   ├── full-stack-fastapi-sample-project/  # Test sample project
+│   ├── test_mcp_via_agno_agent.py       # Agent-based tests
+│   ├── test_mcp_config_migration.py     # Configuration migration tests
+│   ├── test_integration.py              # Integration tests
 │   └── test_outputs/                    # Test output files
-├── run_mcp_server.py                    # Server entry point
-├── setup_cursor_mcp.py                  # Cursor setup script
-├── check_tools.py                       # Tool validation script
+├── Makefile                             # Development automation
 ├── pyproject.toml                       # Project configuration
-├── setup.py                             # Package setup
-├── uv.lock                              # UV lock file
-└── Makefile                             # Development automation
+└── uv.lock                              # UV lock file
 ```
 
 ## Implementation Status
 
 ### Completed Features
-- Template management system implementation
-- Cross-IDE compatibility layer
-- File-based storage for templates and documents
-- IDE-specific adapters for Cursor, Windsurf, Cline, and Copilot
-- Rules migration between IDE formats
-- Basic knowledge graph entity and relationship tracking
-- Document generation foundation
-- Mermaid diagram visualization
+- Template management system with dynamic template discovery and copying ✅
+- Cross-IDE compatibility layer with adapters for multiple IDEs ✅
+- MCP configuration migration with conflict detection and resolution ✅
+- File-based storage for templates and documents ✅
+- IDE-specific adapters for Cursor, Windsurf, Cline, and Copilot ✅
+- Rules migration between IDE formats ✅
+- Basic knowledge graph entity and relationship tracking ✅
+- Mermaid diagram visualization ✅
+- Safe project path handling with root directory protections ✅
 
 ### Partially Completed Features
-- Document relationship tracking
-- Status progression and workflow automation
-- Context-aware document linking
-- Advanced knowledge graph features
+- Document relationship tracking ⚠️
+- Status progression and workflow automation ⚠️
+- Context-aware document linking ⚠️
+- Advanced knowledge graph features ⚠️
 
 ### Pending Features
-- Git workflow implementation (Epic-1)
-- Semantic search capabilities
-- Progress visualization
-- Consistency validation for documents
-- Advanced document generation automation
-
-## Implementation Approach
-1. Implement core MCP server for command processing ✅
-2. Create knowledge graph for project relationship tracking ✅
-3. Develop template management system ✅
-4. Implement cross-IDE rule migration ✅
-5. Create document generation capabilities ⚠️
-6. Add Cursor rules for IDE integration ✅
-7. Implement command handling for workflow management ⚠️
-
-## MCP Server Specification
-
-### Overview
-The MCP-Agile-Flow server implements the cursor-auto-rules-agile-workflow functionality through a file-based system that communicates with Cursor via stdin/stdout using the MCP protocol.
-
-### Core Functionality
-1. **Rule Management**: Create, update, and organize rule files
-2. **Template Management**: Handle templates in appropriate directories
-3. **Project Ideation**: Set up project structure and initial documents
-4. **Agile Workflow**: Manage epics, stories, tasks, and documentation
-
-### Technical Architecture
-1. **MCP Protocol Layer**: Handles communication with Cursor
-2. **Tool Handlers**: Process tool invocations and perform operations
-3. **File System Operations**: Manage rules, templates, and project files
-4. **Natural Language Processing**: Parse commands and generate rules
-
-### MCP Tool Implementations
-
-#### Rule Management Tools
-- `create-rule`: Creates new rule files with proper formatting
-- `update-rule`: Updates existing rule files preserving structure
-- `list-rules`: Lists all rule files with metadata
-- `apply-rules`: Applies matching rules to files or directories
-
-#### Template Management Tools
-- `create-template`: Creates new template files
-- `list-templates`: Lists available templates
-- `apply-template`: Applies templates to create new files
-
-#### Project Management Tools
-- `initialize-project`: Sets up project structure and files
-- `project-status`: Reports on project configuration and status
-
-#### Agile Workflow Tools
-- `create-epic`: Creates new epics with metadata
-- `create-story`: Creates new stories within epics
-- `update-story-status`: Updates story workflows
-
-#### Documentation Tools
-- `create-prd`: Creates Product Requirements Document
-- `create-architecture`: Creates Architecture Document
-
-#### Utility Tools
-- `hey-agile-flow`: Processes natural language commands
-- `debug-tools`: Provides debugging information
-
-### Error Handling
-The server handles common errors including:
-- File not found scenarios
-- Invalid parameters
-- File system errors
-- Natural language parsing errors
-- Validation errors
-
-Each error returns with:
-- Error code
-- Error message
-- Resolution suggestion when possible
-
-### Configuration
-The server uses a simple JSON configuration file with settings for:
-- Default project paths
-- Logging configuration
-- Template directories
+- Semantic search capabilities ❌
+- Progress visualization ❌
+- Consistency validation for documents ❌
+- Advanced document generation automation ❌
 
 ## Security Considerations
 - Template validation to prevent injection attacks ✅
@@ -320,16 +238,16 @@ The server uses a simple JSON configuration file with settings for:
 
 ## Performance Considerations
 - Minimal IDE impact through efficient processing ✅
-- Lazy loading of templates and documents ✅
+- Dynamic template loading eliminating the need for hardcoded lists ✅
 - In-memory graph operations ✅
-- Caching of frequently accessed data ⚠️
-- Efficient path resolution ✅
+- Efficient path resolution with safety checks ✅
+- Backup creation for configuration files before modification ✅
 
 ## Extensibility Points
-- Custom template additions ✅
+- Custom template additions through direct file addition ✅
 - IDE-specific adapter plugins ✅
 - Knowledge graph extension with new entity/relation types ⚠️
-- Custom document types ⚠️
+- Custom document types through template addition ✅
 - Additional tool integrations ⚠️
 
 ## Change Log
@@ -340,6 +258,9 @@ The server uses a simple JSON configuration file with settings for:
 | 2023-03-20 | Corrected Git workflow implementation status | Fixed incorrect implementation status for Epic-1 features |
 | 2023-03-20 | Updated Git workflow to completed status | Implemented commit template, cursor rule, and IDE-agnostic standards |
 | 2023-03-25 | Integrated MCP Server Specification | Consolidated documentation for better organization |
+| 2023-03-27 | Updated Template System Implementation | Documented dynamic template loading approach |
+| 2023-03-27 | Updated Component Descriptions | Added Migration Tool details and renamed from Rules Migration |
+| 2023-03-27 | Updated Project Structure | Aligned with current file organization |
 
 ## Future Architectural Considerations
 - Database storage for larger projects
