@@ -1,7 +1,7 @@
 # MCP Agile Flow - Makefile
 # -------------------------
 
-.PHONY: help venv install test test-coverage test-kg test-core test-full run-server setup-cursor clean clean-all quality all
+.PHONY: help venv install test test-coverage test-kg test-core test-full test-agent run-server setup-cursor clean clean-all quality all
 
 # Configuration
 # -------------
@@ -27,6 +27,7 @@ help:
 	@echo "                  Use TEST_PATH=path/to/test to run specific tests"
 	@echo "                  Use TEST_MARKERS=\"\" to clear default markers"
 	@echo "test-core:        Run only the core tests (migration and integration)"
+	@echo "test-agent:       Run only the agent tests (test_mcp_via_agno_agent.py)"
 	@echo "test-full:        Run all tests with full dependencies"
 	@echo "test-coverage:    Run tests with coverage report"
 	@echo "test-kg:          Run only the knowledge graph creation test"
@@ -69,6 +70,14 @@ test-kg: venv
 	$(UV) pip install -e .
 	@echo "Running knowledge graph test..."
 	$(UV) run python -c "from tests.test_mcp_via_agno_agent import test_fastapi_project_knowledge_graph; test_fastapi_project_knowledge_graph()"
+
+test-agent: venv
+	@echo "Installing development and agent-specific dependencies..."
+	$(UV) pip install -e ".[test]"
+	$(UV) pip install -e .
+	$(UV) pip install agno rich openai
+	@echo "Running agent tests..."
+	$(UV) run pytest $(PYTEST_FLAGS) -s --show-capture=all --tb=short tests/test_mcp_via_agno_agent.py
 
 test-core: venv
 	@echo "Installing development dependencies..."

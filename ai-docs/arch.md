@@ -287,8 +287,6 @@ The MCP-Agile-Flow server implements the cursor-auto-rules-agile-workflow functi
 #### Documentation Tools
 - `create-prd`: Creates Product Requirements Document
 - `create-architecture`: Creates Architecture Document
-- `create-project-ideation`: Creates Project Ideation Document
-- `update-project-ideation-section`: Updates sections of ideation document
 
 #### Utility Tools
 - `hey-agile-flow`: Processes natural language commands

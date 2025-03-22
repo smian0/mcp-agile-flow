@@ -362,15 +362,21 @@ async def handle_call_tool(
         
         # Handle migration tool
         elif name == "migrate-mcp-config":
-            from .migration_tool import migrate_config
+            from .migration_tool import migrate_config, get_ide_path, get_conflict_details, detect_conflicts
             
             if not arguments:
-                return [create_text_response("Error: No arguments provided for migrate-mcp-config", is_error=True)]
+                return [create_text_response(json.dumps({
+                    "success": False,
+                    "error": "No arguments provided for migrate-mcp-config"
+                }), is_error=True)]
             
             required_args = ["from_ide", "to_ide"]
             missing_args = [arg for arg in required_args if arg not in arguments]
             if missing_args:
-                return [create_text_response(f"Error: Missing required arguments: {', '.join(missing_args)}", is_error=True)]
+                return [create_text_response(json.dumps({
+                    "success": False,
+                    "error": f"Missing required arguments: {', '.join(missing_args)}"
+                }), is_error=True)]
             
             from_ide = arguments["from_ide"]
             to_ide = arguments["to_ide"]
@@ -380,7 +386,7 @@ async def handle_call_tool(
             # If conflict resolutions are provided, perform the migration with them
             if conflict_resolutions:
                 try:
-                    from .migration_tool import get_ide_path, merge_configurations
+                    from .migration_tool import merge_configurations
                     
                     # Get paths
                     source_path = get_ide_path(from_ide)
@@ -395,6 +401,42 @@ async def handle_call_tool(
                     if os.path.exists(target_path):
                         with open(target_path, 'r') as f:
                             target_config = json.load(f)
+                    
+                    # Detect conflicts
+                    actual_conflicts = detect_conflicts(source_config, target_config)
+                    
+                    # Validate conflict resolutions
+                    if not actual_conflicts and conflict_resolutions:
+                        # No actual conflicts but resolutions provided
+                        response = {
+                            "success": False,
+                            "error": "Invalid conflict resolutions: no conflicts were detected",
+                            "actual_conflicts": actual_conflicts
+                        }
+                        return [create_text_response(json.dumps(response), is_error=True)]
+                    
+                    # Check if all provided resolutions correspond to actual conflicts
+                    invalid_resolutions = [server for server in conflict_resolutions if server not in actual_conflicts]
+                    if invalid_resolutions:
+                        response = {
+                            "success": False,
+                            "error": f"Invalid conflict resolutions: {', '.join(invalid_resolutions)} not in conflicts",
+                            "actual_conflicts": actual_conflicts
+                        }
+                        return [create_text_response(json.dumps(response), is_error=True)]
+                    
+                    # Check if all conflicts have resolutions provided
+                    missing_resolutions = [server for server in actual_conflicts if server not in conflict_resolutions]
+                    if missing_resolutions:
+                        response = {
+                            "success": False,
+                            "error": f"Missing conflict resolutions for: {', '.join(missing_resolutions)}",
+                            "actual_conflicts": actual_conflicts,
+                            "needs_resolution": True,
+                            "conflicts": actual_conflicts,
+                            "conflict_details": get_conflict_details(source_config, target_config, actual_conflicts)
+                        }
+                        return [create_text_response(json.dumps(response), is_error=True)]
                     
                     # Create backup if requested
                     if backup and os.path.exists(target_path):
@@ -411,37 +453,65 @@ async def handle_call_tool(
                     with open(target_path, 'w') as f:
                         json.dump(merged_config, f, indent=2)
                     
-                    return [create_text_response(f"Successfully migrated MCP configuration from {from_ide} to {to_ide} with conflict resolutions.")]
+                    response = {
+                        "success": True,
+                        "resolved_conflicts": list(conflict_resolutions.keys()),
+                        "source_path": source_path,
+                        "target_path": target_path
+                    }
+                    return [create_text_response(json.dumps(response))]
                 except Exception as e:
-                    return [create_text_response(f"Error during migration with conflict resolutions: {str(e)}", is_error=True)]
+                    response = {
+                        "success": False,
+                        "error": f"Error during migration with conflict resolutions: {str(e)}"
+                    }
+                    return [create_text_response(json.dumps(response), is_error=True)]
             else:
                 # Perform migration check first to detect conflicts
                 success, error_message, conflicts, conflict_details = migrate_config(from_ide, to_ide, backup)
                 
                 if not success:
-                    return [create_text_response(f"Error during migration check: {error_message}", is_error=True)]
+                    response = {
+                        "success": False,
+                        "error": f"Error during migration check: {error_message}"
+                    }
+                    return [create_text_response(json.dumps(response), is_error=True)]
                 
                 if conflicts:
-                    # Format conflict details for display
-                    conflict_message = f"Found {len(conflicts)} conflicting server configurations:\n"
-                    for server_name in conflicts:
-                        conflict_message += f"\n- {server_name}"
+                    # Check if conflict_resolutions was provided as an empty dict
+                    # This is different from not providing conflict_resolutions at all
+                    if "conflict_resolutions" in arguments and isinstance(conflict_resolutions, dict) and len(conflict_resolutions) == 0:
+                        response = {
+                            "success": False,
+                            "error": "Missing conflict resolutions",
+                            "needs_resolution": True,
+                            "conflicts": conflicts,
+                            "conflict_details": conflict_details,
+                            "source_path": get_ide_path(from_ide),
+                            "target_path": get_ide_path(to_ide)
+                        }
+                        return [create_text_response(json.dumps(response), is_error=True)]
                     
-                    conflict_message += "\n\nTo resolve conflicts, call the tool again with 'conflict_resolutions' argument:"
-                    conflict_message += "\n```json"
-                    conflict_message += "\n{"
-                    conflict_message += '\n  "conflict_resolutions": {'
-                    for server_name in conflicts:
-                        conflict_message += f'\n    "{server_name}": true,  // true = use source, false = keep target'
-                    conflict_message += "\n  }"
-                    conflict_message += "\n}"
-                    conflict_message += "\n```"
-                    
-                    return [create_text_response(conflict_message)]
+                    # Initial check for conflicts, with no conflict_resolutions provided
+                    # Return success=True to match migrate_config behavior
+                    response = {
+                        "success": True,
+                        "needs_resolution": True,
+                        "conflicts": conflicts,
+                        "conflict_details": conflict_details,
+                        "source_path": get_ide_path(from_ide),
+                        "target_path": get_ide_path(to_ide)
+                    }
+                    return [create_text_response(json.dumps(response))]
                 else:
                     # No conflicts, migration was successful
-                    return [create_text_response(f"Successfully migrated MCP configuration from {from_ide} to {to_ide}.")]
-                
+                    response = {
+                        "success": True,
+                        "needs_resolution": False,
+                        "source_path": get_ide_path(from_ide),
+                        "target_path": get_ide_path(to_ide)
+                    }
+                    return [create_text_response(json.dumps(response))]
         elif name == "initialize-ide":
             # Initialize-ide logic (previously existing implementation)
             if not arguments:
@@ -474,26 +544,31 @@ async def handle_call_tool(
                 # Copy default templates to .ai-templates directory
                 # Source path is within the package's resources
                 # Get the templates from the installed package
-                template_files = [
-                    "template-brd.md",
-                    "template-prd.md",
-                    "template-arch.md",
-                    "template-story.md",
-                    "template-epic-summary.md"
-                ]
                 
-                # Use importlib.resources to find templates in the package
-                for template_file in template_files:
-                    try:
-                        template_source_path = os.path.join(os.path.dirname(__file__), "ai-templates", template_file)
-                        template_target_path = os.path.join(project_path, ".ai-templates", template_file)
-                        
-                        if os.path.exists(template_source_path):
-                            shutil.copy2(template_source_path, template_target_path)
-                        else:
-                            print(f"Warning: Template file not found at {template_source_path}")
-                    except Exception as e:
-                        print(f"Error copying template {template_file}: {str(e)}")
+                # Create templates directory if it doesn't exist
+                templates_dir = os.path.join(project_path, ".ai-templates")
+                os.makedirs(templates_dir, exist_ok=True)
+                
+                # Get the source templates directory path
+                templates_source_dir = os.path.join(os.path.dirname(__file__), "ai-templates")
+                
+                # Check if the source directory exists
+                if os.path.exists(templates_source_dir) and os.path.isdir(templates_source_dir):
+                    # Copy all template files from the source directory
+                    for template_file in os.listdir(templates_source_dir):
+                        try:
+                            template_source_path = os.path.join(templates_source_dir, template_file)
+                            template_target_path = os.path.join(templates_dir, template_file)
+                            
+                            # Only copy files, not directories
+                            if os.path.isfile(template_source_path):
+                                shutil.copy2(template_source_path, template_target_path)
+                                print(f"Copied template: {template_file}")
+                            
+                        except Exception as e:
+                            print(f"Error copying template {template_file}: {str(e)}")
+                else:
+                    print(f"Warning: Template directory not found at {templates_source_dir}")
                 
                 # Initialize IDE-specific rules
                 # Call initialize-rules with the IDE parameter for more specific setup
@@ -2018,176 +2093,7 @@ def run():
     """Entry point for running the server."""
     asyncio.run(run_server())
 
-def create_project_ideation(project_name: str) -> str:
-    """
-    Create a project ideation document for a new project.
-    
-    Args:
-        project_name: Name of the project
-        
-    Returns:
-        A message indicating success or failure
-    """
-    try:
-        # Get project settings
-        settings = get_project_settings()
-        
-        # Determine paths
-        templates_dir = settings.get('ai_templates_directory', '.ai-templates')
-        docs_dir = settings.get('ai_docs_directory', 'ai-docs')
-        template_path = os.path.join(templates_dir, 'template-project-ideation.md')
-        output_path = os.path.join(docs_dir, 'project-ideation.md')
-        
-        # Create docs directory if it doesn't exist
-        os.makedirs(docs_dir, exist_ok=True)
-        
-        # Check if template exists
-        if not os.path.exists(template_path):
-            return f"Error: Template file {template_path} not found"
-        
-        # Read template
-        with open(template_path, 'r') as f:
-            template = f.read()
-        
-        # Replace placeholders
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
-        output = template.replace('{project-name}', project_name)
-        output = output.replace('{date}', today)
-        
-        # Write output
-        with open(output_path, 'w') as f:
-            f.write(output)
-        
-        return f"Created Project Ideation Document for {project_name} at {output_path}"
-    
-    except Exception as e:
-        return f"Error creating project ideation document: {str(e)}"
-
-def update_project_ideation_section(section_name: str, content: str) -> str:
-    """
-    Add or update content in a section of the project ideation document.
-    
-    Args:
-        section_name: The name of the section to update
-        content: The content to add to the section
-        
-    Returns:
-        A message indicating success or failure
-    """
-    try:
-        # Get project settings
-        settings = get_project_settings()
-        
-        # Determine paths
-        docs_dir = settings.get('ai_docs_directory', 'ai-docs')
-        file_path = os.path.join(docs_dir, 'project-ideation.md')
-        
-        # Check if file exists
-        if not os.path.exists(file_path):
-            return "Error: Project ideation document not found. Create a project ideation first."
-        
-        # Read the file
-        with open(file_path, 'r') as f:
-            lines = f.readlines()
-        
-        # Find the section
-        section_found = False
-        section_index = -1
-        
-        for i, line in enumerate(lines):
-            if line.strip() == f"## {section_name}":
-                section_found = True
-                section_index = i
-                break
-        
-        if not section_found:
-            return f"Error: Section '{section_name}' not found in the project ideation document."
-        
-        # Determine if the section has bullet points
-        has_bullets = False
-        if section_index + 1 < len(lines) and lines[section_index + 1].strip().startswith('-'):
-            has_bullets = True
-        
-        # Add the content to the section
-        if has_bullets:
-            # Check if content is already a bullet point
-            if not content.strip().startswith('-'):
-                content = f"- {content}"
-            
-            # Find the end of the bullet points
-            end_index = section_index + 1
-            while end_index < len(lines) and lines[end_index].strip().startswith('-'):
-                end_index += 1
-            
-            # Insert the new bullet point
-            lines.insert(end_index, content + '\n')
-        else:
-            # Replace the placeholder text or add below existing text
-            if section_index + 1 < len(lines) and lines[section_index + 1].strip().startswith('['):
-                lines[section_index + 1] = content + '\n'
-            else:
-                lines.insert(section_index + 1, content + '\n')
-        
-        # Write the updated file
-        with open(file_path, 'w') as f:
-            f.writelines(lines)
-        
-        return f"Added '{content}' to the '{section_name}' section in the project ideation document."
-    
-    except Exception as e:
-        return f"Error updating project ideation document: {str(e)}"
-
-# Register document creation tools
-@mcp.tool("create-project-ideation")
-async def handle_create_project_ideation(request: types.Request) -> types.Response:
-    """Create a project ideation document for a new project."""
-    try:
-        arguments = request.arguments
-        
-        project_name = arguments.get("project_name", "")
-        if not project_name:
-            return types.Response(
-                content=create_text_response("Error: Project name is required", is_error=True)
-            )
-        
-        result = create_project_ideation(project_name)
-        
-        return types.Response(
-            content=create_text_response(result)
-        )
-    except Exception as e:
-        return types.Response(
-            content=create_text_response(f"Error creating project ideation document: {str(e)}", is_error=True)
-        )
-
-@mcp.tool("update-project-ideation-section")
-async def handle_update_project_ideation_section(request: types.Request) -> types.Response:
-    """Update a section in the project ideation document."""
-    try:
-        arguments = request.arguments
-        
-        section_name = arguments.get("section_name", "")
-        content = arguments.get("content", "")
-        
-        if not section_name:
-            return types.Response(
-                content=create_text_response("Error: Section name is required", is_error=True)
-            )
-        
-        if not content:
-            return types.Response(
-                content=create_text_response("Error: Content is required", is_error=True)
-            )
-        
-        result = update_project_ideation_section(section_name, content)
-        
-        return types.Response(
-            content=create_text_response(result)
-        )
-    except Exception as e:
-        return types.Response(
-            content=create_text_response(f"Error updating project ideation document: {str(e)}", is_error=True)
-        )
+# All project ideation functions have been removed since they are handled by copying IDE rules files
 
 if __name__ == "__main__":
     run()
