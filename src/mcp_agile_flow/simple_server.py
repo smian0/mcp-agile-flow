@@ -244,20 +244,6 @@ async def handle_list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
-            name="initialize-rules",
-            description="Initialize a project with Cursor rules. The project path will default to the PROJECT_PATH environment variable if set, or the current directory if not set.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "project_path": {
-                        "type": "string",
-                        "description": "Custom project path to use (optional). If not provided, will use PROJECT_PATH environment variable or current directory."
-                    }
-                },
-                "required": [],
-            },
-        ),
-        types.Tool(
             name="migrate-rules-to-windsurf",
             description="Migrate Cursor rules to Windsurf format. The project path will default to the PROJECT_PATH environment variable if set, or the current directory if not set.",
             inputSchema={
@@ -571,9 +557,9 @@ async def handle_call_tool(
                     print(f"Warning: Template directory not found at {templates_source_dir}")
                 
                 # Initialize IDE-specific rules
-                # Call initialize-rules with the IDE parameter for more specific setup
+                # Call initialize-ide-rules with the IDE parameter for more specific setup
                 if ide == "cursor":
-                    rule_result = await handle_call_tool("initialize-rules", {"project_path": project_path})
+                    rule_result = await handle_call_tool("initialize-ide-rules", {"project_path": project_path, "ide": "cursor"})
                     if rule_result and len(rule_result) > 0 and rule_result[0].type == "text":
                         return rule_result
                 else:
@@ -613,7 +599,7 @@ async def handle_call_tool(
                 print(f"Error in initialize-ide: {str(e)}")
                 traceback.print_exc()
                 return [create_text_response(f"Error initializing project: {str(e)}", is_error=True)]
-        elif name == "initialize-ide-rules" or name == "initialize-rules":
+        elif name == "initialize-ide-rules":
             # Get a safe project path using the utility function
             try:
                 project_path, is_root, source = get_safe_project_path(arguments, "PROJECT_PATH")

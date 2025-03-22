@@ -186,8 +186,8 @@ def test_cursor_rule_files_have_mdc_extension(temp_dir, env_cleanup):
         "ide": "cursor"
     }
     
-    # Call initialize-rules directly
-    result = asyncio.run(handle_call_tool("initialize-rules", arguments))
+    # Call initialize-ide-rules directly
+    result = asyncio.run(handle_call_tool("initialize-ide-rules", arguments))
     
     # Check the response
     assert len(result) == 1

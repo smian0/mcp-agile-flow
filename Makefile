@@ -1,7 +1,7 @@
 # MCP Agile Flow - Makefile
 # -------------------------
 
-.PHONY: help venv install test test-coverage test-kg test-core test-full test-agent run-server setup-cursor clean clean-all quality all
+.PHONY: help venv install test test-coverage test-kg test-core test-full test-agent test-via-agent run-server setup-cursor clean clean-all quality all
 
 # Configuration
 # -------------
@@ -13,7 +13,7 @@ SOURCE_DIR := src
 TESTS_DIR := tests
 PYTEST_FLAGS := -v
 TEST_PATH ?= $(TESTS_DIR)
-TEST_MARKERS ?= --ignore=tests/full-stack-fastapi-sample-project -k "not test_mcp_via_agno_agent"
+TEST_MARKERS ?= --ignore=tests/full-stack-fastapi-sample-project --ignore=tests/test_mcp_via_agno_agent.py
 
 # Help target
 # -----------
@@ -23,11 +23,12 @@ help:
 	@echo "help:             Show this help message"
 	@echo "venv:             Create virtual environment"
 	@echo "install:          Install package"
-	@echo "test:             Run tests with detailed debug output (skips failing tests)"
+	@echo "test:             Run tests with detailed debug output (excludes agent tests)"
 	@echo "                  Use TEST_PATH=path/to/test to run specific tests"
 	@echo "                  Use TEST_MARKERS=\"\" to clear default markers"
 	@echo "test-core:        Run only the core tests (migration and integration)"
 	@echo "test-agent:       Run only the agent tests (test_mcp_via_agno_agent.py)"
+	@echo "test-via-agent:   Run only the tests that use an AI agent for testing"
 	@echo "test-full:        Run all tests with full dependencies"
 	@echo "test-coverage:    Run tests with coverage report"
 	@echo "test-kg:          Run only the knowledge graph creation test"
@@ -62,7 +63,7 @@ test-coverage: venv
 	$(UV) pip install -e ".[test]"
 	$(UV) pip install -e .
 	@echo "Running tests with coverage..."
-	$(UV) run pytest $(PYTEST_FLAGS) --cov=$(PACKAGE_NAME) --cov-report=term --cov-report=html $(TESTS_DIR)
+	$(UV) run pytest $(PYTEST_FLAGS) --cov=$(PACKAGE_NAME) --cov-report=term --cov-report=html $(TEST_MARKERS) $(TESTS_DIR)
 
 test-kg: venv
 	@echo "Installing development dependencies..."
@@ -71,12 +72,15 @@ test-kg: venv
 	@echo "Running knowledge graph test..."
 	$(UV) run python -c "from tests.test_mcp_via_agno_agent import test_fastapi_project_knowledge_graph; test_fastapi_project_knowledge_graph()"
 
-test-agent: venv
+# test-agent is an alias for test-via-agent for backward compatibility
+test-agent: test-via-agent
+
+test-via-agent: venv
 	@echo "Installing development and agent-specific dependencies..."
 	$(UV) pip install -e ".[test]"
 	$(UV) pip install -e .
 	$(UV) pip install agno rich openai
-	@echo "Running agent tests..."
+	@echo "Running tests via AI agent..."
 	$(UV) run pytest $(PYTEST_FLAGS) -s --show-capture=all --tb=short tests/test_mcp_via_agno_agent.py
 
 test-core: venv
@@ -92,6 +96,8 @@ test-full: venv
 	$(UV) pip install -e .
 	@echo "Installing additional dependencies for FastAPI tests..."
 	$(UV) pip install fastapi sqlmodel httpx pytest-cov email-validator pydantic[email]
+	@echo "Installing agent dependencies..."
+	$(UV) pip install agno rich openai
 	@echo "Running all tests with debug output..."
 	$(UV) run pytest -v -s --show-capture=all --tb=short --ignore=tests/full-stack-fastapi-sample-project tests
 

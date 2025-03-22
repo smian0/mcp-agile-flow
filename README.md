@@ -73,38 +73,17 @@ After installation, you can use the MCP tools directly in Cursor through Claude 
 
 ### Available Tools
 
-#### Project Setup and Management
+#### Primary Tools
 
-1. **initialize-ide**
-   ```json
-   {
-     "name": "initialize-ide",
-     "arguments": {
-       "ide": "cursor"  // Options: cursor, windsurf, cline, copilot
-     }
-   }
-   ```
-   Initializes a project with the appropriate rules for the specified IDE.
-
-2. **get-project-settings**
-   ```json
-   {
-     "name": "get-project-settings",
-     "arguments": {}
-   }
-   ```
-   Returns comprehensive project settings including paths and configuration.
-
-3. **get-safe-project-path**
-   ```json
-   {
-     "name": "get-safe-project-path",
-     "arguments": {
-       "proposed_path": "/optional/path/to/check"
-     }
-   }
-   ```
-   Returns a safe, writable project path for file operations.
+- `get-project-settings`: Returns project settings including paths and configuration
+- `get-safe-project-path`: Get a safe, writable project path
+- `get-project-info`: Get project type and metadata from the knowledge graph
+- `get-mermaid-diagram`: Generate a Mermaid diagram of the knowledge graph
+- `initialize-ide`: Initialize a project with rules for a specific IDE
+- `initialize-ide-rules`: Initialize a project with rules for a specific IDE (specialized)
+- `migrate-mcp-config`: Migrate MCP configuration between different IDEs
+- `migrate-rules-to-windsurf`: Migrate Cursor rules to Windsurf format
+- `prime-context`: Analyze project AI documentation to build context
 
 #### Knowledge Graph Management
 

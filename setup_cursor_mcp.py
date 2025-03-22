@@ -35,7 +35,6 @@ def main():
             ],
             "autoApprove": [
                 "initialize-ide-rules",
-                "initialize-rules",
                 "get-project-path",
                 "get-project-settings",
                 "create_entities",
