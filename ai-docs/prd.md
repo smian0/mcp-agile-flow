@@ -132,7 +132,7 @@ The following epics are planned for future implementation:
 ## Changelog
 | Date | Change | Reason |
 |------|--------|--------|
-| 2023-03-20 | Initial PRD | Project initialization based on BRD |
+| 2023-03-20 | Initial PRD | Project ideation based on BRD |
 | 2023-03-20 | Updated PRD with implementation status | Aligning with current codebase |
 | 2023-03-20 | Corrected Git workflow implementation status | Fixed incorrect implementation status of Epic-1-git-workflow |
 | 2023-03-20 | Updated Git workflow status to completed | Implemented Story-1 and Story-2 of Epic-1 |

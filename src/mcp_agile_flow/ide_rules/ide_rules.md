@@ -715,3 +715,34 @@ but might need more testing. I also changed some CSS.
 - Reference issues when applicable using the correct format
 - Be specific about what was changed and why
 - When combining multiple changes, consider splitting into separate commits
+
+### Project Ideation Standards
+
+#### Context
+- When a user wants to start a new project from an initial idea
+- When transforming unstructured project concepts into a structured outline
+- When kicking off the agile workflow process
+
+#### Requirements
+- Generate a structured project ideation document using the template
+- Capture core project elements: overview, audience, features, impact, criteria
+- Elicit information conversationally rather than requesting form completion
+- Guide users to BRD creation after project ideation is complete
+
+#### Document Structure
+1. **Header**: "Project Ideation for {project-name}"
+2. **Status**: Draft
+3. **Project Overview**: Problem/opportunity description
+4. **Core Idea**: Central concept in 2-3 sentences
+5. **Target Audience**: Primary and secondary users
+6. **Key Features**: Bullet list of primary features
+7. **Potential Impact**: Anticipated benefits and importance
+8. **Success Criteria**: Measurable indicators of success
+9. **Next Steps**: Guidance to BRD/PRD/Architecture creation
+
+#### Critical Rules
+- Always use project ideation before proceeding to BRD/PRD
+- Store project ideation documents in the ai-docs directory
+- Ensure all sections have meaningful content
+- Guide the user to the next step (typically BRD creation) after completion
+- Document should be named "project-ideation.md" in the ai-docs root directory

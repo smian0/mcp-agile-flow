@@ -245,6 +245,74 @@ class KnowledgeGraph:
 6. Add Cursor rules for IDE integration ✅
 7. Implement command handling for workflow management ⚠️
 
+## MCP Server Specification
+
+### Overview
+The MCP-Agile-Flow server implements the cursor-auto-rules-agile-workflow functionality through a file-based system that communicates with Cursor via stdin/stdout using the MCP protocol.
+
+### Core Functionality
+1. **Rule Management**: Create, update, and organize rule files
+2. **Template Management**: Handle templates in appropriate directories
+3. **Project Ideation**: Set up project structure and initial documents
+4. **Agile Workflow**: Manage epics, stories, tasks, and documentation
+
+### Technical Architecture
+1. **MCP Protocol Layer**: Handles communication with Cursor
+2. **Tool Handlers**: Process tool invocations and perform operations
+3. **File System Operations**: Manage rules, templates, and project files
+4. **Natural Language Processing**: Parse commands and generate rules
+
+### MCP Tool Implementations
+
+#### Rule Management Tools
+- `create-rule`: Creates new rule files with proper formatting
+- `update-rule`: Updates existing rule files preserving structure
+- `list-rules`: Lists all rule files with metadata
+- `apply-rules`: Applies matching rules to files or directories
+
+#### Template Management Tools
+- `create-template`: Creates new template files
+- `list-templates`: Lists available templates
+- `apply-template`: Applies templates to create new files
+
+#### Project Management Tools
+- `initialize-project`: Sets up project structure and files
+- `project-status`: Reports on project configuration and status
+
+#### Agile Workflow Tools
+- `create-epic`: Creates new epics with metadata
+- `create-story`: Creates new stories within epics
+- `update-story-status`: Updates story workflows
+
+#### Documentation Tools
+- `create-prd`: Creates Product Requirements Document
+- `create-architecture`: Creates Architecture Document
+- `create-project-ideation`: Creates Project Ideation Document
+- `update-project-ideation-section`: Updates sections of ideation document
+
+#### Utility Tools
+- `hey-agile-flow`: Processes natural language commands
+- `debug-tools`: Provides debugging information
+
+### Error Handling
+The server handles common errors including:
+- File not found scenarios
+- Invalid parameters
+- File system errors
+- Natural language parsing errors
+- Validation errors
+
+Each error returns with:
+- Error code
+- Error message
+- Resolution suggestion when possible
+
+### Configuration
+The server uses a simple JSON configuration file with settings for:
+- Default project paths
+- Logging configuration
+- Template directories
+
 ## Security Considerations
 - Template validation to prevent injection attacks ✅
 - Safe file operations to prevent unauthorized access ✅
@@ -273,6 +341,7 @@ class KnowledgeGraph:
 | 2023-03-20 | Updated implementation status | Aligning with current codebase implementation |
 | 2023-03-20 | Corrected Git workflow implementation status | Fixed incorrect implementation status for Epic-1 features |
 | 2023-03-20 | Updated Git workflow to completed status | Implemented commit template, cursor rule, and IDE-agnostic standards |
+| 2023-03-25 | Integrated MCP Server Specification | Consolidated documentation for better organization |
 
 ## Future Architectural Considerations
 - Database storage for larger projects

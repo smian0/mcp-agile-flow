@@ -2018,5 +2018,176 @@ def run():
     """Entry point for running the server."""
     asyncio.run(run_server())
 
+def create_project_ideation(project_name: str) -> str:
+    """
+    Create a project ideation document for a new project.
+    
+    Args:
+        project_name: Name of the project
+        
+    Returns:
+        A message indicating success or failure
+    """
+    try:
+        # Get project settings
+        settings = get_project_settings()
+        
+        # Determine paths
+        templates_dir = settings.get('ai_templates_directory', '.ai-templates')
+        docs_dir = settings.get('ai_docs_directory', 'ai-docs')
+        template_path = os.path.join(templates_dir, 'template-project-ideation.md')
+        output_path = os.path.join(docs_dir, 'project-ideation.md')
+        
+        # Create docs directory if it doesn't exist
+        os.makedirs(docs_dir, exist_ok=True)
+        
+        # Check if template exists
+        if not os.path.exists(template_path):
+            return f"Error: Template file {template_path} not found"
+        
+        # Read template
+        with open(template_path, 'r') as f:
+            template = f.read()
+        
+        # Replace placeholders
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        output = template.replace('{project-name}', project_name)
+        output = output.replace('{date}', today)
+        
+        # Write output
+        with open(output_path, 'w') as f:
+            f.write(output)
+        
+        return f"Created Project Ideation Document for {project_name} at {output_path}"
+    
+    except Exception as e:
+        return f"Error creating project ideation document: {str(e)}"
+
+def update_project_ideation_section(section_name: str, content: str) -> str:
+    """
+    Add or update content in a section of the project ideation document.
+    
+    Args:
+        section_name: The name of the section to update
+        content: The content to add to the section
+        
+    Returns:
+        A message indicating success or failure
+    """
+    try:
+        # Get project settings
+        settings = get_project_settings()
+        
+        # Determine paths
+        docs_dir = settings.get('ai_docs_directory', 'ai-docs')
+        file_path = os.path.join(docs_dir, 'project-ideation.md')
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
+            return "Error: Project ideation document not found. Create a project ideation first."
+        
+        # Read the file
+        with open(file_path, 'r') as f:
+            lines = f.readlines()
+        
+        # Find the section
+        section_found = False
+        section_index = -1
+        
+        for i, line in enumerate(lines):
+            if line.strip() == f"## {section_name}":
+                section_found = True
+                section_index = i
+                break
+        
+        if not section_found:
+            return f"Error: Section '{section_name}' not found in the project ideation document."
+        
+        # Determine if the section has bullet points
+        has_bullets = False
+        if section_index + 1 < len(lines) and lines[section_index + 1].strip().startswith('-'):
+            has_bullets = True
+        
+        # Add the content to the section
+        if has_bullets:
+            # Check if content is already a bullet point
+            if not content.strip().startswith('-'):
+                content = f"- {content}"
+            
+            # Find the end of the bullet points
+            end_index = section_index + 1
+            while end_index < len(lines) and lines[end_index].strip().startswith('-'):
+                end_index += 1
+            
+            # Insert the new bullet point
+            lines.insert(end_index, content + '\n')
+        else:
+            # Replace the placeholder text or add below existing text
+            if section_index + 1 < len(lines) and lines[section_index + 1].strip().startswith('['):
+                lines[section_index + 1] = content + '\n'
+            else:
+                lines.insert(section_index + 1, content + '\n')
+        
+        # Write the updated file
+        with open(file_path, 'w') as f:
+            f.writelines(lines)
+        
+        return f"Added '{content}' to the '{section_name}' section in the project ideation document."
+    
+    except Exception as e:
+        return f"Error updating project ideation document: {str(e)}"
+
+# Register document creation tools
+@mcp.tool("create-project-ideation")
+async def handle_create_project_ideation(request: types.Request) -> types.Response:
+    """Create a project ideation document for a new project."""
+    try:
+        arguments = request.arguments
+        
+        project_name = arguments.get("project_name", "")
+        if not project_name:
+            return types.Response(
+                content=create_text_response("Error: Project name is required", is_error=True)
+            )
+        
+        result = create_project_ideation(project_name)
+        
+        return types.Response(
+            content=create_text_response(result)
+        )
+    except Exception as e:
+        return types.Response(
+            content=create_text_response(f"Error creating project ideation document: {str(e)}", is_error=True)
+        )
+
+@mcp.tool("update-project-ideation-section")
+async def handle_update_project_ideation_section(request: types.Request) -> types.Response:
+    """Update a section in the project ideation document."""
+    try:
+        arguments = request.arguments
+        
+        section_name = arguments.get("section_name", "")
+        content = arguments.get("content", "")
+        
+        if not section_name:
+            return types.Response(
+                content=create_text_response("Error: Section name is required", is_error=True)
+            )
+        
+        if not content:
+            return types.Response(
+                content=create_text_response("Error: Content is required", is_error=True)
+            )
+        
+        result = update_project_ideation_section(section_name, content)
+        
+        return types.Response(
+            content=create_text_response(result)
+        )
+    except Exception as e:
+        return types.Response(
+            content=create_text_response(f"Error updating project ideation document: {str(e)}", is_error=True)
+        )
+
 if __name__ == "__main__":
     run()
