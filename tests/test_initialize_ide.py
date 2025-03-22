@@ -72,7 +72,12 @@ def test_initialize_ide_with_explicit_path(temp_dir, env_cleanup):
     assert os.path.exists(templates_dir)
     
     # Check that the rules directory contains files
-    assert len(os.listdir(rules_dir)) > 0
+    rule_files = os.listdir(rules_dir)
+    assert len(rule_files) > 0
+    
+    # Verify that all rule files have .mdc extension for Cursor
+    for rule_file in rule_files:
+        assert rule_file.endswith('.mdc'), f"Rule file {rule_file} does not have .mdc extension"
     
     # Check that templates directory contains files
     assert len(os.listdir(templates_dir)) > 0
@@ -100,15 +105,28 @@ def test_initialize_ide_with_env_variable(temp_dir, env_cleanup):
     # Verify the command executed successfully
     assert response_data.get("success") == True
     
-    # Note: In the current implementation, when using PROJECT_PATH, 
-    # the code uses the current directory instead. This test is adapted
-    # to reflect the actual behavior.
-    
     # Verify that rules_directory and templates_directory are returned
     assert "rules_directory" in response_data
     assert "templates_directory" in response_data
     assert "initialized_rules" in response_data
     assert "initialized_templates" in response_data
+    
+    # Get the rules directory path
+    rules_dir = response_data["rules_directory"]
+    assert os.path.exists(rules_dir)
+    
+    # Check the initialized rules
+    initialized_rules = response_data.get("initialized_rules", [])
+    assert len(initialized_rules) > 0
+    
+    # Verify that all initialized rules have .mdc extension
+    for rule_file in initialized_rules:
+        assert rule_file.endswith('.mdc'), f"Rule file {rule_file} does not have .mdc extension"
+    
+    # Also verify the files on disk
+    rule_files = os.listdir(rules_dir)
+    for rule_file in rule_files:
+        assert rule_file.endswith('.mdc'), f"Rule file {rule_file} on disk does not have .mdc extension"
 
 def test_initialize_ide_windsurf(temp_dir, env_cleanup):
     """Test initialize-ide with Windsurf IDE option."""
@@ -158,4 +176,45 @@ def test_initialize_ide_without_arguments():
     # Verify the success information
     assert response_data.get("success") == True
     assert "rules_directory" in response_data
-    assert "templates_directory" in response_data 
+    assert "templates_directory" in response_data
+
+def test_cursor_rule_files_have_mdc_extension(temp_dir, env_cleanup):
+    """Test that Cursor rule files are properly created with .mdc extension."""
+    # Set up test
+    arguments = {
+        "project_path": temp_dir,
+        "ide": "cursor"
+    }
+    
+    # Call initialize-rules directly
+    result = asyncio.run(handle_call_tool("initialize-rules", arguments))
+    
+    # Check the response
+    assert len(result) == 1
+    assert result[0].type == "text"
+    assert not result[0].isError
+    
+    # Parse the JSON response
+    response_text = result[0].text
+    response_data = json.loads(response_text)
+    
+    # Verify success and paths
+    assert response_data.get("success") == True
+    assert "rules_directory" in response_data
+    
+    # Get the rules directory path
+    rules_dir = response_data["rules_directory"]
+    assert os.path.exists(rules_dir)
+    
+    # Check the initialized rules
+    initialized_rules = response_data.get("initialized_rules", [])
+    assert len(initialized_rules) > 0
+    
+    # Verify that all initialized rules have .mdc extension
+    for rule_file in initialized_rules:
+        assert rule_file.endswith('.mdc'), f"Rule file {rule_file} does not have .mdc extension"
+    
+    # Also verify the files on disk
+    rule_files = os.listdir(rules_dir)
+    for rule_file in rule_files:
+        assert rule_file.endswith('.mdc'), f"Rule file {rule_file} on disk does not have .mdc extension" 

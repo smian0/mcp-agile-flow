@@ -25,21 +25,31 @@ def main():
         python_path = str(venv_path)
     
     # Create the MCP configuration
+    # Using module-based approach for better reliability
     mcp_server_config = {
         "mcp-agile-flow": {
             "command": python_path,
             "args": [
-                str(project_root / "run_mcp_server.py")
+                "-m",
+                "mcp_agile_flow.simple_server"
             ],
             "autoApprove": [
-                "hello-world",
-                "add-note",
+                "initialize-ide-rules",
+                "initialize-rules",
                 "get-project-path",
                 "get-project-settings",
-                "Hey Sho",
-                "debug-tools"
+                "create_entities",
+                "create_relations",
+                "read_graph",
+                "debug-tools",
+                "get_mermaid_diagram",
+                "add_observations",
+                "delete_entities",
+                "get-safe-project-path",
+                "initialize-ide"
             ],
-            "disabled": False
+            "disabled": False,
+            "timeout": 30
         }
     }
     
@@ -83,10 +93,24 @@ def main():
     print("\nYou can now use the MCP server in Cursor.\n")
     print("For MCP Agile Flow server:")
     print("  - Command will run: " + python_path)
-    print("  - Arguments: " + str(project_root / "run_mcp_server.py"))
+    print("  - Arguments: -m mcp_agile_flow.simple_server")
     print("\nTest the server with these MCP tool calls:")
-    print('  {"name": "Hey Sho", "arguments": {"message": "Hey Sho, get project path"}}')
-    print('  {"name": "debug-tools", "arguments": {}}')
+    print('  {"name": "get-project-settings", "arguments": {}}')
+    print('  {"name": "initialize-ide", "arguments": {"ide": "cursor"}}')
+    
+    # Create a shell script for running the server directly for testing
+    test_script = project_root / "test_mcp_server.sh"
+    with open(test_script, "w") as f:
+        f.write(f"""#!/bin/bash
+# Script to test the MCP server directly
+echo "Testing MCP Agile Flow server..."
+{python_path} -m mcp_agile_flow.simple_server
+""")
+    
+    # Make the script executable
+    os.chmod(test_script, 0o755)
+    print(f"\nCreated test script at {test_script}")
+    print("You can run this script to test the MCP server directly.")
 
 if __name__ == "__main__":
     main() 

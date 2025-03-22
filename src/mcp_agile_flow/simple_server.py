@@ -332,424 +332,212 @@ async def handle_call_tool(
     name: str, arguments: Optional[dict]
 ) -> List[types.TextContent]:
     """
-    Handle tool execution requests.
-    
-    This function processes tool calls based on the name and arguments provided.
-    It handles errors by returning error messages with the isError flag set to True.
+    Handle a tool call from the MCP client.
     
     Args:
         name: The name of the tool to call
-        arguments: The arguments to pass to the tool, or None
+        arguments: Optional arguments to pass to the tool
         
     Returns:
-        A list of responses from the tool
+        A list of TextContent objects with the tool's response.
     """
-    logger.info(f"Handling tool call: {name}")
-    logger.debug(f"Tool arguments: {arguments or {}}")
-    
-    # Validate arguments if they exist
-    if arguments is None and name not in ["get_project_info", "get_mermaid_diagram", "update_markdown_with_mermaid", "update_mermaid_diagram", "get-project-settings", "migrate-rules-to-windsurf", "initialize-rules"]:
-        return [create_text_response(f"Error: The tool '{name}' requires arguments, but none were provided.", is_error=True)]
-    
     try:
-        if name == "migrate-mcp-config":
-            # Import the migration tool functions
-            from .migration_tool import (
-                migrate_config, 
-                merge_configurations,
-                get_ide_path,
-                create_backup
-            )
-            
-            # Validate required arguments
-            if not arguments or "from_ide" not in arguments or "to_ide" not in arguments:
-                return [create_text_response("Error: Both 'from_ide' and 'to_ide' arguments are required.", is_error=True)]
-            
-            # Get backup preference
-            backup = arguments.get("backup", True)
-            
-            # Check if we have conflict resolutions
-            has_resolutions = "conflict_resolutions" in arguments
-            
-            if has_resolutions:
-                # Perform migration with conflict resolutions
-                from_ide = arguments["from_ide"]
-                to_ide = arguments["to_ide"]
-                resolutions = arguments["conflict_resolutions"]
-                
-                # First check if these resolutions match actual conflicts
-                success, error, conflicts, conflict_details = migrate_config(from_ide, to_ide, backup)
-                
-                if not success and error:
-                    return [create_text_response(json.dumps({
-                        "success": False,
-                        "error": error
-                    }, indent=2), is_error=True)]
-                
-                # Verify all resolutions are for actual conflicts
-                invalid_resolutions = [server for server in resolutions if server not in conflicts]
-                if invalid_resolutions:
-                    return [create_text_response(json.dumps({
-                        "success": False,
-                        "error": f"Invalid conflict resolutions provided for servers: {invalid_resolutions}",
-                        "actual_conflicts": conflicts
-                    }, indent=2), is_error=True)]
-                
-                # Verify all conflicts have resolutions
-                missing_resolutions = [server for server in conflicts if server not in resolutions]
-                if missing_resolutions:
-                    return [create_text_response(json.dumps({
-                        "success": False,
-                        "error": f"Missing conflict resolutions for servers: {missing_resolutions}",
-                        "needs_resolution": True,
-                        "conflicts": conflicts,
-                        "conflict_details": conflict_details
-                    }, indent=2), is_error=True)]
-                
-                # All resolutions are valid, perform final merge with resolutions
-                source_path = get_ide_path(from_ide)
-                target_path = get_ide_path(to_ide)
-                
-                with open(source_path, 'r') as f:
-                    source_config = json.load(f)
-                with open(target_path, 'r') as f:
-                    target_config = json.load(f)
-                
-                merged_config = merge_configurations(source_config, target_config, resolutions)
-                
-                # Write the merged configuration
-                if backup:
-                    backup_path = create_backup(target_path)
-                
-                with open(target_path, 'w') as f:
-                    json.dump(merged_config, f, indent=2)
-                
-                return [create_text_response(json.dumps({
-                    "success": True,
-                    "message": f"Successfully migrated MCP configuration from {from_ide} to {to_ide} with conflict resolutions",
-                    "resolved_conflicts": list(resolutions.keys()),
-                    "source_path": source_path,
-                    "target_path": target_path
-                }, indent=2))]
-            
-            # No resolutions provided, perform initial migration call
-            success, error, conflicts, conflict_details = migrate_config(
-                arguments["from_ide"], 
-                arguments["to_ide"], 
-                backup
-            )
-            
-            # Handle errors
-            if not success and error:
-                return [create_text_response(json.dumps({
-                    "success": False,
-                    "error": error
-                }, indent=2), is_error=True)]
-            
-            # Handle conflicts
-            if conflicts:
-                # Get path information for source and target
-                source_path = get_ide_path(arguments["from_ide"])
-                target_path = get_ide_path(arguments["to_ide"])
-                
-                # Return response indicating conflicts that need resolution
-                return [create_text_response(json.dumps({
-                    "success": True,
-                    "needs_resolution": True,
-                    "conflicts": conflicts,
-                    "conflict_details": conflict_details,
-                    "source_path": source_path,
-                    "target_path": target_path,
-                    "message": "Conflicts detected. Please specify how to handle each conflicting server.",
-                    "example_resolution": {
-                        "from_ide": arguments["from_ide"],
-                        "to_ide": arguments["to_ide"],
-                        "conflict_resolutions": {
-                            conflict: True  # True = use source, False = keep target
-                            for conflict in conflicts
-                        }
-                    }
-                }, indent=2))]
-            
-            # Success with no conflicts
-            return [create_text_response(json.dumps({
-                "success": True,
-                "message": f"Successfully migrated MCP configuration from {arguments['from_ide']} to {arguments['to_ide']}",
-                "source_path": get_ide_path(arguments['from_ide']),
-                "target_path": get_ide_path(arguments['to_ide'])
-            }, indent=2))]
+        logger.info(f"Tool call received: {name} with arguments: {arguments}")
+        print(f"DEBUG: Tool call received: {name} with arguments: {arguments}")
         
+        # Normalize tool name (handle different formats that IDEs might send)
+        # Some IDEs might convert dashes to underscores or camelCase
+        normalized_name = name.replace("_", "-").lower()
+        
+        # If we get a normalized version that's different from original, log it
+        if normalized_name != name:
+            logger.info(f"Normalized tool name from '{name}' to '{normalized_name}'")
+            print(f"DEBUG: Normalized tool name from '{name}' to '{normalized_name}'")
+            name = normalized_name
+        
+        # Handle memory graph tools
+        if memory_manager is not None and name in memory_tools:
+            # These tools are registered by the memory graph manager
+            return await memory_manager.handle_tool_call(name, arguments)
+        
+        # Handle migration tool
+        elif name == "migrate-mcp-config":
+            from .migration_tool import migrate_config
+            
+            if not arguments:
+                return [create_text_response("Error: No arguments provided for migrate-mcp-config", is_error=True)]
+            
+            required_args = ["from_ide", "to_ide"]
+            missing_args = [arg for arg in required_args if arg not in arguments]
+            if missing_args:
+                return [create_text_response(f"Error: Missing required arguments: {', '.join(missing_args)}", is_error=True)]
+            
+            from_ide = arguments["from_ide"]
+            to_ide = arguments["to_ide"]
+            backup = arguments.get("backup", True)
+            conflict_resolutions = arguments.get("conflict_resolutions", {})
+            
+            # If conflict resolutions are provided, perform the migration with them
+            if conflict_resolutions:
+                try:
+                    from .migration_tool import get_ide_path, merge_configurations
+                    
+                    # Get paths
+                    source_path = get_ide_path(from_ide)
+                    target_path = get_ide_path(to_ide)
+                    
+                    # Read source configuration
+                    with open(source_path, 'r') as f:
+                        source_config = json.load(f)
+                    
+                    # Read target configuration
+                    target_config = {}
+                    if os.path.exists(target_path):
+                        with open(target_path, 'r') as f:
+                            target_config = json.load(f)
+                    
+                    # Create backup if requested
+                    if backup and os.path.exists(target_path):
+                        backup_path = f"{target_path}.bak"
+                        shutil.copy2(target_path, backup_path)
+                    
+                    # Merge configurations with conflict resolutions
+                    merged_config = merge_configurations(source_config, target_config, conflict_resolutions)
+                    
+                    # Create target directory if it doesn't exist
+                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                    
+                    # Write merged configuration
+                    with open(target_path, 'w') as f:
+                        json.dump(merged_config, f, indent=2)
+                    
+                    return [create_text_response(f"Successfully migrated MCP configuration from {from_ide} to {to_ide} with conflict resolutions.")]
+                except Exception as e:
+                    return [create_text_response(f"Error during migration with conflict resolutions: {str(e)}", is_error=True)]
+            else:
+                # Perform migration check first to detect conflicts
+                success, error_message, conflicts, conflict_details = migrate_config(from_ide, to_ide, backup)
+                
+                if not success:
+                    return [create_text_response(f"Error during migration check: {error_message}", is_error=True)]
+                
+                if conflicts:
+                    # Format conflict details for display
+                    conflict_message = f"Found {len(conflicts)} conflicting server configurations:\n"
+                    for server_name in conflicts:
+                        conflict_message += f"\n- {server_name}"
+                    
+                    conflict_message += "\n\nTo resolve conflicts, call the tool again with 'conflict_resolutions' argument:"
+                    conflict_message += "\n```json"
+                    conflict_message += "\n{"
+                    conflict_message += '\n  "conflict_resolutions": {'
+                    for server_name in conflicts:
+                        conflict_message += f'\n    "{server_name}": true,  // true = use source, false = keep target'
+                    conflict_message += "\n  }"
+                    conflict_message += "\n}"
+                    conflict_message += "\n```"
+                    
+                    return [create_text_response(conflict_message)]
+                else:
+                    # No conflicts, migration was successful
+                    return [create_text_response(f"Successfully migrated MCP configuration from {from_ide} to {to_ide}.")]
+                
         elif name == "initialize-ide":
             # Initialize-ide logic (previously existing implementation)
-            # Get a safe project path using the utility function
-            try:
-                project_path, is_root, source = get_safe_project_path(arguments)
-                logger.info(f"Using project_path from {source}: {project_path}")
-            except ValueError as e:
-                # Handle case where current directory is root
-                current_dir = os.getcwd()
-                response_data = {
-                    "error": str(e),
-                    "status": "error",
-                    "needs_user_input": True,
-                    "current_directory": current_dir,
-                    "is_root": current_dir == "/",
-                    "message": "Please provide a specific project path using the 'project_path' argument.",
-                    "success": False
-                }
-                return [create_text_response(json.dumps(response_data, indent=2), is_error=True)]
+            if not arguments:
+                arguments = {}
             
-            # Check if IDE is specified in arguments
-            if not arguments or "ide" not in arguments:
-                # If IDE is not specified, use the default "cursor"
-                ide = "cursor"
-                logger.info("IDE not specified, defaulting to 'cursor'")
-            else:
-                ide = arguments["ide"]
-            
-            # Always back up existing rule files (but not templates)
-            backup_existing = True
-            
-            # Validate IDE
+            ide = arguments.get("ide", "cursor")
             if ide not in ["cursor", "windsurf", "cline", "copilot"]:
-                raise ValueError("Invalid IDE. Must be one of: cursor, windsurf, cline, or copilot")
+                return [create_text_response(f"Error: Unknown IDE: {ide}", is_error=True)]
             
-            # Log which source was used for project_path
-            logger.info(f"Using project_path from {source}: {project_path}")
-            print(f"initialize-ide using project_path from {source}: {project_path}")
-            
-            # At this point, we've already verified the path exists and is writable in get_safe_project_path
-            
-            # Handle different IDEs
-            if ide == "cursor":
-                # Initialize Cursor rules
-                cursor_dir = os.path.join(project_path, ".cursor")
-                rules_dir = os.path.join(cursor_dir, "rules")
-                # Place ai-templates at the project root
-                templates_dir = os.path.join(project_path, ".ai-templates")
+            try:
+                # Get project path
+                project_path, is_root, source = get_safe_project_path(arguments, "PROJECT_PATH")
                 
-                os.makedirs(rules_dir, exist_ok=True)
-                os.makedirs(templates_dir, exist_ok=True)
+                print(f"initialize-ide using project_path from {source}: {project_path}")
                 
-                # Get paths to our rule and template files
-                server_dir = os.path.dirname(os.path.abspath(__file__))
-                cursor_rules_dir = os.path.join(server_dir, "cursor_rules")
-                ai_templates_dir = os.path.join(server_dir, "ai-templates")
+                # Create directory structure if it doesn't exist
+                os.makedirs(os.path.join(project_path, "ai-docs"), exist_ok=True)
+                os.makedirs(os.path.join(project_path, ".ai-templates"), exist_ok=True)
                 
-                # Verify source directories exist
-                if not os.path.exists(cursor_rules_dir):
-                    raise FileNotFoundError(f"Source rules directory not found: {cursor_rules_dir}")
-                if not os.path.exists(ai_templates_dir):
-                    raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
-                
-                # Track what files were initialized
-                initialized_rules = []
-                initialized_templates = []
-                
-                # First, handle any existing files that need backup
-                existing_files = os.listdir(rules_dir) if os.path.exists(rules_dir) else []
-                for existing_file in existing_files:
-                    if backup_existing:
-                        src = os.path.join(rules_dir, existing_file)
-                        backup = src + ".back"
-                        if os.path.exists(src):
-                            shutil.copy2(src, backup)
-                            initialized_rules.append({"file_name": existing_file, "status": "backed_up"})
-                
-                # Copy rules
-                for rule_file in os.listdir(cursor_rules_dir):
-                    source_file = os.path.join(cursor_rules_dir, rule_file)
-                    target_file = os.path.join(rules_dir, rule_file)
-                    
-                    logger.info(f"Copying rule file from {source_file} to {target_file}")
-                    
-                    # If target exists and backup is enabled, create a backup
-                    if os.path.exists(target_file) and backup_existing:
-                        backup_file = f"{target_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
-                        shutil.copy2(target_file, backup_file)
-                    
-                    # Copy the rule file
-                    shutil.copy2(source_file, target_file)
-                    initialized_rules.append(rule_file)
-                
-                # Verify rules were copied
-                rule_files = os.listdir(rules_dir)
-                logger.info(f"After copying, rules directory contains {len(rule_files)} files: {rule_files}")
-                
-                # Handle existing template files
-                existing_templates = os.listdir(templates_dir) if os.path.exists(templates_dir) else []
-                
-                # Copy templates - always overwrite without conditional logic
-                for template_file in os.listdir(ai_templates_dir):
-                    src = os.path.join(ai_templates_dir, template_file)
-                    dst = os.path.join(templates_dir, template_file)
-                    
-                    # Copy the file, always overwriting existing files
-                    shutil.copy2(src, dst)
-                    initialized_templates.append({"file_name": template_file, "status": "copied"})
-                
-                # Create response
-                response_data = {
-                    "initialized_rules": initialized_rules,
-                    "initialized_templates": initialized_templates,
-                    "rules_directory": os.path.abspath(rules_dir),
-                    "templates_directory": os.path.abspath(templates_dir),
-                    "success": True
-                }
-                
-                return [create_text_response(json.dumps(response_data, indent=2))]
-            elif ide == "windsurf":
-                # Initialize Windsurf rules
-                windsurf_rule_file = os.path.join(project_path, ".windsurfrules")
-                
-                # Backup if needed
-                if os.path.exists(windsurf_rule_file) and backup_existing:
-                    backup = windsurf_rule_file + ".back"
-                    os.rename(windsurf_rule_file, backup)
-                    status = "backed up existing file"
+                # Create IDE-specific rules directory/file based on IDE
+                if ide == "windsurf":
+                    # For windsurf, create an empty .windsurfrules file
+                    windsurf_rules_path = os.path.join(project_path, ".windsurfrules")
+                    with open(windsurf_rules_path, 'w') as f:
+                        f.write("# Windsurf Rules\n")
                 else:
-                    status = "no existing file to backup"
+                    # For other IDEs, create a rules directory
+                    os.makedirs(os.path.join(project_path, f".{ide}-rules"), exist_ok=True)
                 
-                # Get the windsurf template path
-                server_dir = os.path.dirname(os.path.abspath(__file__))
-                ide_rules_dir = os.path.join(server_dir, "ide_rules")
-                template_file = os.path.join(ide_rules_dir, "ide_rules.md")
+                # Copy default templates to .ai-templates directory
+                # Source path is within the package's resources
+                # Get the templates from the installed package
+                template_files = [
+                    "template-brd.md",
+                    "template-prd.md",
+                    "template-arch.md",
+                    "template-story.md",
+                    "template-epic-summary.md"
+                ]
                 
-                # Copy the template
-                shutil.copy2(template_file, windsurf_rule_file)
+                # Use importlib.resources to find templates in the package
+                for template_file in template_files:
+                    try:
+                        template_source_path = os.path.join(os.path.dirname(__file__), "ai-templates", template_file)
+                        template_target_path = os.path.join(project_path, ".ai-templates", template_file)
+                        
+                        if os.path.exists(template_source_path):
+                            shutil.copy2(template_source_path, template_target_path)
+                        else:
+                            print(f"Warning: Template file not found at {template_source_path}")
+                    except Exception as e:
+                        print(f"Error copying template {template_file}: {str(e)}")
                 
-                # Create and populate the ai-templates directory
-                templates_dir = os.path.join(project_path, ".ai-templates")
-                os.makedirs(templates_dir, exist_ok=True)
-                
-                # Get paths to our template files
-                ai_templates_dir = os.path.join(server_dir, "ai-templates")
-                
-                # Verify source directories exist
-                if not os.path.exists(ai_templates_dir):
-                    raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
-                
-                # Copy templates - always overwrite without conditional logic
-                for template_file in os.listdir(ai_templates_dir):
-                    src = os.path.join(ai_templates_dir, template_file)
-                    dst = os.path.join(templates_dir, template_file)
-                    
-                    # Copy the file, always overwriting existing files
-                    shutil.copy2(src, dst)
-                
-                # Create response
-                response_data = {
-                    "initialized_windsurf": True,
-                    "file_path": os.path.abspath(windsurf_rule_file),
-                    "templates_directory": os.path.abspath(templates_dir),
-                    "status": status,
-                    "success": True
-                }
-                
-                return [create_text_response(json.dumps(response_data, indent=2))]
-            elif ide == "cline":
-                # Initialize Cline rules
-                cline_rule_file = os.path.join(project_path, ".clinerules")
-                
-                # Backup if needed
-                if os.path.exists(cline_rule_file) and backup_existing:
-                    backup = cline_rule_file + ".back"
-                    os.rename(cline_rule_file, backup)
-                    status = "backed up existing file"
+                # Initialize IDE-specific rules
+                # Call initialize-rules with the IDE parameter for more specific setup
+                if ide == "cursor":
+                    rule_result = await handle_call_tool("initialize-rules", {"project_path": project_path})
+                    if rule_result and len(rule_result) > 0 and rule_result[0].type == "text":
+                        return rule_result
                 else:
-                    status = "no existing file to backup"
-                
-                # Get the cline template path (we'll use the same template)
-                server_dir = os.path.dirname(os.path.abspath(__file__))
-                ide_rules_dir = os.path.join(server_dir, "ide_rules")
-                template_file = os.path.join(ide_rules_dir, "ide_rules.md")
-                
-                # Copy the template
-                shutil.copy2(template_file, cline_rule_file)
-                
-                # Create and populate the ai-templates directory
-                templates_dir = os.path.join(project_path, ".ai-templates")
-                os.makedirs(templates_dir, exist_ok=True)
-                
-                # Get paths to our template files
-                ai_templates_dir = os.path.join(server_dir, "ai-templates")
-                
-                # Verify source directories exist
-                if not os.path.exists(ai_templates_dir):
-                    raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
-                
-                # Copy templates - always overwrite without conditional logic
-                for template_file in os.listdir(ai_templates_dir):
-                    src = os.path.join(ai_templates_dir, template_file)
-                    dst = os.path.join(templates_dir, template_file)
+                    # Copy IDE-specific rules
+                    rules_source_dir = os.path.join(os.path.dirname(__file__), "ide_rules", ide)
+                    rules_target_dir = os.path.join(project_path, f".{ide}-rules")
                     
-                    # Copy the file, always overwriting existing files
-                    shutil.copy2(src, dst)
+                    if os.path.exists(rules_source_dir):
+                        for rule_file in os.listdir(rules_source_dir):
+                            source_file = os.path.join(rules_source_dir, rule_file)
+                            target_file = os.path.join(rules_target_dir, rule_file)
+                            if os.path.isfile(source_file):
+                                shutil.copy2(source_file, target_file)
+                    else:
+                        print(f"Warning: IDE rules directory not found at {rules_source_dir}")
                 
-                # Create response
+                # Create a JSON response
                 response_data = {
-                    "initialized_cline": True,
-                    "file_path": os.path.abspath(cline_rule_file),
-                    "templates_directory": os.path.abspath(templates_dir),
-                    "status": status,
-                    "success": True
+                    "success": True,
+                    "message": f"Initialized {ide} project in {project_path}",
+                    "project_path": project_path,
+                    "templates_directory": os.path.join(project_path, ".ai-templates"),
+                    "initialized_windsurf": ide == "windsurf"
                 }
                 
-                return [create_text_response(json.dumps(response_data, indent=2))]
-            elif ide == "copilot":
-                # Initialize Copilot rules
-                github_dir = os.path.join(project_path, ".github")
-                os.makedirs(github_dir, exist_ok=True)
-                copilot_rule_file = os.path.join(github_dir, "copilot-instructions.md")
-                
-                # Backup if needed
-                if os.path.exists(copilot_rule_file) and backup_existing:
-                    backup = copilot_rule_file + ".back"
-                    os.rename(copilot_rule_file, backup)
-                    status = "backed up existing file"
+                # Add IDE-specific paths to the response
+                if ide == "windsurf":
+                    response_data["rules_file"] = os.path.join(project_path, ".windsurfrules")
+                    response_data["rules_directory"] = None  # No rules directory for windsurf
                 else:
-                    status = "no existing file to backup"
-                
-                # Get the copilot template path (we'll use the same template)
-                server_dir = os.path.dirname(os.path.abspath(__file__))
-                ide_rules_dir = os.path.join(server_dir, "ide_rules")
-                template_file = os.path.join(ide_rules_dir, "ide_rules.md")
-                
-                # Copy the template
-                shutil.copy2(template_file, copilot_rule_file)
-                
-                # Create and populate the ai-templates directory
-                templates_dir = os.path.join(project_path, ".ai-templates")
-                os.makedirs(templates_dir, exist_ok=True)
-                
-                # Get paths to our template files
-                ai_templates_dir = os.path.join(server_dir, "ai-templates")
-                
-                # Verify source directories exist
-                if not os.path.exists(ai_templates_dir):
-                    raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
-                
-                # Copy templates - always overwrite without conditional logic
-                for template_file in os.listdir(ai_templates_dir):
-                    src = os.path.join(ai_templates_dir, template_file)
-                    dst = os.path.join(templates_dir, template_file)
-                    
-                    # Copy the file, always overwriting existing files
-                    shutil.copy2(src, dst)
-                
-                # Create response
-                response_data = {
-                    "initialized_copilot": True,
-                    "file_path": os.path.abspath(copilot_rule_file),
-                    "templates_directory": os.path.abspath(templates_dir),
-                    "status": status,
-                    "success": True
-                }
+                    response_data["rules_directory"] = os.path.join(project_path, f".{ide}-rules")
                 
                 return [create_text_response(json.dumps(response_data, indent=2))]
-            else:
-                raise ValueError(f"Unknown IDE: {ide}. Supported values are 'cursor', 'windsurf', 'cline', or 'copilot'")
-        
+            except ValueError as e:
+                return [create_text_response(f"Error: {str(e)}", is_error=True)]
+            except Exception as e:
+                print(f"Error in initialize-ide: {str(e)}")
+                traceback.print_exc()
+                return [create_text_response(f"Error initializing project: {str(e)}", is_error=True)]
         elif name == "initialize-ide-rules" or name == "initialize-rules":
             # Get a safe project path using the utility function
             try:
@@ -816,10 +604,20 @@ async def handle_call_tool(
                 # First, handle any existing files that need backup
                 existing_files = os.listdir(rules_dir) if os.path.exists(rules_dir) else []
                 
-                # Copy rules
+                # Copy rules - Ensure they have .mdc extension for Cursor
                 for rule_file in os.listdir(cursor_rules_dir):
                     source_file = os.path.join(cursor_rules_dir, rule_file)
-                    target_file = os.path.join(rules_dir, rule_file)
+                    
+                    # For Cursor, we need to ensure the file has .mdc extension
+                    target_filename = rule_file
+                    if rule_file.endswith('.md') and not rule_file.endswith('.mdc'):
+                        # Change the extension from .md to .mdc
+                        target_filename = f"{rule_file[:-3]}.mdc"
+                    elif not rule_file.endswith('.mdc'):
+                        # Add .mdc extension if it's not already there and doesn't have .md
+                        target_filename = f"{rule_file}.mdc"
+                    
+                    target_file = os.path.join(rules_dir, target_filename)
                     
                     logger.info(f"Copying rule file from {source_file} to {target_file}")
                     
@@ -830,7 +628,7 @@ async def handle_call_tool(
                     
                     # Copy the rule file
                     shutil.copy2(source_file, target_file)
-                    initialized_rules.append(rule_file)
+                    initialized_rules.append(target_filename)
                 
                 # Verify rules were copied
                 rule_files = os.listdir(rules_dir)
@@ -1747,8 +1545,9 @@ async def handle_call_tool(
             raise ValueError(f"Unknown tool: {name}")
             
     except Exception as e:
-        logger.error(f"Error in tool call: {str(e)}")
-        return [create_text_response(str(e), is_error=True)]
+        logger.error(f"Error handling tool call '{name}': {str(e)}")
+        logger.error(traceback.format_exc())
+        return [create_text_response(f"Error processing tool '{name}': {str(e)}\n\nPlease check server logs for details.", is_error=True)]
 
 def extract_markdown_title(content):
     """Extract the title from markdown content.
