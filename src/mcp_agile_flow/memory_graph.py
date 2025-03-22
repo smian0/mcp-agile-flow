@@ -907,15 +907,16 @@ def register_memory_tools(mcp_server):
     
     # Define memory graph tools to be added to the handle_list_tools function
     memory_tools = [
-        Tool(
-            name="get_project_info",
-            description="Get information about the project type and metadata from the knowledge graph",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
-        ),
+        # Removing the get_project_info tool as it will be merged with get-project-settings
+        # Tool(
+        #     name="get_project_info",
+        #     description="Get information about the project type and metadata from the knowledge graph",
+        #     inputSchema={
+        #         "type": "object",
+        #         "properties": {},
+        #         "required": []
+        #     }
+        # ),
         Tool(
             name="get_mermaid_diagram",
             description="Get a Mermaid diagram representation of the knowledge graph",

@@ -133,6 +133,12 @@ def test_get_project_settings_tool():
     assert "project_path" in settings_data
     assert "knowledge_graph_directory" in settings_data
     assert os.path.isdir(settings_data["project_path"])
+    
+    # Verify the new project type and metadata fields are present
+    assert "project_type" in settings_data
+    assert "project_metadata" in settings_data
+    assert isinstance(settings_data["project_type"], str)
+    assert isinstance(settings_data["project_metadata"], dict)
 
 
 def test_get_project_settings_tool_with_project_path(temp_dir, env_cleanup):

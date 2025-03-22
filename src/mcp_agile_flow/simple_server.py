@@ -202,7 +202,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get-project-settings",
-            description="Returns comprehensive project settings including project path, knowledge graph directory, AI docs directory, and other configuration. Also validates the path to ensure it's safe and writable. If the root directory or a non-writable path is detected, it will automatically use a safe alternative path. Takes an optional 'proposed_path' parameter to check a specific path.",
+            description="Returns comprehensive project settings including project path, knowledge graph directory, AI docs directory, project type, metadata, and other configuration. Also validates the path to ensure it's safe and writable. If the root directory or a non-writable path is detected, it will automatically use a safe alternative path. Takes an optional 'proposed_path' parameter to check a specific path.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1480,6 +1480,27 @@ async def handle_call_tool(
             
             # Use the common utility function to get project settings
             response_data = get_project_settings(proposed_path=proposed_path if proposed_path else None)
+            
+            # Also include project type and metadata from the memory graph if available
+            if memory_manager is not None:
+                try:
+                    # Get project info from the memory graph
+                    project_info = memory_manager.get_project_info()
+                    
+                    # Add project type and metadata to the response
+                    response_data["project_type"] = project_info.get("project_type", "generic")
+                    response_data["project_metadata"] = project_info.get("project_metadata", {})
+                    logger.info(f"Added project type and metadata from memory graph to project settings")
+                except Exception as e:
+                    logger.warning(f"Failed to get project info from memory graph: {str(e)}")
+                    # Add default values if memory manager fails
+                    response_data["project_type"] = "generic"
+                    response_data["project_metadata"] = {}
+            else:
+                # Memory manager not available, add default values
+                logger.info("Memory manager not available, using default project type and metadata")
+                response_data["project_type"] = "generic"
+                response_data["project_metadata"] = {}
             
             # Log the response for debugging
             logger.info(f"Project settings response: {response_data}")
