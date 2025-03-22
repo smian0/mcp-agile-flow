@@ -248,7 +248,19 @@ This design enables the system to adapt to different project requirements withou
 - IDE-specific adapter plugins ✅
 - Knowledge graph extension with new entity/relation types ⚠️
 - Custom document types through template addition ✅
-- Additional tool integrations ⚠️
+
+## Architectural Notes on Upcoming Changes
+
+### Memory Graph Removal (Epic-7)
+The Memory Graph component is planned for removal from the MCP Agile Flow server in the upcoming Epic-7. This architectural decision was made to:
+
+1. Simplify the core MCP Agile Flow server and focus on its primary functionality
+2. Reduce complexity and maintenance burden
+3. Allow for the memory graph functionality to be developed independently as a separate MCP server
+
+After removal, the core architecture will focus on template management, document generation, and IDE integration, with improved maintainability and a clearer separation of concerns. The new architecture will not include the Knowledge Graph data models or the memory graph component.
+
+All functionality related to entity and relationship tracking, project knowledge representation, and Mermaid diagram generation will be moved to a dedicated MCP server that can be used independently by teams that require these features.
 
 ## Change Log
 | Date | Change | Reason |

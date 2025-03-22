@@ -116,17 +116,17 @@ The primary target users include development teams, team leads, project managers
 ## Planned Future Epics
 The following epics are planned for future implementation:
 
+### Epic-7-memory-graph-removal: Memory Graph Removal (Planning)
+- Story-1-remove-memory-graph-core: Remove memory graph core implementation ❌
+- Story-2-remove-server-integration: Remove memory graph integration with simple server ❌
+- Story-3-remove-tests: Remove memory graph tests and update test suite ❌
+- Story-4-update-docs: Update documentation to reflect memory graph removal ❌
+
 ### Core Platform Enhancements
 - Document generation system improvements
 - Standardized command interface refinement
 - Documentation consistency validation
 - Status tracking and progress visualization
-
-### Knowledge Graph Enhancement
-- Documentation search capabilities
-- Contextual relationship management
-- Graph visualization tools refinement
-- Knowledge graph integration with document generation
 
 ## Tech Stack
 - Languages: Python 3.8+ ✅
@@ -168,4 +168,5 @@ The following epics are planned for future implementation:
 | 2023-03-27 | Added MCP Configuration Migration functional requirements | Documented completed migration tool features |
 | 2023-03-27 | Added Project Path Management functional requirements | Documented completed path handling features |
 | 2023-03-27 | Added Epic-6-path-handling details | Documented completed path safety implementation |
-| 2023-03-27 | Updated Epic-5-mcp-migration with additional stories | Reflecting the conflict validation implementation | 
+| 2023-03-27 | Updated Epic-5-mcp-migration with additional stories | Reflecting the conflict validation implementation |
+| 2023-04-03 | Added Epic-7-memory-graph-removal to planned epics | Planning for memory graph functionality separation | 
