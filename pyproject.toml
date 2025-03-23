@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "mcp-agile-flow"
 version = "0.1.0"
 authors = [
-    {name = "Sho Mian", email = "your.email@example.com"},
+    {name = "Shoaib Mian", email = "smian0@users.noreply.github.com"},
 ]
 description = "MCP server implementations for enhancing agile workflows in Cursor"
 readme = "README.md"
@@ -84,3 +84,13 @@ mcp-agile-flow = "mcp_agile_flow.server:run"
 
 [project.entry-points."mcp.servers"]
 agile-flow = "mcp_agile_flow.server:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_agile_flow"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
+
+[tool.hatch.build.targets.wheel.forced-include]
+"src/mcp_agile_flow/cursor_rules" = "mcp_agile_flow/cursor_rules"
+"src/mcp_agile_flow/cursor_templates" = "mcp_agile_flow/cursor_templates"

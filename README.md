@@ -9,7 +9,6 @@ A Model Context Protocol (MCP) server that enhances agile workflows with knowled
 ### Prerequisites
 - Python 3.10+
 - uv (Python package manager)
-- Cursor IDE
 
 ### Installation
 
@@ -25,46 +24,78 @@ A Model Context Protocol (MCP) server that enhances agile workflows with knowled
    uv pip install -e .
    ```
 
-3. Set up the MCP server in Cursor:
-   ```bash
-   python setup_cursor_mcp.py
-   ```
+### Quick Installation (One-Line)
 
-4. Alternatively, manually configure the MCP server in your `~/.cursor/mcp.json` file:
-   ```json
-   {
-     "mcpServers": {
-       "mcp-agile-flow": {
-         "command": "/path/to/mcp-agile-flow/.venv/bin/python",
-         "args": [
-           "-m",
-           "mcp_agile_flow.server"
-         ],
-         "disabled": false,
-         "autoApprove": [
-           "initialize-ide-rules",
-           "initialize-rules",
-           "get-project-path",
-           "get-project-settings",
-           "create_entities",
-           "create_relations",
-           "read_graph",
-           "debug-tools",
-           "get_mermaid_diagram",
-           "add_observations",
-           "delete_entities",
-           "get-safe-project-path",
-           "initialize-ide"
-         ],
-         "timeout": 30
-       }
-     }
-   }
-   ```
+You can install MCP Agile Flow directly from GitHub using our installation script:
+
+```bash
+# Using curl
+curl -fsSL https://raw.githubusercontent.com/smian0/mcp-agile-flow/main/install.sh | bash
+
+# Or using wget
+wget -O- https://raw.githubusercontent.com/smian0/mcp-agile-flow/main/install.sh | bash
+```
+
+This script will:
+1. Install MCP Agile Flow from GitHub (with SSH or HTTPS authentication)
+2. Automatically detect your IDEs (Cursor, VS Code, Windsurf, Cline)
+3. Configure MCP for all detected IDEs
+4. Create a convenient command-line shortcut
+
+No manual configuration needed - just run and restart your IDE!
+
+### MCP Configuration
+
+Generic MCP Configuration:
+```json
+{
+  "mcpServers": {
+    "agile-flow": {
+      "command": "/path/to/python",
+      "args": ["-m", "mcp_agile_flow.server"],
+      "disabled": false,
+      "autoApprove": ["initialize-ide-rules", "get-project-settings", "read_graph", "get_mermaid_diagram"],
+      "timeout": 30
+    }
+  }
+}
+```
+
+Alternative MCP Configuration using UVX directly:
+```json
+{
+  "mcpServers": {
+    "agile-flow": {
+      "command": "uvx",
+      "args": ["run", "-m", "mcp_agile_flow.server"],
+      "disabled": false,
+      "autoApprove": ["initialize-ide-rules", "get-project-settings", "read_graph", "get_mermaid_diagram"],
+      "timeout": 30
+    }
+  }
+}
+```
+
+### Installing from a Private GitHub Repository
+
+You can install this MCP client directly from a private GitHub repository using UVX:
+
+```bash
+# Using SSH (recommended if you have SSH keys configured)
+uv pip install git+ssh://git@github.com/username/mcp-agile-flow.git
+
+# Using HTTPS with personal access token
+uv pip install git+https://username:token@github.com/username/mcp-agile-flow.git
+
+# Specify a branch, tag, or commit
+uv pip install git+ssh://git@github.com/username/mcp-agile-flow.git@main
+```
+
+This method leverages your local Git configuration and authentication methods, so as long as you can access the repository via Git commands, UVX can install the package from it.
 
 ## Using the MCP Server
 
-After installation, you can use the MCP tools directly in Cursor through Claude or other supporting AI assistants.
+After installation, you can use the MCP tools through any compatible MCP client.
 
 ### Key Features
 
@@ -75,8 +106,6 @@ After installation, you can use the MCP tools directly in Cursor through Claude 
 
 ### Available Tools
 
-#### Primary Tools
-
 - `get-project-settings`: Returns project settings including paths and configuration
 - `get-safe-project-path`: Get a safe, writable project path
 - `get-project-info`: Get project type and metadata from the knowledge graph
@@ -85,86 +114,6 @@ After installation, you can use the MCP tools directly in Cursor through Claude 
 - `initialize-ide-rules`: Initialize a project with rules for a specific IDE (specialized)
 - `migrate-mcp-config`: Migrate MCP configuration between different IDEs
 - `prime-context`: Analyze project AI documentation to build context
-
-#### Knowledge Graph Management
-
-1. **create_entities**
-   ```json
-   {
-     "name": "create_entities",
-     "arguments": {
-       "entities": [
-         {
-           "name": "Login Feature",
-           "entityType": "Feature",
-           "observations": ["Required for user authentication"]
-         }
-       ]
-     }
-   }
-   ```
-   Creates new entities in the knowledge graph.
-
-2. **create_relations**
-   ```json
-   {
-     "name": "create_relations",
-     "arguments": {
-       "relations": [
-         {
-           "from": "Login Feature",
-           "relationType": "dependsOn",
-           "to": "User Database"
-         }
-       ]
-     }
-   }
-   ```
-   Creates relationships between entities.
-
-3. **read_graph**
-   ```json
-   {
-     "name": "read_graph",
-     "arguments": {}
-   }
-   ```
-   Returns the entire knowledge graph.
-
-4. **get_mermaid_diagram**
-   ```json
-   {
-     "name": "get_mermaid_diagram",
-     "arguments": {}
-   }
-   ```
-   Returns a Mermaid.js diagram visualization of the knowledge graph.
-
-#### MCP Configuration Management
-
-1. **migrate-mcp-config**
-   ```json
-   {
-     "name": "migrate-mcp-config",
-     "arguments": {
-       "from_ide": "cursor",        // Source IDE
-       "to_ide": "windsurf",        // Target IDE
-       "backup": true,              // Create backups before modifying
-       "conflict_resolutions": {    // Optional conflict resolutions
-         "server-name": true        // true = use source, false = keep target
-       }
-     }
-   }
-   ```
-   Migrates MCP configuration between different IDEs with smart merging.
-
-   Supported IDEs:
-   - `cursor`: Cursor IDE (~/.cursor/mcp.json)
-   - `windsurf`: Windsurf IDE (~/.codeium/windsurf/mcp_config.json)
-   - `windsurf-next`: Windsurf Next IDE (~/.codeium/windsurf-next/mcp_config.json)
-   - `cline`: Cline IDE (VSCode extension)
-   - `roo`: Roo IDE (VSCode extension)
-   - `claude-desktop`: Claude Desktop app (~/Library/Application Support/Claude/claude_desktop_config.json)
 
 ## Troubleshooting
 
@@ -181,6 +130,21 @@ After installation, you can use the MCP tools directly in Cursor through Claude 
    ```bash
    uv pip install -e .
    ```
+
+## Debugging
+
+You can use the MCP inspector to debug the server:
+
+```bash
+# For standard installations
+npx @modelcontextprotocol/inspector python -m mcp_agile_flow.server
+
+# For UVX installations 
+npx @modelcontextprotocol/inspector uvx --with-editable . python -m mcp_agile_flow.server
+
+# If you've installed from a private repository
+GIT_SSH_COMMAND="ssh -i ~/.ssh/your_key" npx @modelcontextprotocol/inspector uvx --with mcp-agile-flow python -m mcp_agile_flow.server
+```
 
 ## License
 
