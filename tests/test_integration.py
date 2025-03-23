@@ -350,7 +350,7 @@ def test_get_project_settings_tool_with_proposed_path():
 # - test_initialize_rules_with_custom_path
 # - test_initialize_rules_with_root_path
 
-# === Tests for migrate-rules-to-windsurf have been moved to test_rules_migration.py ===
+# === The migrate-rules-to-windsurf tool has been deprecated and replaced by initialize-ide-rules with IDE="windsurf" ===
 
 # === Tests for get-project-settings have been moved to test_project_settings.py ===
 # The following tests were moved:

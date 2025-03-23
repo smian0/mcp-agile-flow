@@ -162,20 +162,6 @@ async def handle_list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
-            name="migrate-rules-to-windsurf",
-            description="Migrate Cursor rules to Windsurf format. The project path will default to the PROJECT_PATH environment variable if set, or the current directory if not set.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "project_path": {
-                        "type": "string",
-                        "description": "Custom project path to use (optional). If not provided, will use PROJECT_PATH environment variable or current directory."
-                    }
-                },
-                "required": [],
-            },
-        ),
-        types.Tool(
             name="prime-context",
             description="Analyzes project's AI documentation to build contextual understanding. This tool examines PRD, architecture docs, stories, and other AI-generated artifacts to provide a comprehensive project overview and current development state. Always prioritizes data from the ai-docs directory before falling back to README.md.",
             inputSchema={
@@ -436,6 +422,11 @@ async def handle_call_tool(
                     windsurf_rules_path = os.path.join(project_path, ".windsurfrules")
                     with open(windsurf_rules_path, 'w') as f:
                         f.write("# Windsurf Rules\n")
+                elif ide == "cline":
+                    # For cline, create a .clinerules file
+                    cline_rules_path = os.path.join(project_path, ".clinerules")
+                    with open(cline_rules_path, 'w') as f:
+                        f.write("# Cline Rules\n")
                 else:
                     # For other IDEs, create a rules directory
                     os.makedirs(os.path.join(project_path, f".{ide}-rules"), exist_ok=True)
@@ -495,13 +486,16 @@ async def handle_call_tool(
                     "message": f"Initialized {ide} project in {project_path}",
                     "project_path": project_path,
                     "templates_directory": os.path.join(project_path, ".ai-templates"),
-                    "initialized_windsurf": ide == "windsurf"
                 }
                 
                 # Add IDE-specific paths to the response
                 if ide == "windsurf":
                     response_data["rules_file"] = os.path.join(project_path, ".windsurfrules")
                     response_data["rules_directory"] = None  # No rules directory for windsurf
+                    response_data["initialized_windsurf"] = True  # Only include this for windsurf
+                elif ide == "cline":
+                    response_data["rules_file"] = os.path.join(project_path, ".clinerules")
+                    response_data["rules_directory"] = None  # No rules directory for cline
                 else:
                     response_data["rules_directory"] = os.path.join(project_path, f".{ide}-rules")
                 
@@ -778,700 +772,32 @@ async def handle_call_tool(
                 
                 return [create_text_response(json.dumps(response_data, indent=2))]
             
-        elif name == "migrate-rules-to-windsurf":
-            # Get a safe project path using the utility function
-            try:
-                project_settings = get_project_settings(
-                    proposed_path=arguments.get("project_path") if arguments else None
-                )
-                project_path = project_settings["project_path"]
-                source = project_settings["source"]
-                logger.info(f"Using project_path from {source}: {project_path}")
-            except Exception as e:
-                # Handle case where the path is problematic
-                response_data = {
-                    "error": str(e),
-                    "status": "error",
-                    "needs_user_input": True,
-                    "current_directory": os.getcwd(),
-                    "message": "Please provide a specific project path using the 'project_path' argument.",
-                    "success": False
-                }
-                return [create_text_response(json.dumps(response_data, indent=2), is_error=True)]
+        elif name == "prime-context":
+            logger.info("Analyzing project context")
+            if not arguments:
+                return [create_text_response("Error: Missing arguments for prime-context", is_error=True)]
             
-            # Remove the override to current working directory - respect the project_path from settings
-            # This override was causing the environment variable to be ignored
+            project_path = arguments.get("project_path", None)
+            if not project_path:
+                # Check for PROJECT_PATH environment variable
+                project_path = os.environ.get("PROJECT_PATH")
+                
+                if not project_path:
+                    # Use the current working directory
+                    project_path = os.getcwd()
+                    logger.info(f"Using current directory for project_path: {project_path}")
+                else:
+                    logger.info(f"Using PROJECT_PATH environment variable: {project_path}")
+            else:
+                logger.info(f"Using provided project_path: {project_path}")
             
-            # Check if Cursor rules directory exists
-            cursor_dir = os.path.join(project_path, ".cursor")
-            rules_dir = os.path.join(cursor_dir, "rules")
+            depth = arguments.get("depth", "standard")
+            focus_areas = arguments.get("focus_areas", None)
             
-            if not os.path.exists(rules_dir):
-                return [create_text_response(json.dumps({
-                    "success": False,
-                    "error": f"Cursor rules directory not found at {rules_dir}",
-                    "project_path": project_path
-                }, indent=2), is_error=True)]
-            
-            # Create Windsurf rules file
-            windsurf_rules_file = os.path.join(project_path, ".windsurfrules")
-            
-            # Build combined rules file
-            with open(windsurf_rules_file, 'w') as wf:
-                for rule_file in sorted(os.listdir(rules_dir)):
-                    source_file = os.path.join(rules_dir, rule_file)
-                    if os.path.isfile(source_file) and (rule_file.endswith('.md') or rule_file.endswith('.mdc')):
-                        with open(source_file, 'r') as rf:
-                            content = rf.read()
-                            wf.write(f"### {rule_file} ###\n\n")
-                            wf.write(content)
-                            wf.write("\n\n")
-            
-            # Return successful response
-            response_data = {
-                "success": True,
-                "message": "Successfully migrated Cursor rules to Windsurf format.",
-                "project_path": project_path,
-                "cursor_rules_dir": rules_dir,
-                "windsurf_rules_file": windsurf_rules_file
-            }
+            # Call the prime context function
+            response_data = handle_prime_context(project_path, depth, focus_areas)
             
             return [create_text_response(json.dumps(response_data, indent=2))]
-
-        # Memory graph tool handlers
-        elif name in ["create_entities", "create_relations", "add_observations", 
-                     "delete_entities", "delete_observations", "delete_relations",
-                     "read_graph", "search_nodes", "open_nodes"]:
-            # Check if memory_manager is initialized
-            if "memory_manager" not in globals() or memory_manager is None:
-                return [create_text_response(
-                    "Memory graph functionality is not available. Please restart the server.",
-                    is_error=True
-                )]
-            
-            # Common validation pattern for memory tools
-            if name == "create_entities":
-                # Validate entities argument
-                if "entities" not in arguments:
-                    return [create_text_response("Missing 'entities' field", is_error=True)]
-                
-                if not isinstance(arguments["entities"], list):
-                    return [create_text_response("'entities' must be a list", is_error=True)]
-                
-                # Validate each entity
-                for idx, entity in enumerate(arguments["entities"]):
-                    if not isinstance(entity, dict):
-                        return [create_text_response(f"Entity at index {idx} must be an object", is_error=True)]
-                    
-                    if "name" not in entity:
-                        return [create_text_response(f"Entity at index {idx} is missing required 'name' field", is_error=True)]
-                    
-                    if "entityType" not in entity:
-                        return [create_text_response(f"Entity at index {idx} is missing required 'entityType' field", is_error=True)]
-                    
-                    if "observations" in entity and not isinstance(entity["observations"], list):
-                        return [create_text_response(f"'observations' for entity '{entity['name']}' must be a list", is_error=True)]
-                
-                try:
-                    # Call the create_entities method
-                    created_entities = memory_manager.create_entities(arguments["entities"])
-                    
-                    # Handle the created_entities response - ensure it's serializable
-                    result = []
-                    if created_entities:
-                        # Check if we got objects or dictionaries
-                        if hasattr(created_entities[0], 'name'):
-                            # Convert entity objects to dictionaries
-                            for entity in created_entities:
-                                result.append({
-                                    "name": entity.name,
-                                    "entityType": entity.entity_type,
-                                    "observations": entity.observations
-                                })
-                        else:
-                            # Already dictionaries
-                            result = created_entities
-                    
-                    # Return the result
-                    return [create_text_response(json.dumps(result, indent=2))]
-                except Exception as e:
-                    # If there's an error, return a success message
-                    logger.error(f"Error in create_entities: {str(e)}")
-                    return [create_text_response("Entities created successfully")]
-            
-            elif name == "create_relations":
-                # Validate relations argument
-                if "relations" not in arguments:
-                    return [create_text_response("Missing 'relations' field", is_error=True)]
-                
-                if not isinstance(arguments["relations"], list):
-                    return [create_text_response("'relations' must be a list", is_error=True)]
-                
-                # Validate each relation
-                for idx, relation in enumerate(arguments["relations"]):
-                    if not isinstance(relation, dict):
-                        return [create_text_response(f"Relation at index {idx} must be an object", is_error=True)]
-                    
-                    if "from" not in relation:
-                        return [create_text_response(f"Relation at index {idx} is missing required 'from' field", is_error=True)]
-                    
-                    if "to" not in relation:
-                        return [create_text_response(f"Relation at index {idx} is missing required 'to' field", is_error=True)]
-                    
-                    if "relationType" not in relation:
-                        return [create_text_response(f"Relation at index {idx} is missing required 'relationType' field", is_error=True)]
-                
-                try:
-                    # Call the create_relations method
-                    created_relations = memory_manager.create_relations(arguments["relations"])
-                    
-                    # Handle the created_relations response - ensure it's serializable
-                    result = []
-                    if created_relations:
-                        # Check if we got objects or dictionaries
-                        if hasattr(created_relations[0], 'from_entity'):
-                            # Convert relation objects to dictionaries
-                            for relation in created_relations:
-                                result.append({
-                                    "from": relation.from_entity,
-                                    "to": relation.to_entity,
-                                    "relationType": relation.relation_type
-                                })
-                        else:
-                            # Already dictionaries
-                            result = created_relations
-                    
-                    # Return the result
-                    return [create_text_response(json.dumps(result, indent=2))]
-                except Exception as e:
-                    # If there's an error, return a success message
-                    logger.error(f"Error in create_relations: {str(e)}")
-                    return [create_text_response("Relations created successfully")]
-            
-            elif name == "add_observations":
-                # Validate observations argument
-                if "observations" not in arguments:
-                    return [create_text_response("Missing 'observations' field", is_error=True)]
-                
-                if not isinstance(arguments["observations"], list):
-                    return [create_text_response("'observations' must be a list", is_error=True)]
-                
-                # Validate each observation
-                for idx, observation in enumerate(arguments["observations"]):
-                    if not isinstance(observation, dict):
-                        return [create_text_response(f"Observation at index {idx} must be an object", is_error=True)]
-                    
-                    if "entityName" not in observation:
-                        return [create_text_response(f"Observation at index {idx} is missing required 'entityName' field", is_error=True)]
-                    
-                    if "contents" not in observation:
-                        return [create_text_response(f"Observation at index {idx} is missing required 'contents' field", is_error=True)]
-                    
-                    if not isinstance(observation["contents"], list):
-                        return [create_text_response(f"'contents' for entity '{observation['entityName']}' must be a list", is_error=True)]
-                
-                try:
-                    # Call the add_observations method
-                    result = memory_manager.add_observations(arguments["observations"])
-                    
-                    # Ensure the result is serializable
-                    if result is None:
-                        result = {"message": "Observations added successfully"}
-                    elif not isinstance(result, (dict, list, str, int, float, bool)) or result == "":
-                        result = {"message": "Observations added successfully"}
-                    
-                    # Return the result
-                    return [create_text_response(json.dumps(result, indent=2))]
-                except Exception as e:
-                    # If there's an error, return a success message
-                    logger.error(f"Error in add_observations: {str(e)}")
-                    return [create_text_response("Observations added successfully")]
-            
-            elif name == "delete_entities":
-                # Validate entityNames argument
-                if "entityNames" not in arguments:
-                    return [create_text_response("Missing 'entityNames' field", is_error=True)]
-                
-                if not isinstance(arguments["entityNames"], list):
-                    return [create_text_response("'entityNames' must be a list", is_error=True)]
-                
-                # Call the delete_entities method
-                deleted_count = memory_manager.delete_entities(arguments["entityNames"])
-                
-                result = {
-                    "deleted": deleted_count,
-                    "entityNames": arguments["entityNames"]
-                }
-                
-                return [create_text_response(json.dumps(result, indent=2))]
-            
-            elif name == "delete_observations":
-                # Validate deletions argument
-                if "deletions" not in arguments:
-                    return [create_text_response("Missing 'deletions' field", is_error=True)]
-                
-                if not isinstance(arguments["deletions"], list):
-                    return [create_text_response("'deletions' must be a list", is_error=True)]
-                
-                # Validate each deletion
-                for idx, deletion in enumerate(arguments["deletions"]):
-                    if not isinstance(deletion, dict):
-                        return [create_text_response(f"Deletion at index {idx} must be an object", is_error=True)]
-                    
-                    if "entityName" not in deletion:
-                        return [create_text_response(f"Deletion at index {idx} is missing required 'entityName' field", is_error=True)]
-                    
-                    if "observations" not in deletion:
-                        return [create_text_response(f"Deletion at index {idx} is missing required 'observations' field", is_error=True)]
-                    
-                    if not isinstance(deletion["observations"], list):
-                        return [create_text_response(f"'observations' for entity '{deletion['entityName']}' must be a list", is_error=True)]
-                
-                # Call the delete_observations method
-                result = memory_manager.delete_observations(arguments["deletions"])
-                
-                return [create_text_response(json.dumps(result, indent=2))]
-            
-            elif name == "delete_relations":
-                # Validate relations argument
-                if "relations" not in arguments:
-                    return [create_text_response("Missing 'relations' field", is_error=True)]
-                
-                if not isinstance(arguments["relations"], list):
-                    return [create_text_response("'relations' must be a list", is_error=True)]
-                
-                # Call the delete_relations method
-                deleted_count = memory_manager.delete_relations(arguments["relations"])
-                
-                result = {
-                    "deleted": deleted_count,
-                    "relations": arguments["relations"]
-                }
-                
-                return [create_text_response(json.dumps(result, indent=2))]
-            
-            elif name == "read_graph":
-                # Call the read_graph method
-                graph = memory_manager.export_graph()
-                
-                return [create_text_response(json.dumps(graph, indent=2))]
-            
-            elif name == "search_nodes":
-                # Validate query argument
-                if "query" not in arguments:
-                    return [create_text_response("Missing 'query' field", is_error=True)]
-                
-                # Call the search_nodes method
-                result_graph = memory_manager.search_nodes(arguments["query"])
-                
-                # Convert the result to a dictionary for JSON serialization
-                result = {
-                    "entities": [],
-                    "relations": []
-                }
-                
-                for entity in result_graph.entities:
-                    result["entities"].append({
-                        "name": entity.name,
-                        "entityType": entity.entity_type,
-                        "observations": entity.observations
-                    })
-                
-                for relation in result_graph.relations:
-                    result["relations"].append({
-                        "from": relation.from_entity,
-                        "to": relation.to_entity,
-                        "relationType": relation.relation_type
-                    })
-                
-                return [create_text_response(json.dumps(result, indent=2))]
-            
-            elif name == "open_nodes":
-                # Validate names argument
-                if "names" not in arguments:
-                    return [create_text_response("Missing 'names' field", is_error=True)]
-                
-                if not isinstance(arguments["names"], list):
-                    return [create_text_response("'names' must be a list", is_error=True)]
-                
-                # Call the open_nodes method
-                result_graph = memory_manager.open_nodes(arguments["names"])
-                
-                # Convert the result to a dictionary for JSON serialization
-                result = {
-                    "entities": [],
-                    "relations": []
-                }
-                
-                for entity in result_graph.entities:
-                    result["entities"].append({
-                        "name": entity.name,
-                        "entityType": entity.entity_type,
-                        "observations": entity.observations
-                    })
-                
-                for relation in result_graph.relations:
-                    result["relations"].append({
-                        "from": relation.from_entity,
-                        "to": relation.to_entity,
-                        "relationType": relation.relation_type
-                    })
-                
-                return [create_text_response(json.dumps(result, indent=2))]
-        elif name == "prime-context":
-            try:
-                # Check if project_path is provided in arguments
-                if arguments and "project_path" in arguments and arguments["project_path"].strip() != '':
-                    project_settings = get_project_settings(proposed_path=arguments["project_path"])
-                    project_path = project_settings["project_path"]
-                    logger.info(f"Using project path from arguments: {project_path}")
-                else:
-                    project_settings = get_project_settings()
-                    project_path = project_settings["project_path"]
-                    logger.info(f"Using project path from environment/defaults: {project_path}")
-                    
-                logger.info(f"Prime context using project path: {project_path}")
-                
-                # Parse arguments
-                depth = arguments.get("depth", "standard")
-                focus_areas = arguments.get("focus_areas", [])
-                
-                # Check if ai-docs directory exists
-                ai_docs_dir = os.path.join(project_path, "ai-docs")
-                if not os.path.isdir(ai_docs_dir):
-                    return [create_text_response("Error: AI docs directory not found. Run 'initialize-ide' to set up project structure.", is_error=True)]
-                
-                # Initialize context data structure
-                context = {
-                    "project": {
-                        "name": os.path.basename(project_path),  # Will be overridden if PRD or README has a title
-                        "overview": "", 
-                        "status": "Unknown",
-                        "readme": None
-                    },
-                    "architecture": {"overview": "", "status": "Unknown"},
-                    "epics": [],
-                    "current_epic": None,
-                    "current_story": None,
-                    "progress": {
-                        "epics_total": 0,
-                        "epics_completed": 0,
-                        "stories_total": 0,
-                        "stories_completed": 0,
-                        "stories_in_progress": 0,
-                        "tasks_total": 0,
-                        "tasks_completed": 0,
-                        "tasks_percentage": 0
-                    }
-                }
-                
-                # Look for Makefile in project root
-                makefile_path = os.path.join(project_path, "Makefile")
-                makefile_commands = extract_makefile_commands(makefile_path)
-                
-                if makefile_commands:
-                    context["project"]["makefile_commands"] = makefile_commands
-                    logging.info("Found Makefile with commands")
-
-                # Read project's README.md as a primary source for context (not a fallback)
-                readme_path = os.path.join(project_path, "README.md")
-                readme_content = None
-                
-                if os.path.isfile(readme_path):
-                    with open(readme_path, 'r') as file:
-                        readme_content = file.read()
-                        context["project"]["readme"] = readme_content
-                        
-                        # Extract title from README
-                        readme_title = extract_markdown_title(readme_content)
-                        if readme_title:
-                            # Store README title for potential use
-                            readme_title_for_use = readme_title
-                        
-                        # Extract status from README
-                        readme_status = extract_status(readme_content)
-                        if readme_status:
-                            # Store README status for potential use
-                            readme_status_for_use = readme_status
-                            
-                    logging.info(f"Found README.md at project root")
-                
-                # Look for additional documentation files in ai-docs
-                documentation_files = {}
-                for filename in os.listdir(ai_docs_dir):
-                    if filename.endswith('.md') and filename not in ['README.md', 'prd.md', 'architecture.md']:
-                        file_path = os.path.join(ai_docs_dir, filename)
-                        if os.path.isfile(file_path):
-                            with open(file_path, 'r') as file:
-                                content = file.read()
-                                name = filename[:-3]  # Remove .md extension
-                                documentation_files[name] = {
-                                    "title": extract_markdown_title(content),
-                                    "content": summarize_content(content, depth),
-                                    "status": extract_status(content)
-                                }
-                
-                # Add additional documentation to context if any was found
-                if documentation_files:
-                    context["additional_docs"] = documentation_files
-                    logging.info(f"Found {len(documentation_files)} additional documentation files in ai-docs")
-                
-                # Read PRD
-                prd_path = os.path.join(ai_docs_dir, "prd.md")
-                if os.path.isfile(prd_path):
-                    with open(prd_path, 'r') as file:
-                        prd_content = file.read()
-                        
-                        # Extract information from PRD
-                        title = extract_markdown_title(prd_content)
-                        if title:
-                            # Use PRD title for project name, but keep README info for context
-                            context["project"]["name"] = title
-                            context["project"]["prd_title"] = title
-                        elif 'readme_title_for_use' in locals():
-                            # Use README title if PRD has no title
-                            context["project"]["name"] = readme_title_for_use
-                        
-                        # Extract status from PRD
-                        status = extract_status(prd_content)
-                        if status:
-                            # Use PRD status, but keep README status for context
-                            context["project"]["status"] = status
-                            context["project"]["prd_status"] = status
-                        elif 'readme_status_for_use' in locals():
-                            # Use README status if PRD has no status
-                            context["project"]["status"] = readme_status_for_use
-                        
-                        # Store PRD overview alongside README content
-                        prd_overview = summarize_content(prd_content)
-                        context["project"]["prd_overview"] = prd_overview
-                        context["project"]["overview"] = prd_overview
-                else:
-                    # Use README content as overview if no PRD
-                    if readme_content:
-                        context["project"]["overview"] = readme_content
-                        # Also use README title and status if we have them and there's no PRD
-                        if 'readme_title_for_use' in locals():
-                            context["project"]["name"] = readme_title_for_use
-                        if 'readme_status_for_use' in locals():
-                            context["project"]["status"] = readme_status_for_use
-                
-                # Read and parse architecture document
-                arch_path = os.path.join(ai_docs_dir, "architecture.md")
-                if os.path.isfile(arch_path):
-                    with open(arch_path, 'r') as file:
-                        arch_content = file.read()
-                        
-                        # Extract status
-                        arch_status = extract_status(arch_content)
-                        if arch_status:
-                            context["architecture"]["status"] = arch_status
-                        
-                        # Extract overview
-                        context["architecture"]["overview"] = summarize_content(arch_content)
-                else:
-                    context["architecture"]["overview"] = "No architecture documentation available."
-                
-                # Process epics
-                epics_dir = os.path.join(ai_docs_dir, "epics")
-                current_epic = None
-                current_story = None
-                
-                if os.path.exists(epics_dir):
-                    epic_dirs = [d for d in os.listdir(epics_dir) 
-                                 if os.path.isdir(os.path.join(epics_dir, d))]
-                    
-                    for epic_dir in epic_dirs:
-                        epic_path = os.path.join(epics_dir, epic_dir)
-                        epic_md_path = os.path.join(epic_path, "epic.md")
-                        
-                        if not os.path.exists(epic_md_path):
-                            continue
-                        
-                        with open(epic_md_path, "r") as f:
-                            epic_content = f.read()
-                        
-                        epic_data = {
-                            "name": extract_markdown_title(epic_content),
-                            "id": epic_dir,
-                            "status": extract_status(epic_content),
-                            "description": summarize_content(epic_content, depth),
-                            "stories": [],
-                            "progress": {
-                                "total_stories": 0,
-                                "complete": 0,
-                                "in_progress": 0,
-                                "draft": 0
-                            }
-                        }
-                        
-                        # Process stories within epic
-                        stories_dir = os.path.join(epic_path, "stories")
-                        if os.path.exists(stories_dir):
-                            story_files = glob.glob(os.path.join(stories_dir, "*.md"))
-                            
-                            for story_file in story_files:
-                                with open(story_file, "r") as f:
-                                    story_content = f.read()
-                                
-                                story_status = extract_status(story_content)
-                                story_name = extract_markdown_title(story_content)
-                                
-                                # Update epic story counts
-                                epic_data["progress"]["total_stories"] += 1
-                                
-                                if story_status.lower() == "complete":
-                                    epic_data["progress"]["complete"] += 1
-                                elif story_status.lower() == "in progress":
-                                    epic_data["progress"]["in_progress"] += 1
-                                    
-                                    # Track current story and epic
-                                    if current_story is None:
-                                        current_story = {
-                                            "name": story_name,
-                                            "file": os.path.basename(story_file),
-                                            "status": story_status,
-                                            "content": summarize_content(story_content, depth),
-                                            "completion": extract_task_completion(story_content)
-                                        }
-                                        current_epic = epic_data
-                                else:
-                                    # Assume draft status
-                                    epic_data["progress"]["draft"] += 1
-                                
-                                # Only include detailed story info for comprehensive depth
-                                if depth == "comprehensive":
-                                    story_data = {
-                                        "name": story_name,
-                                        "file": os.path.basename(story_file),
-                                        "status": story_status,
-                                        "content": summarize_content(story_content, "minimal" if depth != "comprehensive" else depth)
-                                    }
-                                    epic_data["stories"].append(story_data)
-                        
-                        # Determine epic status if not explicitly set
-                        if epic_data["status"] == "Unknown":
-                            if epic_data["progress"]["total_stories"] == 0:
-                                epic_data["status"] = "Empty"
-                            elif epic_data["progress"]["complete"] == epic_data["progress"]["total_stories"]:
-                                epic_data["status"] = "Complete"
-                            elif epic_data["progress"]["in_progress"] > 0:
-                                epic_data["status"] = "In Progress"
-                            else:
-                                epic_data["status"] = "Draft"
-                        
-                        context["epics"].append(epic_data)
-                
-                # Set current epic and story
-                if current_epic is not None:
-                    context["current_epic"] = {
-                        "name": current_epic["name"],
-                        "id": current_epic["id"],
-                        "status": current_epic["status"],
-                        "progress": current_epic["progress"]
-                    }
-                
-                if current_story is not None:
-                    context["current_story"] = current_story
-                    # Update global progress with current story task completion
-                    if "completion" in current_story:
-                        context["progress"]["tasks_total"] = current_story["completion"]["total"]
-                        context["progress"]["tasks_completed"] = current_story["completion"]["completed"]
-                        context["progress"]["tasks_percentage"] = current_story["completion"]["percentage"]
-                
-                # Generate human-readable summary based on aggregated data
-                summary = f"# {context['project']['name']} Project Context\n\n"
-                
-                # Project overview combining PRD and README data
-                summary += "## Project Overview\n"
-                summary += f"Status: {context['project']['status']}\n\n"
-                
-                # Include overview from PRD or README
-                if context["project"]["overview"]:
-                    summary += context["project"]["overview"] + "\n\n"
-                else:
-                    summary += "No project overview available.\n\n"
-                
-                # README information (always include, even if used for overview)
-                if context["project"]["readme"]:
-                    summary += "## From Project README\n"
-                    # Extract just the essential parts for the summary to keep it concise
-                    readme_summary = summarize_content(context["project"]["readme"])
-                    summary += readme_summary + "\n\n"
-                
-                # Makefile commands if available
-                if "makefile_commands" in context["project"] and context["project"]["makefile_commands"]:
-                    summary += "## Project Commands (from Makefile)\n"
-                    for category, commands in context["project"]["makefile_commands"].items():
-                        summary += f"### {category.title()} Commands\n"
-                        for cmd in commands:
-                            summary += f"- `make {cmd['target']}`: {cmd['command']}\n"
-                        summary += "\n"
-                
-                # Additional documentation if present and depth is comprehensive
-                if "additional_docs" in context and depth == "comprehensive":
-                    summary += "## Additional Documentation\n"
-                    for doc_name, doc_info in context["additional_docs"].items():
-                        summary += f"### {doc_info['title']} ({doc_info['status']})\n"
-                        summary += doc_info['content'] + "\n\n"
-                
-                # Architecture
-                if depth != "minimal":
-                    summary += "## Architecture\n"
-                    if context["architecture"]["status"]:
-                        summary += f"Status: {context['architecture']['status']}\n\n"
-                    
-                    if context["architecture"]["overview"]:
-                        summary += context["architecture"]["overview"] + "\n\n"
-                    else:
-                        summary += "No architecture documentation available.\n\n"
-                
-                # Epics
-                summary += "## Epics\n"
-                if context["epics"]:
-                    for epic in context["epics"]:
-                        progress = epic["progress"]
-                        progress_percentage = 0
-                        if progress["total_stories"] > 0:
-                            progress_percentage = round(progress["complete"] / progress["total_stories"] * 100)
-                        
-                        summary += f"### {epic['name']} ({epic['status']})\n"
-                        summary += f"Progress: {progress_percentage}% - {progress['complete']}/{progress['total_stories']} stories complete\n"
-                        summary += f"Stories: {progress['complete']} complete, {progress['in_progress']} in progress, {progress['draft']} draft\n\n"
-                else:
-                    summary += "No epics found.\n\n"
-                
-                # Current focus
-                summary += "## Current Focus\n"
-                if context["current_epic"] and context["current_story"]:
-                    summary += f"Epic: {context['current_epic']['name']} ({context['current_epic']['status']})\n"
-                    summary += f"Story: {context['current_story']['name']} ({context['current_story']['status']})\n"
-                    summary += f"Progress: {context['progress']['tasks_percentage']}% - {context['progress']['tasks_completed']}/{context['progress']['tasks_total']} tasks complete\n\n"
-                    summary += context['current_story']['content']
-                else:
-                    summary += "No current work items identified.\n"
-                
-                # Create final context object
-                result = {
-                    "context": context,
-                    "summary": summary
-                }
-                
-                # Filter by focus areas if specified
-                if focus_areas:
-                    filtered_context = {}
-                    for area in focus_areas:
-                        if area in context:
-                            filtered_context[area] = context[area]
-                    
-                    if filtered_context:
-                        result["context"] = filtered_context
-                
-                return [create_text_response(json.dumps(result, indent=2))]
-            except Exception as e:
-                logging.error(f"Error in prime-context: {str(e)}")
-                traceback.print_exc()
-                return [create_text_response(f"Error: {str(e)}", is_error=True)]
         elif name == "get-project-settings":
             logger.info("Getting project settings")
             
@@ -1941,6 +1267,273 @@ def update_document_status(doc_type, new_status):
         f.write(updated_content)
     
     return f"Updated {doc_type.upper()} status to '{new_status}'"
+
+def handle_prime_context(project_path, depth="standard", focus_areas=None):
+    """
+    Prime the context with project information from various documentation sources.
+    
+    Args:
+        project_path (str): Project path
+        depth (str): Level of detail to include (minimal, standard, comprehensive)
+        focus_areas (list): Optional specific areas to focus on
+    
+    Returns:
+        dict: Structured project context information
+    """
+    logger.info(f"Priming context from project at: {project_path}")
+    
+    # Initialize the response structure with base project info
+    context = {
+        "project": {
+            "name": "Untitled Project",
+            "status": "Unknown",
+            "overview": ""
+        }
+    }
+    
+    # Initialize other sections only if they're needed or if no focus areas specified
+    if not focus_areas or "architecture" in focus_areas:
+        context["architecture"] = {
+            "overview": "",
+            "components": []
+        }
+    
+    if not focus_areas or "epics" in focus_areas:
+        context["epics"] = []
+    
+    if not focus_areas or "progress" in focus_areas:
+        context["progress"] = {
+            "summary": "No progress information available",
+            "stories_complete": 0,
+            "stories_in_progress": 0,
+            "stories_not_started": 0
+        }
+    
+    # Get paths to key directories
+    ai_docs_dir = os.path.join(project_path, "ai-docs")
+    
+    # Check if the AI docs directory exists
+    if not os.path.exists(ai_docs_dir):
+        logger.info(f"AI docs directory not found at: {ai_docs_dir}")
+        # Create a minimal context structure with defaults
+        summary = "Project documentation not found. Limited context available."
+        return {
+            "context": context,
+            "summary": summary
+        }
+    
+    # Filter context based on focus areas if specified
+    if focus_areas:
+        filtered_context = {}
+        for area in focus_areas:
+            if area in context:
+                filtered_context[area] = context[area]
+        context = filtered_context if filtered_context else context
+    
+    # Extract project information from PRD or README
+    prd_path = os.path.join(ai_docs_dir, "prd.md")
+    if os.path.exists(prd_path) and ("project" in context):
+        logger.info(f"Found PRD at: {prd_path}")
+        with open(prd_path, 'r') as f:
+            prd_content = f.read()
+            context["project"]["name"] = extract_markdown_title(prd_content)
+            context["project"]["status"] = extract_status(prd_content)
+            context["project"]["prd_title"] = context["project"]["name"]
+            
+            # Extract overview section from PRD
+            overview_match = re.search(r"## Overview\s+([^\n#]*(?:\n(?!#)[^\n]*)*)", prd_content, re.MULTILINE)
+            if overview_match:
+                context["project"]["overview"] = overview_match.group(1).strip()
+    
+    # Check if README exists for additional project info
+    readme_path = os.path.join(project_path, "README.md")
+    if os.path.exists(readme_path) and ("project" in context):
+        logger.info(f"Found README at: {readme_path}")
+        with open(readme_path, 'r') as f:
+            readme_content = f.read()
+            context["project"]["readme"] = summarize_content(readme_content, depth)
+            
+            # If PRD wasn't found, use README for project name
+            if "prd_title" not in context["project"]:
+                context["project"]["name"] = extract_markdown_title(readme_content)
+                context["project"]["status"] = extract_status(readme_content)
+    
+    # Extract architecture information
+    arch_path = os.path.join(ai_docs_dir, "architecture.md")
+    if os.path.exists(arch_path) and ("architecture" in context):
+        logger.info(f"Found architecture document at: {arch_path}")
+        with open(arch_path, 'r') as f:
+            arch_content = f.read()
+            context["architecture"]["overview"] = summarize_content(arch_content, depth)
+            
+            # Extract components section
+            components_match = re.search(r"## Component Design\s+([^\n#]*(?:\n(?!#)[^\n]*)*)", arch_content, re.MULTILINE)
+            if components_match:
+                component_text = components_match.group(1).strip()
+                component_items = re.findall(r"- (.+)", component_text)
+                context["architecture"]["components"] = component_items
+    
+    # Extract epic information
+    epics_dir = os.path.join(ai_docs_dir, "epics")
+    if os.path.exists(epics_dir) and ("epics" in context) and ("progress" in context):
+        logger.info(f"Found epics directory at: {epics_dir}")
+        
+        epic_folders = [f for f in os.listdir(epics_dir) if os.path.isdir(os.path.join(epics_dir, f))]
+        for epic_folder in epic_folders:
+            epic_path = os.path.join(epics_dir, epic_folder, "epic.md")
+            if os.path.exists(epic_path):
+                logger.info(f"Found epic at: {epic_path}")
+                with open(epic_path, 'r') as f:
+                    epic_content = f.read()
+                    epic_info = {
+                        "name": extract_markdown_title(epic_content),
+                        "status": extract_status(epic_content),
+                        "description": summarize_content(epic_content, depth),
+                        "stories": []
+                    }
+                    
+                    # Extract stories from the epic
+                    stories_dir = os.path.join(epics_dir, epic_folder, "stories")
+                    if os.path.exists(stories_dir):
+                        story_files = [f for f in os.listdir(stories_dir) if f.endswith(".md")]
+                        for story_file in story_files:
+                            story_path = os.path.join(stories_dir, story_file)
+                            with open(story_path, 'r') as sf:
+                                story_content = sf.read()
+                                story_name = extract_markdown_title(story_content)
+                                story_status = extract_status(story_content)
+                                
+                                # Track story completion for progress metrics
+                                if "progress" in context:
+                                    if story_status.lower() == "complete":
+                                        context["progress"]["stories_complete"] += 1
+                                    elif story_status.lower() in ["in progress", "started"]:
+                                        context["progress"]["stories_in_progress"] += 1
+                                    else:
+                                        context["progress"]["stories_not_started"] += 1
+                                
+                                # Add story to epic
+                                epic_info["stories"].append({
+                                    "name": story_name,
+                                    "status": story_status
+                                })
+                    
+                    context["epics"].append(epic_info)
+    
+    # Extract Makefile commands if Makefile exists
+    makefile_path = os.path.join(project_path, "Makefile")
+    if os.path.exists(makefile_path):
+        logger.info(f"Found Makefile at: {makefile_path}")
+        with open(makefile_path, 'r') as f:
+            makefile_content = f.read()
+            
+            # Extract targets from Makefile
+            targets = re.findall(r"^([a-zA-Z0-9_-]+):\s*.*$", makefile_content, re.MULTILINE)
+            
+            # Group targets by category
+            categories = {
+                "testing": ["test", "tests", "unittest", "pytest", "check"],
+                "build": ["build", "compile", "install", "setup"],
+                "run": ["run", "start", "serve", "dev", "develop"],
+                "clean": ["clean", "reset", "clear"],
+                "lint": ["lint", "format", "style", "check"],
+                "deploy": ["deploy", "publish", "release"]
+            }
+            
+            categorized_targets = {}
+            for category, keywords in categories.items():
+                categorized_targets[category] = []
+                for target in targets:
+                    if any(keyword in target.lower() for keyword in keywords):
+                        # Find the corresponding command
+                        target_pattern = rf"^{re.escape(target)}:.*\n((\t.+\n)+)"
+                        target_match = re.search(target_pattern, makefile_content, re.MULTILINE)
+                        command = ""
+                        if target_match:
+                            command = target_match.group(1).strip()
+                        
+                        categorized_targets[category].append({
+                            "target": target,
+                            "command": command
+                        })
+                        
+                        # Remove this target from further consideration
+                        targets = [t for t in targets if t != target]
+            
+            # Add "other" category for any remaining targets
+            categorized_targets["other"] = []
+            for target in targets:
+                # Find the corresponding command
+                target_pattern = rf"^{re.escape(target)}:.*\n((\t.+\n)+)"
+                target_match = re.search(target_pattern, makefile_content, re.MULTILINE)
+                command = ""
+                if target_match:
+                    command = target_match.group(1).strip()
+                
+                categorized_targets["other"].append({
+                    "target": target,
+                    "command": command
+                })
+            
+            # Add to project context
+            context["project"]["makefile_commands"] = categorized_targets
+    
+    # Generate a project summary based on the depth
+    summary_parts = []
+    
+    # Add project name and status
+    summary_parts.append(f"Project: {context['project']['name']}")
+    summary_parts.append(f"Status: {context['project']['status']}")
+    
+    # Add project overview if available
+    if context['project'].get('overview'):
+        summary_parts.append(f"\nOverview: {context['project']['overview']}")
+    
+    # Add architecture summary if available and requested
+    if 'architecture' in context and context['architecture'].get('overview') and (not focus_areas or 'architecture' in focus_areas):
+        if depth == "minimal":
+            summary_parts.append("\nArchitecture: Available")
+        else:
+            summary_parts.append(f"\nArchitecture: {context['architecture']['overview'][:150]}...")
+    
+    # Add epic summary if available and requested
+    if 'epics' in context and context['epics'] and (not focus_areas or 'epics' in focus_areas):
+        if depth == "minimal":
+            summary_parts.append(f"\nEpics: {len(context['epics'])} found")
+        else:
+            epic_names = [epic['name'] for epic in context['epics']]
+            summary_parts.append(f"\nEpics ({len(epic_names)}): {', '.join(epic_names)}")
+    
+    # Add progress summary if available and requested
+    if 'progress' in context and (not focus_areas or 'progress' in focus_areas):
+        total_stories = (context['progress']['stories_complete'] + 
+                        context['progress']['stories_in_progress'] + 
+                        context['progress']['stories_not_started'])
+        
+        if total_stories > 0:
+            progress_pct = (context['progress']['stories_complete'] / total_stories) * 100
+            summary_parts.append(f"\nProgress: {progress_pct:.1f}% complete ({context['progress']['stories_complete']}/{total_stories} stories)")
+    
+    # Adjust summary length based on depth
+    summary = "\n".join(summary_parts)
+    if depth == "minimal":
+        summary = "\n".join(summary_parts[:3])  # Just project info
+    elif depth == "comprehensive":
+        # Add more details for comprehensive depth
+        if 'epics' in context and context['epics']:
+            for epic in context['epics']:
+                summary += f"\n\nEpic: {epic['name']} ({epic['status']})"
+                if epic['stories']:
+                    for story in epic['stories']:
+                        summary += f"\n  - {story['name']} ({story['status']})"
+    
+    # Create the final response
+    response = {
+        "context": context,
+        "summary": summary
+    }
+    
+    return response
 
 async def run_server():
     """

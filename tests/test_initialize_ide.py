@@ -217,4 +217,47 @@ def test_cursor_rule_files_have_mdc_extension(temp_dir, env_cleanup):
     # Also verify the files on disk
     rule_files = os.listdir(rules_dir)
     for rule_file in rule_files:
-        assert rule_file.endswith('.mdc'), f"Rule file {rule_file} on disk does not have .mdc extension" 
+        assert rule_file.endswith('.mdc'), f"Rule file {rule_file} on disk does not have .mdc extension"
+
+def test_initialize_ide_cline(temp_dir, env_cleanup):
+    """Test initialize-ide with cline IDE option."""
+    # Call the tool with an explicit project path
+    arguments = {
+        "project_path": temp_dir,
+        "ide": "cline"
+    }
+    
+    result = asyncio.run(handle_call_tool("initialize-ide", arguments))
+    
+    # Check the response
+    assert len(result) == 1
+    assert result[0].type == "text"
+    assert result[0].is_error == False
+    
+    # Parse the JSON response
+    response_data = json.loads(result[0].text)
+    
+    # Verify the command executed successfully
+    assert response_data.get("success") == True
+    
+    # Verify correct response structure - should not include initialized_windsurf
+    assert "initialized_windsurf" not in response_data
+    
+    # Check that the files were created
+    cline_rule_file = os.path.join(temp_dir, ".clinerules")
+    templates_dir = os.path.join(temp_dir, ".ai-templates")
+    
+    assert os.path.exists(cline_rule_file)
+    assert os.path.exists(templates_dir)
+    
+    # Check that cline rules file has content
+    with open(cline_rule_file, 'r') as f:
+        content = f.read()
+        assert len(content) > 0
+    
+    # Verify response contains the correct rule file path
+    assert response_data.get("rules_file") == cline_rule_file
+    assert response_data.get("rules_directory") is None  # No directory for cline
+    
+    # Check that templates directory contains files
+    assert len(os.listdir(templates_dir)) > 0 

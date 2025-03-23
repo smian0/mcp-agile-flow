@@ -50,34 +50,68 @@ def test_initialize_ide_rules_with_env_variable(temp_dir, env_cleanup):
     os.environ["PROJECT_PATH"] = temp_dir
     print(f"\nPROJECT_PATH set to: {os.environ['PROJECT_PATH']}")
     
-    # Call the tool without project_path argument
+    # Call the initialize-ide-rules tool with IDE set to windsurf
+    result = asyncio.run(handle_call_tool("initialize-ide-rules", {"ide": "windsurf"}))
+    
+    # Check the response
+    assert len(result) == 1
+    assert result[0].type == "text"
+    response = json.loads(result[0].text)
+    assert response["success"] == True
+    
+    # Verify the windsurf rules file was created
+    windsurf_rule_file = os.path.join(temp_dir, ".windsurfrules")
+    assert os.path.exists(windsurf_rule_file)
+
+
+def test_initialize_ide_rules_fallback_to_cwd(temp_dir, env_cleanup, monkeypatch):
+    """Test that initialize-ide-rules falls back to cwd when no path is provided."""
+    # Set the current working directory to the temp dir
+    monkeypatch.chdir(temp_dir)
+    print(f"\nCurrent working directory set to: {os.getcwd()}")
+    
+    # Call the initialize-ide-rules tool without project_path and with IDE set to windsurf
+    if "PROJECT_PATH" in os.environ:
+        del os.environ["PROJECT_PATH"]
+        print("PROJECT_PATH environment variable removed")
+    else:
+        print("PROJECT_PATH environment variable not set")
+    
+    result = asyncio.run(handle_call_tool("initialize-ide-rules", {"ide": "windsurf"}))
+    
+    # Check the response
+    assert len(result) == 1
+    assert result[0].type == "text"
+    response = json.loads(result[0].text)
+    assert response["success"] == True
+    
+    # Verify the windsurf rules file was created in the current directory
+    windsurf_rule_file = os.path.join(os.getcwd(), ".windsurfrules")
+    assert os.path.exists(windsurf_rule_file)
+
+
+def test_initialize_ide_cursor_with_env_variable(temp_dir, env_cleanup):
+    """Test that initialize-ide-rules with cursor IDE works with PROJECT_PATH environment variable."""
+    # Set the environment variable
+    os.environ["PROJECT_PATH"] = temp_dir
+    print(f"\nPROJECT_PATH set to: {os.environ['PROJECT_PATH']}")
+    
+    # Call the initialize-ide-rules tool with IDE set to cursor
     result = asyncio.run(handle_call_tool("initialize-ide-rules", {"ide": "cursor"}))
     
     # Check the response
     assert len(result) == 1
     assert result[0].type == "text"
+    response = json.loads(result[0].text)
+    assert response["success"] == True
     
-    # Parse the JSON response
-    response_data = json.loads(result[0].text)
-    
-    # Verify the command executed successfully
-    assert response_data["success"] == True
-    
-    # Check that the directories were created
-    cursor_dir = os.path.join(temp_dir, ".cursor")
-    rules_dir = os.path.join(cursor_dir, "rules")
-    templates_dir = os.path.join(temp_dir, ".ai-templates")
-    
-    assert os.path.exists(cursor_dir)
-    assert os.path.exists(rules_dir)
-    assert os.path.exists(templates_dir)
-    
-    # Check that the rules directory contains files
-    assert len(os.listdir(rules_dir)) > 0
+    # Verify the cursor rules directory was created
+    cursor_rules_dir = os.path.join(temp_dir, ".cursor", "rules")
+    assert os.path.exists(cursor_rules_dir)
 
 
 def test_initialize_ide_rules_arg_override(temp_dir, env_cleanup):
-    """Test that argument overrides the environment variable."""
+    """Test that arguments override environment variables for project path."""
     # Create a different temporary directory for the environment variable
     env_dir = tempfile.mkdtemp()
     
@@ -106,71 +140,4 @@ def test_initialize_ide_rules_arg_override(temp_dir, env_cleanup):
     
     finally:
         # Clean up the env_dir
-        shutil.rmtree(env_dir)
-
-
-def test_migrate_rules_with_env_variable(temp_dir, env_cleanup):
-    """Test that migrate-rules-to-windsurf works with PROJECT_PATH environment variable."""
-    # First set up cursor rules to migrate
-    cursor_dir = os.path.join(temp_dir, ".cursor", "rules")
-    os.makedirs(cursor_dir, exist_ok=True)
-    
-    # Create a test cursor rule file
-    with open(os.path.join(cursor_dir, "test.mdc"), "w") as f:
-        f.write("# Test Rule\n\nThis is a test rule for migration.")
-    
-    # Set the environment variable
-    os.environ["PROJECT_PATH"] = temp_dir
-    print(f"\nPROJECT_PATH set to: {os.environ['PROJECT_PATH']}")
-    
-    # Call the migration tool
-    result = asyncio.run(handle_call_tool("migrate-rules-to-windsurf", {}))
-    
-    # Check the response
-    assert len(result) == 1
-    assert result[0].type == "text"
-    
-    # Verify the output file was created
-    windsurf_rule_file = os.path.join(temp_dir, ".windsurfrules")
-    assert os.path.exists(windsurf_rule_file)
-    
-    # Check the contents of the file
-    with open(windsurf_rule_file, "r") as f:
-        content = f.read()
-        assert "Test Rule" in content
-
-
-def test_migrate_rules_fallback_to_cwd(temp_dir, env_cleanup, monkeypatch):
-    """Test that migrate-rules-to-windsurf falls back to cwd when no path is provided."""
-    # Create a test cursor rule file in the temp dir
-    cursor_dir = os.path.join(temp_dir, ".cursor", "rules")
-    os.makedirs(cursor_dir, exist_ok=True)
-    
-    with open(os.path.join(cursor_dir, "test.mdc"), "w") as f:
-        f.write("# Test Rule\n\nThis is a test rule for migration.")
-    
-    # Set the current working directory to the temp dir
-    monkeypatch.chdir(temp_dir)
-    print(f"\nCurrent working directory set to: {os.getcwd()}")
-    
-    # Call the migration tool without arguments or env variables
-    if "PROJECT_PATH" in os.environ:
-        del os.environ["PROJECT_PATH"]
-        print("PROJECT_PATH environment variable removed")
-    else:
-        print("PROJECT_PATH environment variable not set")
-    
-    result = asyncio.run(handle_call_tool("migrate-rules-to-windsurf", {}))
-    
-    # Check the response
-    assert len(result) == 1
-    assert result[0].type == "text"
-    
-    # Verify the output file was created
-    windsurf_rule_file = os.path.join(temp_dir, ".windsurfrules")
-    assert os.path.exists(windsurf_rule_file)
-    
-    # Check the contents of the file
-    with open(windsurf_rule_file, "r") as f:
-        content = f.read()
-        assert "Test Rule" in content 
+        shutil.rmtree(env_dir) 

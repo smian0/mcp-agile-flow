@@ -163,4 +163,50 @@ def test_initialize_ide_rules_with_root_path():
                 copy_directory_to_outputs(cursor_dir, "cursor_rules_root_test")
             
             # Clean up
-            shutil.rmtree(os.path.join(current_dir, ".cursor")) 
+            shutil.rmtree(os.path.join(current_dir, ".cursor"))
+
+def test_initialize_ide_rules_cline(tmp_path):
+    """Test initialize-ide-rules with the cline IDE option."""
+    logger.info("Testing initialize-ide-rules with cline IDE option...")
+    
+    # Create a test project directory
+    test_project_path = tmp_path / "test_cline_project"
+    test_project_path.mkdir()
+    
+    # Call initialize-ide-rules with cline option
+    result = asyncio.run(handle_call_tool("initialize-ide-rules", {
+        "project_path": str(test_project_path),
+        "ide": "cline"
+    }))
+    
+    # Verify the result
+    assert result[0].type == "text"
+    response = json.loads(result[0].text)
+    assert response["success"] == True
+    
+    # Verify that the rules file was created
+    cline_rules_file = test_project_path / ".clinerules"
+    templates_dir = test_project_path / ".ai-templates"
+    
+    assert cline_rules_file.exists()
+    assert templates_dir.exists()
+    
+    # Verify that the rules file has content
+    with open(cline_rules_file, 'r') as f:
+        content = f.read()
+        assert len(content) > 0
+    
+    # Verify that template files were copied
+    template_files = list(templates_dir.glob("*"))
+    assert len(template_files) > 0
+    
+    # Copy the created rules file to test_outputs for inspection
+    copy_directory_to_outputs(test_project_path, "cline_rules")
+    
+    # Save the response to the test_outputs directory
+    save_test_output("initialize_ide_rules_cline_response", response)
+    
+    # Verify response contains the correct rule file path and no directory
+    assert response.get("rules_file") == str(cline_rules_file)
+    assert response.get("rules_directory") is None
+    assert "initialized_windsurf" not in response 

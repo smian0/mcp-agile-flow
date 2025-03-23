@@ -82,7 +82,6 @@ After installation, you can use the MCP tools directly in Cursor through Claude 
 - `initialize-ide`: Initialize a project with rules for a specific IDE
 - `initialize-ide-rules`: Initialize a project with rules for a specific IDE (specialized)
 - `migrate-mcp-config`: Migrate MCP configuration between different IDEs
-- `migrate-rules-to-windsurf`: Migrate Cursor rules to Windsurf format
 - `prime-context`: Analyze project AI documentation to build context
 
 #### Knowledge Graph Management
