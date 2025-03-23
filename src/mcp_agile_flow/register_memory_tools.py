@@ -1,16 +1,16 @@
 def register_memory_tools(mcp_server):
     """Register memory graph tools with the MCP server.
-    
+
     Args:
         mcp_server: The MCP server instance to register tools with
-        
+
     Returns:
         A tuple of (memory_tools, manager) where memory_tools is a list of Tool objects
         and manager is the KnowledgeGraphManager instance.
     """
     # Create a singleton KnowledgeGraphManager to handle all operations
     manager = KnowledgeGraphManager()
-    
+
     # Define memory graph tools to be added to the handle_list_tools function
     memory_tools = [
         Tool(
@@ -24,20 +24,26 @@ def register_memory_tools(mcp_server):
                         "items": {
                             "type": "object",
                             "properties": {
-                                "name": {"type": "string", "description": "The name of the entity"},
-                                "entityType": {"type": "string", "description": "The type of the entity"},
+                                "name": {
+                                    "type": "string",
+                                    "description": "The name of the entity",
+                                },
+                                "entityType": {
+                                    "type": "string",
+                                    "description": "The type of the entity",
+                                },
                                 "observations": {
                                     "type": "array",
                                     "items": {"type": "string"},
-                                    "description": "An array of observation contents associated with the entity"
-                                }
+                                    "description": "An array of observation contents associated with the entity",
+                                },
                             },
-                            "required": ["name", "entityType"]
-                        }
+                            "required": ["name", "entityType"],
+                        },
                     }
                 },
-                "required": ["entities"]
-            }
+                "required": ["entities"],
+            },
         ),
         Tool(
             name="create_relations",
@@ -50,16 +56,25 @@ def register_memory_tools(mcp_server):
                         "items": {
                             "type": "object",
                             "properties": {
-                                "from": {"type": "string", "description": "The name of the entity where the relation starts"},
-                                "to": {"type": "string", "description": "The name of the entity where the relation ends"},
-                                "relationType": {"type": "string", "description": "The type of the relation"}
+                                "from": {
+                                    "type": "string",
+                                    "description": "The name of the entity where the relation starts",
+                                },
+                                "to": {
+                                    "type": "string",
+                                    "description": "The name of the entity where the relation ends",
+                                },
+                                "relationType": {
+                                    "type": "string",
+                                    "description": "The type of the relation",
+                                },
                             },
-                            "required": ["from", "to", "relationType"]
-                        }
+                            "required": ["from", "to", "relationType"],
+                        },
                     }
                 },
-                "required": ["relations"]
-            }
+                "required": ["relations"],
+            },
         ),
         Tool(
             name="add_observations",
@@ -72,19 +87,22 @@ def register_memory_tools(mcp_server):
                         "items": {
                             "type": "object",
                             "properties": {
-                                "entityName": {"type": "string", "description": "The name of the entity to add the observations to"},
+                                "entityName": {
+                                    "type": "string",
+                                    "description": "The name of the entity to add the observations to",
+                                },
                                 "contents": {
                                     "type": "array",
                                     "items": {"type": "string"},
-                                    "description": "An array of observation contents to add"
-                                }
+                                    "description": "An array of observation contents to add",
+                                },
                             },
-                            "required": ["entityName", "contents"]
-                        }
+                            "required": ["entityName", "contents"],
+                        },
                     }
                 },
-                "required": ["observations"]
-            }
+                "required": ["observations"],
+            },
         ),
         Tool(
             name="delete_entities",
@@ -95,11 +113,11 @@ def register_memory_tools(mcp_server):
                     "entityNames": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "An array of entity names to delete"
+                        "description": "An array of entity names to delete",
                     }
                 },
-                "required": ["entityNames"]
-            }
+                "required": ["entityNames"],
+            },
         ),
         Tool(
             name="delete_observations",
@@ -112,19 +130,22 @@ def register_memory_tools(mcp_server):
                         "items": {
                             "type": "object",
                             "properties": {
-                                "entityName": {"type": "string", "description": "The name of the entity containing the observations"},
+                                "entityName": {
+                                    "type": "string",
+                                    "description": "The name of the entity containing the observations",
+                                },
                                 "observations": {
                                     "type": "array",
                                     "items": {"type": "string"},
-                                    "description": "An array of observations to delete"
-                                }
+                                    "description": "An array of observations to delete",
+                                },
                             },
-                            "required": ["entityName", "observations"]
-                        }
+                            "required": ["entityName", "observations"],
+                        },
                     }
                 },
-                "required": ["deletions"]
-            }
+                "required": ["deletions"],
+            },
         ),
         Tool(
             name="delete_relations",
@@ -137,25 +158,31 @@ def register_memory_tools(mcp_server):
                         "items": {
                             "type": "object",
                             "properties": {
-                                "from": {"type": "string", "description": "The name of the entity where the relation starts"},
-                                "to": {"type": "string", "description": "The name of the entity where the relation ends"},
-                                "relationType": {"type": "string", "description": "The type of the relation"}
+                                "from": {
+                                    "type": "string",
+                                    "description": "The name of the entity where the relation starts",
+                                },
+                                "to": {
+                                    "type": "string",
+                                    "description": "The name of the entity where the relation ends",
+                                },
+                                "relationType": {
+                                    "type": "string",
+                                    "description": "The type of the relation",
+                                },
                             },
-                            "required": ["from", "to", "relationType"]
+                            "required": ["from", "to", "relationType"],
                         },
-                        "description": "An array of relations to delete"
+                        "description": "An array of relations to delete",
                     }
                 },
-                "required": ["relations"]
-            }
+                "required": ["relations"],
+            },
         ),
         Tool(
             name="read_graph",
             description="Read the entire knowledge graph",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
+            inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
             name="search_nodes",
@@ -163,10 +190,13 @@ def register_memory_tools(mcp_server):
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "The search query to match against entity names, types, and observation content"}
+                    "query": {
+                        "type": "string",
+                        "description": "The search query to match against entity names, types, and observation content",
+                    }
                 },
-                "required": ["query"]
-            }
+                "required": ["query"],
+            },
         ),
         Tool(
             name="open_nodes",
@@ -177,13 +207,13 @@ def register_memory_tools(mcp_server):
                     "names": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "An array of entity names to retrieve"
+                        "description": "An array of entity names to retrieve",
                     }
                 },
-                "required": ["names"]
-            }
-        )
+                "required": ["names"],
+            },
+        ),
     ]
-    
+
     # Export the memory tools and manager for use in simple_server.py
     return memory_tools, manager

@@ -1,5 +1,7 @@
 # MCP Agile Flow
 
+[![Coverage](https://github.com/yourusername/mcp-agile-flow/raw/main/badges/coverage.svg)](https://yourusername.github.io/mcp-agile-flow/)
+
 A Model Context Protocol (MCP) server that enhances agile workflows with knowledge graph capabilities and project management tools.
 
 ## Getting Started

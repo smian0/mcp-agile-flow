@@ -1,7 +1,7 @@
 # MCP Agile Flow - Makefile
 # -------------------------
 
-.PHONY: help venv install test test-coverage test-kg test-core test-full test-agent test-via-agent run-server setup-cursor clean clean-all quality all
+.PHONY: help venv install test test-coverage test-kg test-core test-full test-agent test-via-agent run-server setup-cursor clean clean-all quality format lint type-check fix-lint setup-quality all
 
 # Configuration
 # -------------
@@ -34,9 +34,14 @@ help:
 	@echo "test-kg:          Run only the knowledge graph creation test"
 	@echo "run-server:       Run the MCP Agile Flow server"
 	@echo "setup-cursor:     Set up Cursor MCP integration"
+	@echo "setup-quality:    Set up quality tools (formatting, linting, type checking)"
 	@echo "clean:            Remove build artifacts and cache files"
 	@echo "clean-all:        Remove build artifacts, cache files, and virtual environment"
 	@echo "quality:          Run all code quality checks (formatting, linting, type checking)"
+	@echo "format:           Run code formatting with Black"
+	@echo "lint:             Run code linting with Ruff and Flake8"
+	@echo "type-check:       Run type checking with MyPy"
+	@echo "fix-lint:         Automatically fix linting issues with Ruff"
 	@echo "all:              Install and run tests"
 
 # Virtual environment
@@ -111,6 +116,16 @@ run-server: install
 setup-cursor: install
 	$(UV) run setup_cursor_mcp.py
 
+setup-quality: venv
+	@echo "Installing quality tools..."
+	$(UV) pip install -e ".[test]"
+	$(UV) pip install black==24.3.0 flake8==7.0.0 mypy==1.9.0 ruff==0.3.0
+	@echo "Creating .mypy.ini file if it doesn't exist..."
+	@if [ ! -f .mypy.ini ]; then \
+		echo "[mypy]\npython_version = 3.10\nwarn_return_any = true\nwarn_unused_configs = true\ndisallow_untyped_defs = false\ndisallow_incomplete_defs = false\nignore_missing_imports = true\n" > .mypy.ini; \
+	fi
+	@echo "Setup complete. You can now run 'make quality' to check code quality."
+
 # Cleaning
 # --------
 clean:
@@ -130,15 +145,51 @@ clean-all: clean
 
 # Code quality
 # ------------
+# Individual quality commands
+format: venv
+	@echo "Installing development dependencies..."
+	$(UV) pip install -e ".[test]"
+	@echo "Running code formatting with Black..."
+	$(UV) run black $(SOURCE_DIR) $(TESTS_DIR)
+
+lint: venv
+	@echo "Installing development dependencies..."
+	$(UV) pip install -e ".[test]"
+	@echo "Installing Ruff explicitly if not included..."
+	$(UV) pip install ruff==0.3.0
+	@echo "Running code linting with Ruff..."
+	$(UV) run ruff check $(SOURCE_DIR) $(TESTS_DIR)
+	@echo "Running code linting with Flake8..."
+	$(UV) run flake8 $(SOURCE_DIR) $(TESTS_DIR)
+
+fix-lint: venv
+	@echo "Installing development dependencies..."
+	$(UV) pip install -e ".[test]"
+	@echo "Installing Ruff explicitly if not included..."
+	$(UV) pip install ruff==0.3.0
+	@echo "Automatically fixing linting issues with Ruff..."
+	$(UV) run ruff check --fix --unsafe-fixes $(SOURCE_DIR) $(TESTS_DIR)
+	@echo "Automatically fixing comparison issues with Ruff..."
+	$(UV) run ruff check --fix --select=E712 $(SOURCE_DIR) $(TESTS_DIR)
+
+type-check: venv
+	@echo "Installing development dependencies..."
+	$(UV) pip install -e ".[test]"
+	@echo "Running type checking with MyPy..."
+	$(UV) run mypy $(SOURCE_DIR)
+
 # Combined quality command that runs all checks in one go
 quality: venv
 	@echo "Installing development dependencies..."
 	$(UV) pip install -e ".[test]"
-	$(UV) pip install -e .
+	@echo "Installing quality tools explicitly..."
+	$(UV) pip install black==24.3.0 flake8==7.0.0 mypy==1.9.0 ruff==0.3.0
 	@echo "Running code formatting with Black..."
 	$(UV) run black $(SOURCE_DIR) $(TESTS_DIR)
+	@echo "Running code linting with Ruff..."
+	$(UV) run ruff check $(SOURCE_DIR) $(TESTS_DIR)
 	@echo "Running code linting with Flake8..."
-	$(UV) run flake8 $(SOURCE_DIR) $(TESTS_DIR)
+	$(UV) run flake8 $(SOURCE_DIR)
 	@echo "Running type checking with MyPy..."
 	$(UV) run mypy $(SOURCE_DIR)
 

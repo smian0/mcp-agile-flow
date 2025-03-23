@@ -24,20 +24,19 @@ Knowledge graph tools:
 """
 
 # Import version
-__version__ = '0.9.1'
+__version__ = "0.9.1"
 
 # Expose key modules for external use
-from . import rules_migration
-from . import memory_graph
+from . import memory_graph, rules_migration
 
 # For simplified imports
-from .memory_graph import KnowledgeGraphManager, Entity, Relation, KnowledgeGraph
+from .memory_graph import Entity, KnowledgeGraph, KnowledgeGraphManager, Relation
 
 __all__ = [
-    'rules_migration',
-    'memory_graph', 
-    'KnowledgeGraphManager',
-    'Entity',
-    'Relation',
-    'KnowledgeGraph'
+    "rules_migration",
+    "memory_graph",
+    "KnowledgeGraphManager",
+    "Entity",
+    "Relation",
+    "KnowledgeGraph",
 ]

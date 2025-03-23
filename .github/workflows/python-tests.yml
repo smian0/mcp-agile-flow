@@ -15,9 +15,9 @@ jobs:
         python-version: ["3.10", "3.11"]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4.2.2
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5.4.0
       with:
         python-version: ${{ matrix.python-version }}
     
@@ -26,15 +26,88 @@ jobs:
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     
-    - name: Install dependencies
+    - name: Create virtual environment and install package with dependencies
       run: |
-        uv pip install -e ".[dev,test]"
+        uv venv .venv --python=python${{ matrix.python-version }}
+        . .venv/bin/activate
+        uv pip install -e ".[test]"
+        uv pip install pytest pytest-cov coverage coverage-badge
     
     - name: Run tests
       run: |
-        pytest
+        . .venv/bin/activate
+        UV_LINK_MODE=copy pytest -v --tb=short --ignore=tests/test_mcp_via_agno_agent.py --ignore=tests/full-stack-fastapi-sample-project tests/
     
-    - name: Lint with ruff
+    - name: Run tests with coverage
       run: |
-        uv pip install ruff
-        ruff check . 
+        . .venv/bin/activate
+        UV_LINK_MODE=copy coverage run -m pytest --ignore=tests/test_mcp_via_agno_agent.py --ignore=tests/full-stack-fastapi-sample-project tests/
+        coverage report -m
+        coverage html
+        coverage xml
+        coverage-badge -o coverage.svg -f
+    
+    - name: Upload coverage report as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report-python${{ matrix.python-version }}
+        path: |
+          htmlcov/
+          coverage.xml
+          coverage.svg
+    
+    - name: Run quality checks
+      run: |
+        . .venv/bin/activate
+        UV_LINK_MODE=copy uv pip install black==24.3.0 flake8==7.0.0 mypy==1.9.0 ruff==0.3.0
+        black --check src/ tests/
+        ruff check src/ tests/
+        flake8 src/
+        mypy src/
+
+  # This job publishes the coverage report to GitHub Pages
+  # Only runs on the main branch and only for Python 3.10
+  publish-coverage:
+    needs: test
+    if: github.ref == 'refs/heads/main' && success()
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download coverage artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: coverage-report-python3.10
+        
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+      
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: 'htmlcov/'
+        
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+      
+    - name: Copy coverage badge to repo
+      uses: actions/checkout@v4.2.2
+      with:
+        ref: ${{ github.ref }}
+        
+    - name: Move badge to badges directory
+      run: |
+        mkdir -p badges
+        cp coverage.svg badges/
+        
+    - name: Commit and push badge
+      uses: EndBug/add-and-commit@v9
+      with:
+        add: 'badges/coverage.svg'
+        message: 'Update coverage badge'
+        default_author: github_actions
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write 
