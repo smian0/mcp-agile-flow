@@ -1,7 +1,7 @@
 """
-Rule Migration Tool for MCP Agile Flow
+IDE Rules Initialization Tool for MCP Agile Flow
 
-This module provides functionality to migrate rules between different IDE formats,
+This module provides functionality to initialize and migrate rules between different IDE formats,
 primarily from Cursor's .mdc files to Windsurf's .windsurfrules file.
 """
 

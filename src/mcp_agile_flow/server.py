@@ -481,7 +481,7 @@ async def handle_call_tool(
                     # No path specified - use current working directory directly
                     project_path = os.getcwd()
                     source = "current working directory (direct)"
-                    
+
                     # Check if it's root and handle that case
                     if project_path == "/" or project_path == "\\":
                         # Handle case where the path is problematic
@@ -501,8 +501,12 @@ async def handle_call_tool(
                         ]
 
                 # Log the determined path
-                logger.info(f"initialize-ide using project_path from {source}: {project_path}")
-                print(f"initialize-ide using project_path from {source}: {project_path}")
+                logger.info(
+                    f"initialize-ide using project_path from {source}: {project_path}"
+                )
+                print(
+                    f"initialize-ide using project_path from {source}: {project_path}"
+                )
 
                 # Create directory structure if it doesn't exist
                 os.makedirs(os.path.join(project_path, "ai-docs"), exist_ok=True)
@@ -657,7 +661,7 @@ async def handle_call_tool(
                     # No path specified - use current working directory directly
                     project_path = os.getcwd()
                     source = "current working directory (direct)"
-                    
+
                     # Check if it's root and handle that case
                     if project_path == "/" or project_path == "\\":
                         # Handle case where the path is problematic
