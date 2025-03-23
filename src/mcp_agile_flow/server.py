@@ -22,7 +22,8 @@ from mcp.server.models import InitializationOptions
 
 # Import local modules
 from .memory_graph import register_memory_tools
-from .utils import get_project_settings
+from .utils import get_project_settings as get_settings_util  # Rename to avoid conflict
+from .fastmcp_tools import get_project_settings, get_mermaid_diagram  # Import the FastMCP implementations
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -37,6 +38,8 @@ memory_manager = None
 
 # Export the server instance for MCP plugins
 __mcp__ = mcp
+# Export the FastMCP instance
+__fastmcp__ = get_project_settings, get_mermaid_diagram
 
 
 def create_text_response(text: str, is_error: bool = False) -> types.TextContent:
@@ -213,6 +216,20 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": [],
             },
         ),
+        types.Tool(
+            name="get-mermaid-diagram",
+            description="Get a Mermaid diagram representation of the knowledge graph",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "random_string": {
+                        "type": "string",
+                        "description": "Dummy parameter for no-parameter tools",
+                    }
+                },
+                "required": ["random_string"],
+            },
+        ),
     ]
 
     # Add memory graph tools if available
@@ -254,6 +271,33 @@ async def handle_call_tool(
         if memory_manager is not None and name in memory_tools:
             # These tools are registered by the memory graph manager
             return await memory_manager.handle_tool_call(name, arguments)
+
+        # First check if this is a FastMCP-implemented tool
+        # Currently we only have get-project-settings implemented with FastMCP
+        if name == "get-project-settings":
+            # Call the FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for get-project-settings")
+            try:
+                # Execute the FastMCP tool
+                proposed_path = arguments.get("proposed_path") if arguments else None
+                result = get_project_settings(proposed_path=proposed_path)
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error calling FastMCP get_project_settings: {str(e)}")
+                return [create_text_response(f"Error: {str(e)}", is_error=True)]
+        
+        elif name == "get-mermaid-diagram":
+            # Call the FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for get-mermaid-diagram")
+            try:
+                # Execute the FastMCP tool
+                result = get_mermaid_diagram()
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error calling FastMCP get_mermaid_diagram: {str(e)}")
+                return [create_text_response(f"Error: {str(e)}", is_error=True)]
 
         # Handle migration tool
         elif name == "migrate-mcp-config":
@@ -467,14 +511,14 @@ async def handle_call_tool(
                 # Determine project path with improved handling of current directory
                 if arguments.get("project_path"):
                     # Explicit path provided - use get_project_settings to validate it
-                    project_settings = get_project_settings(
+                    project_settings = get_settings_util(
                         proposed_path=arguments.get("project_path")
                     )
                     project_path = project_settings["project_path"]
                     source = project_settings["source"]
                 elif os.environ.get("PROJECT_PATH"):
                     # Environment variable set - use get_project_settings to validate it
-                    project_settings = get_project_settings()
+                    project_settings = get_settings_util()
                     project_path = project_settings["project_path"]
                     source = project_settings["source"]
                 else:
@@ -647,14 +691,14 @@ async def handle_call_tool(
                 # Determine project path with improved handling of current directory
                 if arguments and arguments.get("project_path"):
                     # Explicit path provided - use get_project_settings to validate it
-                    project_settings = get_project_settings(
+                    project_settings = get_settings_util(
                         proposed_path=arguments.get("project_path")
                     )
                     project_path = project_settings["project_path"]
                     source = project_settings["source"]
                 elif os.environ.get("PROJECT_PATH"):
                     # Environment variable set - use get_project_settings to validate it
-                    project_settings = get_project_settings()
+                    project_settings = get_settings_util()
                     project_path = project_settings["project_path"]
                     source = project_settings["source"]
                 else:
@@ -1002,52 +1046,6 @@ async def handle_call_tool(
 
             # Call the prime context function
             response_data = handle_prime_context(project_path, depth, focus_areas)
-
-            return [create_text_response(json.dumps(response_data, indent=2))]
-        elif name == "get-project-settings":
-            logger.info("Getting project settings")
-
-            # Get proposed path from arguments if provided
-            proposed_path = arguments.get("proposed_path", "") if arguments else ""
-
-            # Use the common utility function to get project settings
-            response_data = get_project_settings(
-                proposed_path=proposed_path if proposed_path else None
-            )
-
-            # Also include project type and metadata from the memory graph if available
-            if memory_manager is not None:
-                try:
-                    # Get project info from the memory graph
-                    project_info = memory_manager.get_project_info()
-
-                    # Add project type and metadata to the response
-                    response_data["project_type"] = project_info.get(
-                        "project_type", "generic"
-                    )
-                    response_data["project_metadata"] = project_info.get(
-                        "project_metadata", {}
-                    )
-                    logger.info(
-                        "Added project type and metadata from memory graph to project settings"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to get project info from memory graph: {str(e)}"
-                    )
-                    # Add default values if memory manager fails
-                    response_data["project_type"] = "generic"
-                    response_data["project_metadata"] = {}
-            else:
-                # Memory manager not available, add default values
-                logger.info(
-                    "Memory manager not available, using default project type and metadata"
-                )
-                response_data["project_type"] = "generic"
-                response_data["project_metadata"] = {}
-
-            # Log the response for debugging
-            logger.info(f"Project settings response: {response_data}")
 
             return [create_text_response(json.dumps(response_data, indent=2))]
         else:
