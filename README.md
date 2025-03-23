@@ -15,7 +15,7 @@ A Model Context Protocol (MCP) server that enhances agile workflows with knowled
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/mcp-agile-flow.git
+   git clone https://github.com/smian0/mcp-agile-flow.git
    cd mcp-agile-flow
    ```
 
