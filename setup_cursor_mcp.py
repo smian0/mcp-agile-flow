@@ -31,7 +31,7 @@ def main():
             "command": python_path,
             "args": [
                 "-m",
-                "mcp_agile_flow.simple_server"
+                "mcp_agile_flow.server"
             ],
             "autoApprove": [
                 "initialize-ide-rules",
@@ -92,7 +92,7 @@ def main():
     print("\nYou can now use the MCP server in Cursor.\n")
     print("For MCP Agile Flow server:")
     print("  - Command will run: " + python_path)
-    print("  - Arguments: -m mcp_agile_flow.simple_server")
+    print("  - Arguments: -m mcp_agile_flow.server")
     print("\nTest the server with these MCP tool calls:")
     print('  {"name": "get-project-settings", "arguments": {}}')
     print('  {"name": "initialize-ide", "arguments": {"ide": "cursor"}}')
@@ -103,7 +103,7 @@ def main():
         f.write(f"""#!/bin/bash
 # Script to test the MCP server directly
 echo "Testing MCP Agile Flow server..."
-{python_path} -m mcp_agile_flow.simple_server
+{python_path} -m mcp_agile_flow.server
 """)
     
     # Make the script executable

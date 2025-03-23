@@ -72,10 +72,10 @@ def setup_memory_manager(self):
     manager = memory_graph.KnowledgeGraphManager(self.temp_file_path)
     
     # Store the original memory_manager to restore later
-    self.original_memory_manager = simple_server.memory_manager
+    self.original_memory_manager = server.memory_manager
     
-    # Set the memory_manager directly in the simple_server module
-    simple_server.memory_manager = manager
+    # Set the memory_manager directly in the server module
+    server.memory_manager = manager
 ```
 
 This setup code will need to be removed or modified.

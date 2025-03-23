@@ -1214,5 +1214,5 @@ def register_memory_tools(mcp_server):
         # If the server is provided, register the tools
         pass
 
-    # Export the memory tools and manager for use in simple_server.py
+    # Export the memory tools and manager for use in server.py
     return memory_tools, manager

@@ -20,7 +20,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import from the main package
-from src.mcp_agile_flow.simple_server import handle_call_tool
+from src.mcp_agile_flow.server import handle_call_tool
 
 
 @pytest.fixture

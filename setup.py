@@ -38,7 +38,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "mcp-agile-flow=mcp_agile_flow.simple_server:main",
+            "mcp-agile-flow=mcp_agile_flow.server:main",
         ],
     },
 ) 

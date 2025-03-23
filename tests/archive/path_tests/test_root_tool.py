@@ -11,7 +11,7 @@ def mock_getcwd():
 original_getcwd = os.getcwd
 os.getcwd = mock_getcwd
 
-from src.mcp_agile_flow.simple_server import handle_call_tool
+from src.mcp_agile_flow.server import handle_call_tool
 
 
 async def test():

@@ -28,7 +28,7 @@ src_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(src_dir))
 
 # Import from the main package
-from src.mcp_agile_flow.simple_server import handle_call_tool
+from src.mcp_agile_flow.server import handle_call_tool
 from src.mcp_agile_flow.utils import get_project_settings
 
 # Define path to test_outputs directory

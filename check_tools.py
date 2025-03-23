@@ -12,7 +12,7 @@ import pprint
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 # Import the MCP server and memory_graph module
-from mcp_agile_flow.simple_server import mcp, handle_list_tools
+from mcp_agile_flow.server import mcp, handle_list_tools
 from mcp_agile_flow.memory_graph import register_memory_tools
 from mcp.server import Server
 

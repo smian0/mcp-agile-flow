@@ -13,7 +13,7 @@ Draft
 
 ## Context
 
-After removing the core memory graph implementation in Story-1, we need to remove all integration points with the simple server. The memory graph functionality is currently integrated with the simple server in `simple_server.py` and `run_mcp_server.py`. This includes tool registration, initialization, and handling of memory graph-related tool calls.
+After removing the core memory graph implementation in Story-1, we need to remove all integration points with the simple server. The memory graph functionality is currently integrated with the server in `server.py` and `run_mcp_server.py`. This includes tool registration, initialization, and handling of memory graph-related tool calls.
 
 ## Estimation
 
@@ -21,7 +21,7 @@ Story Points: 2
 
 ## Tasks
 
-1. - [ ] Update `simple_server.py`
+1. - [ ] Update `server.py`
    1. - [ ] Remove memory graph import statements
    2. - [ ] Remove memory graph tool registration
    3. - [ ] Remove memory graph tool handlers
@@ -55,7 +55,7 @@ Story Points: 2
 
 Key integration points to remove:
 
-1. In `simple_server.py`:
+1. In `server.py`:
    - Import statements: `from .memory_graph import register_memory_tools, KnowledgeGraphManager`
    - Global variables: `memory_tools = []` and `memory_manager = None`
    - Tool registration in `handle_list_tools()`

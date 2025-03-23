@@ -61,8 +61,8 @@ try:
     from mcp.server.models import InitializationOptions
     from mcp.server import stdio
     
-    # Import necessary components from simple_server
-    from mcp_agile_flow.simple_server import mcp, register_memory_tools
+    # Import necessary components from server
+    from mcp_agile_flow.server import mcp, register_memory_tools
     
     logger.info("Successfully imported server modules")
     logger.info("Running server (stdin/stdout mode)...")

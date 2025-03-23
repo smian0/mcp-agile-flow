@@ -9,7 +9,7 @@ def mock_getcwd():
 original_getcwd = os.getcwd
 os.getcwd = mock_getcwd
 
-from src.mcp_agile_flow.simple_server import get_safe_project_path
+from src.mcp_agile_flow.server import get_safe_project_path
 
 try:
     path, source = get_safe_project_path()

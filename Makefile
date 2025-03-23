@@ -109,7 +109,7 @@ test-full: venv
 # Server execution
 # ---------------
 run-server: install
-	$(UV) run -m mcp_agile_flow.simple_server
+	$(UV) run -m mcp_agile_flow.server
 
 # Setup
 # -----

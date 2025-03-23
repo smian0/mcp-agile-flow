@@ -298,7 +298,7 @@ def test_migrate_mcp_config_with_conflicts(tmp_path):
 
     # Import the handler and IDE path functions
     from src.mcp_agile_flow.migration_tool import get_ide_path
-    from src.mcp_agile_flow.simple_server import handle_call_tool
+    from src.mcp_agile_flow.server import handle_call_tool
 
     # Create temporary directories for test configs
     test_source_dir = tmp_path / "source"
@@ -408,7 +408,7 @@ def test_migrate_mcp_config_resolve_conflicts(tmp_path):
 
     # Import the handler and IDE path functions
     from src.mcp_agile_flow.migration_tool import get_ide_path
-    from src.mcp_agile_flow.simple_server import handle_call_tool
+    from src.mcp_agile_flow.server import handle_call_tool
 
     # Create temporary directories for test configs
     test_source_dir = tmp_path / "source_resolve"
@@ -548,7 +548,7 @@ def test_migrate_mcp_config_invalid_resolutions(tmp_path):
 
     # Import the handler and IDE path functions
     from src.mcp_agile_flow.migration_tool import get_ide_path
-    from src.mcp_agile_flow.simple_server import handle_call_tool
+    from src.mcp_agile_flow.server import handle_call_tool
 
     # Create temporary directories for test configs
     test_source_dir = tmp_path / "source_invalid"
@@ -659,7 +659,7 @@ def test_migrate_cursor_to_claude_desktop(tmp_path):
 
     # Import the handler and IDE path functions
     from src.mcp_agile_flow.migration_tool import get_ide_path
-    from src.mcp_agile_flow.simple_server import handle_call_tool
+    from src.mcp_agile_flow.server import handle_call_tool
 
     # Create temporary directories for test configs
     test_cursor_dir = tmp_path / "cursor"

@@ -21,7 +21,7 @@ This epic focuses on removing the Memory Graph functionality from the MCP Agile 
 
 ## Technical Considerations
 - The memory graph functionality is currently integrated in `memory_graph.py`
-- The memory graph is initialized in `simple_server.py` and `run_mcp_server.py`
+- The memory graph is initialized in `server.py` and `run_mcp_server.py`
 - Various tools are registered with the MCP server in `register_memory_tools()`
 - Tests specific to the memory graph are in `test_memory_graph.py`
 - Documentation in `arch.md` and `prd.md` references the memory graph

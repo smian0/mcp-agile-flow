@@ -38,7 +38,7 @@ A Model Context Protocol (MCP) server that enhances agile workflows with knowled
          "command": "/path/to/mcp-agile-flow/.venv/bin/python",
          "args": [
            "-m",
-           "mcp_agile_flow.simple_server"
+           "mcp_agile_flow.server"
          ],
          "disabled": false,
          "autoApprove": [
@@ -172,7 +172,7 @@ After installation, you can use the MCP tools directly in Cursor through Claude 
 
 1. **Connection Error**: If you see an error like "ModuleNotFoundError: No module named...", check your MCP configuration. Make sure you're using:
    - The correct Python path (from your virtual environment)
-   - The correct module path (`-m mcp_agile_flow.simple_server`) 
+   - The correct module path (`-m mcp_agile_flow.server`) 
    - No `.py` extension in the module name when using `-m`
 
 2. **Permission Issues**: Ensure your Python virtual environment has the necessary permissions to run.

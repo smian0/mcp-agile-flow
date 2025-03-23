@@ -1,7 +1,7 @@
 """
-MCP Agile Flow - Simple Server Implementation
+MCP Agile Flow - Server Implementation
 
-This module implements a simple MCP server with basic tools.
+This module implements the MCP server with tools for agile workflow.
 It uses the standard MCP protocol over stdin/stdout for use with Cursor.
 """
 
@@ -1832,8 +1832,8 @@ async def run_server():
     """
     global memory_tools, memory_manager
 
-    logger.info("Starting Simple server (stdin/stdout mode)")
-    print("Starting MCP Agile Flow Simple server...", file=sys.stderr)
+    logger.info("Starting MCP Agile Flow server (stdin/stdout mode)")
+    print("Starting MCP Agile Flow server...", file=sys.stderr)
 
     # Initialize memory graph tools and manager
     try:

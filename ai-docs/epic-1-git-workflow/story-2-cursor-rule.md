@@ -58,7 +58,7 @@ Story Points: 2
 - [ ] Add detailed guidance on commit standards
 - [ ] Test rule in Cursor IDE with sample commit messages
 - [ ] Verify rule is triggered appropriately during git commits
-- [ ] Update rule copying logic in `simple_server.py` if needed
+- [ ] Update rule copying logic in `server.py` if needed
 
 ### Integration
 - [ ] Ensure rule is properly copied during project setup

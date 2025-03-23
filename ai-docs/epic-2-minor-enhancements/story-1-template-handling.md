@@ -18,7 +18,7 @@ When initializing IDE rules and templates, it's important to maintain backups of
 - Improve code maintainability by clearly separating template and rule handling
 
 ## Tasks
-- [x] Review the current template initialization logic in `simple_server.py`
+- [x] Review the current template initialization logic in `server.py`
 - [x] Confirm templates are directly overwritten without creating .back files
 - [x] Ensure rule files continue to be backed up for safety
 - [x] Simplify template copy logic by removing conditional checks

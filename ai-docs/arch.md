@@ -89,7 +89,7 @@ sequenceDiagram
 
 ## Component Descriptions
 
-### 1. Simple Server (simple_server.py) ✅
+### 1. Server (server.py) ✅
 - Core MCP server implementation
 - Command processing and routing
 - Template management and document generation
@@ -175,7 +175,7 @@ This design enables the system to adapt to different project requirements withou
 │   ├── mcp_agile_flow/                  # Main package
 │   │   ├── __init__.py                  # Package initialization
 │   │   ├── __main__.py                  # Module entry point
-│   │   ├── simple_server.py             # Core MCP server implementation
+│   │   ├── server.py             # Core MCP server implementation
 │   │   ├── memory_graph.py              # Knowledge graph implementation
 │   │   ├── migration_tool.py            # Cross-IDE configuration migration
 │   │   ├── utils.py                     # Utility functions

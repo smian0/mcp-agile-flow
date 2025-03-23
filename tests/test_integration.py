@@ -24,7 +24,7 @@ src_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(src_dir))
 
 # Import from the main package
-from src.mcp_agile_flow.simple_server import mcp
+from src.mcp_agile_flow.server import mcp
 
 # Define path to test_outputs directory
 TEST_OUTPUTS_DIR = Path(__file__).parent / "test_outputs"
@@ -99,7 +99,7 @@ def test_server_handle_call_tool():
     logger.info("Testing server handle_call_tool...")
 
     # Import the handler function
-    from src.mcp_agile_flow.simple_server import handle_call_tool
+    from src.mcp_agile_flow.server import handle_call_tool
 
     # Test get-project-settings
     result = asyncio.run(handle_call_tool("get-project-settings", {}))
@@ -113,7 +113,7 @@ def test_initialize_ide_rules_with_custom_path(tmp_path):
     logger.info("Testing initialize-ide-rules with custom project path...")
 
     # Import the handler function
-    from src.mcp_agile_flow.simple_server import handle_call_tool
+    from src.mcp_agile_flow.server import handle_call_tool
 
     # Create a single temporary directory to use as the project path
     test_project_path = tmp_path / "test_ide_project"
@@ -179,7 +179,7 @@ def test_initialize_ide_rules_with_root_path():
     logger.info("Testing initialize-ide-rules safety with root path...")
 
     # Import the handler function
-    from src.mcp_agile_flow.simple_server import handle_call_tool
+    from src.mcp_agile_flow.server import handle_call_tool
 
     # Call initialize-ide-rules with root path
     result = asyncio.run(
@@ -222,7 +222,7 @@ def test_initialize_ide_rules_with_env_root_path():
     )
 
     # Import the handler function
-    from src.mcp_agile_flow.simple_server import handle_call_tool
+    from src.mcp_agile_flow.server import handle_call_tool
 
     # Save the original PROJECT_PATH environment variable
     original_project_path = os.environ.get("PROJECT_PATH")
@@ -278,7 +278,7 @@ def test_get_project_settings_tool_with_proposed_path():
     # Import the handler function
     import os
 
-    from src.mcp_agile_flow.simple_server import handle_call_tool
+    from src.mcp_agile_flow.server import handle_call_tool
 
     # Test with no proposed path (should use default paths)
     result = asyncio.run(handle_call_tool("get-project-settings", {}))

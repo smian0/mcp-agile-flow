@@ -61,7 +61,7 @@ def setup_logging():
 @pytest.fixture(autouse=True)
 def clean_notes():
     """Reset the notes dictionary before and after each test."""
-    # Mock notes instead of importing from simple_server
+    # Mock notes instead of importing from server
     notes = {}
     notes.clear()
 
