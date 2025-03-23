@@ -1,7 +1,7 @@
 # MCP Agile Flow - Makefile
 # -------------------------
 
-.PHONY: help venv install test test-coverage test-kg test-core test-full test-agent test-via-agent run-server setup-cursor clean clean-all quality format lint type-check fix-lint setup-quality all
+.PHONY: help venv install test test-coverage coverage test-kg test-core test-full test-agent test-via-agent run-server setup-cursor clean clean-all quality format lint type-check fix-lint setup-quality all
 
 # Configuration
 # -------------
@@ -26,11 +26,12 @@ help:
 	@echo "test:             Run tests with detailed debug output (excludes agent tests)"
 	@echo "                  Use TEST_PATH=path/to/test to run specific tests"
 	@echo "                  Use TEST_MARKERS=\"\" to clear default markers"
+	@echo "test-coverage:    Run tests with coverage report (basic)"
+	@echo "coverage:         Run tests with detailed coverage reports and badge generation"
 	@echo "test-core:        Run only the core tests (migration and integration)"
 	@echo "test-agent:       Run only the agent tests (test_mcp_via_agno_agent.py)"
 	@echo "test-via-agent:   Run only the tests that use an AI agent for testing"
 	@echo "test-full:        Run all tests with full dependencies"
-	@echo "test-coverage:    Run tests with coverage report"
 	@echo "test-kg:          Run only the knowledge graph creation test"
 	@echo "run-server:       Run the MCP Agile Flow server"
 	@echo "setup-cursor:     Set up Cursor MCP integration"
@@ -69,6 +70,20 @@ test-coverage: venv
 	$(UV) pip install -e .
 	@echo "Running tests with coverage..."
 	$(UV) run pytest $(PYTEST_FLAGS) --cov=$(PACKAGE_NAME) --cov-report=term --cov-report=html $(TEST_MARKERS) $(TESTS_DIR)
+
+coverage: venv
+	@echo "Installing development dependencies..."
+	$(UV) pip install -e ".[test]"
+	$(UV) pip install -e .
+	$(UV) pip install coverage-badge
+	@echo "Running tests with detailed coverage report..."
+	. $(VENV_ACTIVATE) && UV_LINK_MODE=copy coverage run -m pytest $(TEST_MARKERS) $(TESTS_DIR)
+	. $(VENV_ACTIVATE) && coverage report -m
+	. $(VENV_ACTIVATE) && coverage html
+	. $(VENV_ACTIVATE) && coverage xml
+	. $(VENV_ACTIVATE) && coverage-badge -o coverage.svg -f
+	@echo "Coverage report generated at htmlcov/index.html"
+	@echo "Coverage badge generated at coverage.svg"
 
 test-kg: venv
 	@echo "Installing development dependencies..."

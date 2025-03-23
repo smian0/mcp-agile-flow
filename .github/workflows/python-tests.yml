@@ -9,17 +9,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.11"]
-
     steps:
     - uses: actions/checkout@v4.2.2
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.11
       uses: actions/setup-python@v5.4.0
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.11"
     
     - name: Install uv
       run: |
@@ -28,7 +23,7 @@ jobs:
     
     - name: Create virtual environment and install package with dependencies
       run: |
-        uv venv .venv --python=python${{ matrix.python-version }}
+        uv venv .venv --python=python3.11
         . .venv/bin/activate
         uv pip install -e ".[test]"
         uv pip install pytest pytest-cov coverage coverage-badge
@@ -50,7 +45,7 @@ jobs:
     - name: Upload coverage report as artifact
       uses: actions/upload-artifact@v4.6.2
       with:
-        name: coverage-report-python${{ matrix.python-version }}
+        name: coverage-report-python3.11
         path: |
           htmlcov/
           coverage.xml
@@ -80,7 +75,7 @@ jobs:
     - name: Download coverage artifacts
       uses: actions/download-artifact@v4.2.1
       with:
-        name: coverage-report-python3.10
+        name: coverage-report-python3.11
         path: coverage-artifacts
         
     - name: Move badge to badges directory
