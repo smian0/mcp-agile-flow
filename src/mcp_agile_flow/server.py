@@ -30,6 +30,15 @@ from .fastmcp_tools import (
     initialize_ide as initialize_ide_fastmcp,
     prime_context as prime_context_fastmcp,
     migrate_mcp_config as migrate_mcp_config_fastmcp,
+    initialize_ide_rules as initialize_ide_rules_fastmcp,
+    create_entities as create_entities_fastmcp,
+    create_relations as create_relations_fastmcp,
+    add_observations as add_observations_fastmcp,
+    delete_entities as delete_entities_fastmcp,
+    delete_observations as delete_observations_fastmcp,
+    delete_relations as delete_relations_fastmcp,
+    search_nodes as search_nodes_fastmcp,
+    open_nodes as open_nodes_fastmcp,
 )
 
 # Configure logging
@@ -53,6 +62,15 @@ __fastmcp__ = [
     initialize_ide_fastmcp,
     prime_context_fastmcp,
     migrate_mcp_config_fastmcp,
+    initialize_ide_rules_fastmcp,
+    create_entities_fastmcp,
+    create_relations_fastmcp,
+    add_observations_fastmcp,
+    delete_entities_fastmcp,
+    delete_observations_fastmcp,
+    delete_relations_fastmcp,
+    search_nodes_fastmcp,
+    open_nodes_fastmcp,
 ]
 
 
@@ -297,8 +315,25 @@ async def handle_call_tool(
 
         # Handle memory graph tools
         if memory_manager is not None and name in memory_tools:
-            # These tools are registered by the memory graph manager
-            return await memory_manager.handle_tool_call(name, arguments)
+            # Check if this is a FastMCP-implemented tool
+            if name in [
+                "create-entities", 
+                "create-relations", 
+                "add-observations", 
+                "delete-entities", 
+                "delete-observations", 
+                "delete-relations", 
+                "search-nodes", 
+                "open-nodes",
+                "get-mermaid-diagram",
+                "read-graph"
+            ]:
+                # These tools are implemented using FastMCP and handled below
+                logger.info(f"Using FastMCP implementation for {name} instead of memory_manager")
+                pass  # Continue to the tool-specific logic below
+            else:
+                # These tools are registered by the memory graph manager and not migrated yet
+                return await memory_manager.handle_tool_call(name, arguments)
 
         # First check if this is a FastMCP-implemented tool
         # Currently we only have get-project-settings implemented with FastMCP
@@ -417,334 +452,25 @@ async def handle_call_tool(
                     )
                 ]
         elif name == "initialize-ide-rules":
-            # Get a safe project path using the utility function with improved handling
+            # Delegate to FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for initialize-ide-rules")
             try:
-                # Determine project path with improved handling of current directory
-                if arguments and arguments.get("project_path"):
-                    # Explicit path provided - use get_project_settings to validate it
-                    project_settings = get_settings_util(
-                        proposed_path=arguments.get("project_path")
-                    )
-                    project_path = project_settings["project_path"]
-                    source = project_settings["source"]
-                elif os.environ.get("PROJECT_PATH"):
-                    # Environment variable set - use get_project_settings to validate it
-                    project_settings = get_settings_util()
-                    project_path = project_settings["project_path"]
-                    source = project_settings["source"]
-                else:
-                    # No path specified - use current working directory directly
-                    project_path = os.getcwd()
-                    source = "current working directory (direct)"
-
-                    # Check if it's root and handle that case
-                    if project_path == "/" or project_path == "\\":
-                        # Handle case where the path is problematic
-                        response_data = {
-                            "error": "Current directory is the root directory. Please provide a specific project path.",
-                            "status": "error",
-                            "needs_user_input": True,
-                            "current_directory": "/",
-                            "is_root": True,
-                            "message": "Please provide a specific project path using the 'project_path' argument.",
-                            "success": False,
-                        }
-                        return [
-                            create_text_response(
-                                json.dumps(response_data, indent=2), is_error=True
-                            )
-                        ]
-
-                # Log the determined path
-                logger.info(f"Using project_path from {source}: {project_path}")
-                print(f"{name} using project_path from {source}: {project_path}")
+                # Extract parameters for FastMCP implementation
+                ide = arguments.get("ide", "cursor") if arguments else "cursor"
+                project_path = arguments.get("project_path") if arguments else None
+                
+                # Execute the FastMCP tool
+                result = initialize_ide_rules_fastmcp(ide=ide, project_path=project_path)
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
             except Exception as e:
-                # Handle case where the path is problematic
-                current_dir = os.getcwd()
-                response_data = {
-                    "error": str(e),
-                    "status": "error",
-                    "needs_user_input": True,
-                    "current_directory": current_dir,
-                    "is_root": current_dir == "/",
-                    "message": "Please provide a specific project path using the 'project_path' argument.",
-                    "success": False,
-                }
+                logger.error(f"Error in initialize-ide-rules FastMCP implementation: {str(e)}")
+                traceback.print_exc()
                 return [
                     create_text_response(
-                        json.dumps(response_data, indent=2), is_error=True
+                        f"Error initializing IDE rules: {str(e)}", is_error=True
                     )
                 ]
-
-            # Default to cursor for both tools
-            ide = "cursor"
-
-            # For initialize-ide-rules, check if IDE is specified
-            if name == "initialize-ide-rules" and arguments and "ide" in arguments:
-                ide = arguments["ide"]
-
-            # Always back up existing rule files (but not templates)
-            backup_existing = True
-
-            # Validate IDE
-            if ide not in ["cursor", "windsurf", "cline", "copilot"]:
-                raise ValueError(
-                    "Invalid IDE. Must be one of: cursor, windsurf, cline, or copilot"
-                )
-
-            # Log which source was used for project_path
-            logger.info(f"Using project_path from {source}: {project_path}")
-            print(f"{name} using project_path from {source}: {project_path}")
-
-            # Handle different IDEs
-            if ide == "cursor":
-                # Initialize Cursor rules
-                cursor_dir = os.path.join(project_path, ".cursor")
-                rules_dir = os.path.join(cursor_dir, "rules")
-                # Place ai-templates at the project root
-                templates_dir = os.path.join(project_path, ".ai-templates")
-
-                os.makedirs(rules_dir, exist_ok=True)
-                os.makedirs(templates_dir, exist_ok=True)
-
-                # Get paths to our rule and template files
-                server_dir = os.path.dirname(os.path.abspath(__file__))
-                cursor_rules_dir = os.path.join(server_dir, "cursor_rules")
-                ai_templates_dir = os.path.join(server_dir, "ai-templates")
-
-                # Verify source directories exist
-                if not os.path.exists(cursor_rules_dir):
-                    raise FileNotFoundError(
-                        f"Source rules directory not found: {cursor_rules_dir}"
-                    )
-                if not os.path.exists(ai_templates_dir):
-                    raise FileNotFoundError(
-                        f"Source templates directory not found: {ai_templates_dir}"
-                    )
-
-                # Track what files were initialized
-                initialized_rules = []
-                initialized_templates = []
-
-                # First, handle any existing files that need backup
-                (os.listdir(rules_dir) if os.path.exists(rules_dir) else [])
-
-                # Copy rules - Ensure they have .mdc extension for Cursor
-                for rule_file in os.listdir(cursor_rules_dir):
-                    source_file = os.path.join(cursor_rules_dir, rule_file)
-
-                    # For Cursor, we need to ensure the file has .mdc extension
-                    target_filename = rule_file
-                    if rule_file.endswith(".md") and not rule_file.endswith(".mdc"):
-                        # Change the extension from .md to .mdc
-                        target_filename = f"{rule_file[:-3]}.mdc"
-                    elif not rule_file.endswith(".mdc"):
-                        # Add .mdc extension if it's not already there and doesn't have .md
-                        target_filename = f"{rule_file}.mdc"
-
-                    target_file = os.path.join(rules_dir, target_filename)
-
-                    logger.info(
-                        f"Copying rule file from {source_file} to {target_file}"
-                    )
-
-                    # If target exists and backup is enabled, create a backup
-                    if os.path.exists(target_file) and backup_existing:
-                        backup_file = f"{target_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
-                        shutil.copy2(target_file, backup_file)
-
-                    # Copy the rule file
-                    shutil.copy2(source_file, target_file)
-                    initialized_rules.append(target_filename)
-
-                # Verify rules were copied
-                rule_files = os.listdir(rules_dir)
-                logger.info(
-                    f"After copying, rules directory contains {len(rule_files)} files: {rule_files}"
-                )
-
-                # Copy templates
-                for template_file in os.listdir(ai_templates_dir):
-                    source_file = os.path.join(ai_templates_dir, template_file)
-                    target_file = os.path.join(templates_dir, template_file)
-
-                    # No backup for templates, we'll just overwrite them
-                    shutil.copy2(source_file, target_file)
-                    initialized_templates.append(template_file)
-
-                # Return successful response
-                response_data = {
-                    "success": True,
-                    "message": f"Initialized {ide} rules and templates.",
-                    "project_path": project_path,
-                    "rules_directory": rules_dir,
-                    "templates_directory": templates_dir,
-                    "initialized_rules": initialized_rules,
-                    "initialized_templates": initialized_templates,
-                }
-
-                return [create_text_response(json.dumps(response_data, indent=2))]
-
-            elif ide == "windsurf":
-                # Initialize Windsurf rules and templates
-                # Place ai-templates at the project root
-                templates_dir = os.path.join(project_path, ".ai-templates")
-                os.makedirs(templates_dir, exist_ok=True)
-
-                # Get paths to our template files
-                server_dir = os.path.dirname(os.path.abspath(__file__))
-                ai_templates_dir = os.path.join(server_dir, "ai-templates")
-                cursor_rules_dir = os.path.join(server_dir, "cursor_rules")
-
-                # Verify source directories exist
-                if not os.path.exists(ai_templates_dir):
-                    raise FileNotFoundError(
-                        f"Source templates directory not found: {ai_templates_dir}"
-                    )
-                if not os.path.exists(cursor_rules_dir):
-                    raise FileNotFoundError(
-                        f"Source rules directory not found: {cursor_rules_dir}"
-                    )
-
-                # Track what files were initialized
-                initialized_templates = []
-
-                # Copy templates
-                for template_file in os.listdir(ai_templates_dir):
-                    source_file = os.path.join(ai_templates_dir, template_file)
-                    target_file = os.path.join(templates_dir, template_file)
-
-                    # No backup for templates, we'll just overwrite them
-                    shutil.copy2(source_file, target_file)
-                    initialized_templates.append(template_file)
-
-                # For Windsurf, we combine all cursor rules into one .windsurfrules file
-                windsurf_rules_file = os.path.join(project_path, ".windsurfrules")
-
-                # If target exists and backup is enabled, create a backup
-                if os.path.exists(windsurf_rules_file) and backup_existing:
-                    backup_file = f"{windsurf_rules_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
-                    shutil.copy2(windsurf_rules_file, backup_file)
-
-                # Build combined rules file
-                with open(windsurf_rules_file, "w") as wf:
-                    for rule_file in sorted(os.listdir(cursor_rules_dir)):
-                        source_file = os.path.join(cursor_rules_dir, rule_file)
-                        if os.path.isfile(source_file) and (
-                            rule_file.endswith(".md") or rule_file.endswith(".mdc")
-                        ):
-                            with open(source_file, "r") as rf:
-                                content = rf.read()
-                                wf.write(f"### {rule_file} ###\n\n")
-                                wf.write(content)
-                                wf.write("\n\n")
-
-                # Return successful response
-                response_data = {
-                    "success": True,
-                    "message": f"Initialized {ide} rules and templates.",
-                    "project_path": project_path,
-                    "rules_file": windsurf_rules_file,
-                    "templates_directory": templates_dir,
-                    "initialized_windsurf": True,
-                    "initialized_templates": initialized_templates,
-                }
-
-                return [create_text_response(json.dumps(response_data, indent=2))]
-
-            elif ide in ["cline", "copilot"]:
-                # Initialize VS Code extension rules
-                # Place ai-templates at the project root
-                templates_dir = os.path.join(project_path, ".ai-templates")
-                os.makedirs(templates_dir, exist_ok=True)
-
-                # Get paths to our template files
-                server_dir = os.path.dirname(os.path.abspath(__file__))
-                ai_templates_dir = os.path.join(server_dir, "ai-templates")
-                cursor_rules_dir = os.path.join(server_dir, "cursor_rules")
-
-                # Verify source directories exist
-                if not os.path.exists(ai_templates_dir):
-                    raise FileNotFoundError(
-                        f"Source templates directory not found: {ai_templates_dir}"
-                    )
-                if not os.path.exists(cursor_rules_dir):
-                    raise FileNotFoundError(
-                        f"Source rules directory not found: {cursor_rules_dir}"
-                    )
-
-                # Track what files were initialized
-                initialized_templates = []
-
-                # Copy templates
-                for template_file in os.listdir(ai_templates_dir):
-                    source_file = os.path.join(ai_templates_dir, template_file)
-                    target_file = os.path.join(templates_dir, template_file)
-
-                    # No backup for templates, we'll just overwrite them
-                    shutil.copy2(source_file, target_file)
-                    initialized_templates.append(template_file)
-
-                # For VS Code extensions, create appropriate rule files
-                if ide == "copilot":
-                    # For Copilot, we create a .github directory with copilot-instructions.md
-                    github_dir = os.path.join(project_path, ".github")
-                    os.makedirs(github_dir, exist_ok=True)
-                    rule_file = os.path.join(github_dir, "copilot-instructions.md")
-
-                    # Get the template path
-                    template_file = os.path.join(
-                        server_dir, "ide_rules", "ide_rules.md"
-                    )
-
-                    # Create backup if needed
-                    if os.path.exists(rule_file) and backup_existing:
-                        backup_file = f"{rule_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
-                        shutil.copy2(rule_file, backup_file)
-
-                    # Copy the template to the copilot instructions file
-                    shutil.copy2(template_file, rule_file)
-
-                    # Return successful response
-                    response_data = {
-                        "success": True,
-                        "message": f"Initialized {ide} rules and templates.",
-                        "project_path": project_path,
-                        "rules_file": rule_file,
-                        "templates_directory": templates_dir,
-                        "initialized_templates": initialized_templates,
-                    }
-                else:
-                    # For cline, create a .clinerules file
-                    vs_code_rules_file = os.path.join(
-                        project_path, f".{ide.lower()}rules"
-                    )
-
-                    # If target exists and backup is enabled, create a backup
-                    if os.path.exists(vs_code_rules_file) and backup_existing:
-                        backup_file = f"{vs_code_rules_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
-                        shutil.copy2(vs_code_rules_file, backup_file)
-
-                    # Get the template path
-                    template_file = os.path.join(
-                        server_dir, "ide_rules", "ide_rules.md"
-                    )
-
-                    # Copy the template
-                    shutil.copy2(template_file, vs_code_rules_file)
-
-                    # Return successful response
-                    response_data = {
-                        "success": True,
-                        "message": f"Initialized {ide} rules and templates.",
-                        "project_path": project_path,
-                        "rules_file": vs_code_rules_file,
-                        "templates_directory": templates_dir,
-                        "initialized_templates": initialized_templates,
-                    }
-
-                return [create_text_response(json.dumps(response_data, indent=2))]
-
         elif name == "prime-context":
             logger.info("Analyzing project context")
             
@@ -766,6 +492,237 @@ async def handle_call_tool(
                 return [
                     create_text_response(
                         f"Error analyzing project context: {str(e)}", is_error=True
+                    )
+                ]
+        elif name == "create-entities":
+            # Delegate to FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for create-entities")
+            try:
+                # Extract parameters for FastMCP implementation
+                if not arguments or "entities" not in arguments:
+                    return [
+                        create_text_response(
+                            json.dumps({
+                                "success": False,
+                                "error": "Missing required argument: entities",
+                            }),
+                            is_error=True
+                        )
+                    ]
+                
+                # Execute the FastMCP tool
+                result = create_entities_fastmcp(entities=arguments["entities"])
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error in create-entities FastMCP implementation: {str(e)}")
+                traceback.print_exc()
+                return [
+                    create_text_response(
+                        f"Error creating entities: {str(e)}", is_error=True
+                    )
+                ]
+
+        elif name == "create-relations":
+            # Delegate to FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for create-relations")
+            try:
+                # Extract parameters for FastMCP implementation
+                if not arguments or "relations" not in arguments:
+                    return [
+                        create_text_response(
+                            json.dumps({
+                                "success": False,
+                                "error": "Missing required argument: relations",
+                            }),
+                            is_error=True
+                        )
+                    ]
+                
+                # Execute the FastMCP tool
+                result = create_relations_fastmcp(relations=arguments["relations"])
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error in create-relations FastMCP implementation: {str(e)}")
+                traceback.print_exc()
+                return [
+                    create_text_response(
+                        f"Error creating relations: {str(e)}", is_error=True
+                    )
+                ]
+
+        elif name == "add-observations":
+            # Delegate to FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for add-observations")
+            try:
+                # Extract parameters for FastMCP implementation
+                if not arguments or "observations" not in arguments:
+                    return [
+                        create_text_response(
+                            json.dumps({
+                                "success": False,
+                                "error": "Missing required argument: observations",
+                            }),
+                            is_error=True
+                        )
+                    ]
+                
+                # Execute the FastMCP tool
+                result = add_observations_fastmcp(observations=arguments["observations"])
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error in add-observations FastMCP implementation: {str(e)}")
+                traceback.print_exc()
+                return [
+                    create_text_response(
+                        f"Error adding observations: {str(e)}", is_error=True
+                    )
+                ]
+
+        elif name == "delete-entities":
+            # Delegate to FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for delete-entities")
+            try:
+                # Extract parameters for FastMCP implementation
+                if not arguments or "entityNames" not in arguments:
+                    return [
+                        create_text_response(
+                            json.dumps({
+                                "success": False,
+                                "error": "Missing required argument: entityNames",
+                            }),
+                            is_error=True
+                        )
+                    ]
+                
+                # Execute the FastMCP tool
+                result = delete_entities_fastmcp(entityNames=arguments["entityNames"])
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error in delete-entities FastMCP implementation: {str(e)}")
+                traceback.print_exc()
+                return [
+                    create_text_response(
+                        f"Error deleting entities: {str(e)}", is_error=True
+                    )
+                ]
+
+        elif name == "delete-observations":
+            # Delegate to FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for delete-observations")
+            try:
+                # Extract parameters for FastMCP implementation
+                if not arguments or "deletions" not in arguments:
+                    return [
+                        create_text_response(
+                            json.dumps({
+                                "success": False,
+                                "error": "Missing required argument: deletions",
+                            }),
+                            is_error=True
+                        )
+                    ]
+                
+                # Execute the FastMCP tool
+                result = delete_observations_fastmcp(deletions=arguments["deletions"])
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error in delete-observations FastMCP implementation: {str(e)}")
+                traceback.print_exc()
+                return [
+                    create_text_response(
+                        f"Error deleting observations: {str(e)}", is_error=True
+                    )
+                ]
+
+        elif name == "delete-relations":
+            # Delegate to FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for delete-relations")
+            try:
+                # Extract parameters for FastMCP implementation
+                if not arguments or "relations" not in arguments:
+                    return [
+                        create_text_response(
+                            json.dumps({
+                                "success": False,
+                                "error": "Missing required argument: relations",
+                            }),
+                            is_error=True
+                        )
+                    ]
+                
+                # Execute the FastMCP tool
+                result = delete_relations_fastmcp(relations=arguments["relations"])
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error in delete-relations FastMCP implementation: {str(e)}")
+                traceback.print_exc()
+                return [
+                    create_text_response(
+                        f"Error deleting relations: {str(e)}", is_error=True
+                    )
+                ]
+
+        elif name == "search-nodes":
+            # Delegate to FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for search-nodes")
+            try:
+                # Extract parameters for FastMCP implementation
+                if not arguments or "query" not in arguments:
+                    return [
+                        create_text_response(
+                            json.dumps({
+                                "success": False,
+                                "error": "Missing required argument: query",
+                            }),
+                            is_error=True
+                        )
+                    ]
+                
+                # Execute the FastMCP tool
+                result = search_nodes_fastmcp(query=arguments["query"])
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error in search-nodes FastMCP implementation: {str(e)}")
+                traceback.print_exc()
+                return [
+                    create_text_response(
+                        f"Error searching nodes: {str(e)}", is_error=True
+                    )
+                ]
+
+        elif name == "open-nodes":
+            # Delegate to FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for open-nodes")
+            try:
+                # Extract parameters for FastMCP implementation
+                if not arguments or "names" not in arguments:
+                    return [
+                        create_text_response(
+                            json.dumps({
+                                "success": False,
+                                "error": "Missing required argument: names",
+                            }),
+                            is_error=True
+                        )
+                    ]
+                
+                # Execute the FastMCP tool
+                result = open_nodes_fastmcp(names=arguments["names"])
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error in open-nodes FastMCP implementation: {str(e)}")
+                traceback.print_exc()
+                return [
+                    create_text_response(
+                        f"Error opening nodes: {str(e)}", is_error=True
                     )
                 ]
         else:
@@ -1280,9 +1237,6 @@ def handle_prime_context(project_path, depth="standard", focus_areas=None):
         context["architecture"] = {"overview": "", "components": []}
 
     if not focus_areas or "epics" in focus_areas:
-        context["epics"] = []
-
-    if not focus_areas or "progress" in focus_areas:
         context["progress"] = {
             "summary": "No progress information available",
             "stories_complete": 0,

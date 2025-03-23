@@ -416,6 +416,309 @@ def initialize_ide(ide: str = "cursor", project_path: Optional[str] = None) -> s
 
 
 @fastmcp.tool()
+def initialize_ide_rules(ide: str = "cursor", project_path: Optional[str] = None) -> str:
+    """
+    Initialize a project with rules for a specific IDE.
+    
+    This function is similar to initialize_ide but focuses specifically on the rules files
+    rather than the full project structure. It's provided for compatibility with existing tools.
+    
+    Args:
+        ide: IDE to initialize (cursor, windsurf, cline, or copilot)
+        project_path: Custom project path to use (optional)
+    
+    Returns:
+        JSON string containing the result of the initialization
+    """
+    import datetime
+    import os
+    import shutil
+    
+    logger.info(f"FastMCP: Initializing IDE rules for: {ide}")
+    
+    if ide not in ["cursor", "windsurf", "cline", "copilot"]:
+        error_response = {
+            "success": False,
+            "error": f"Error: Unknown IDE: {ide}",
+            "message": "Supported IDEs are: cursor, windsurf, cline, copilot"
+        }
+        return json.dumps(error_response, indent=2)
+    
+    try:
+        # Determine project path with improved handling of current directory
+        if project_path:
+            # Explicit path provided - use get_project_settings to validate it
+            project_settings = get_settings_util(proposed_path=project_path)
+            project_path = project_settings["project_path"]
+            source = project_settings["source"]
+        elif os.environ.get("PROJECT_PATH"):
+            # Environment variable set - use get_project_settings to validate it
+            project_settings = get_settings_util()
+            project_path = project_settings["project_path"]
+            source = project_settings["source"]
+        else:
+            # No path specified - use current working directory directly
+            project_path = os.getcwd()
+            source = "current working directory (direct)"
+            
+            # Check if it's root and handle that case
+            if project_path == "/" or project_path == "\\":
+                # Handle case where the path is problematic
+                response_data = {
+                    "error": "Current directory is the root directory. Please provide a specific project path.",
+                    "status": "error",
+                    "needs_user_input": True,
+                    "current_directory": "/",
+                    "is_root": True,
+                    "message": "Please provide a specific project path using the 'project_path' argument.",
+                    "success": False,
+                }
+                return json.dumps(response_data, indent=2)
+        
+        # Log the determined path
+        logger.info(f"FastMCP: initialize_ide_rules using project_path from {source}: {project_path}")
+        
+        # Always back up existing rule files
+        backup_existing = True
+        
+        # Handle different IDEs
+        if ide == "cursor":
+            # Initialize Cursor rules
+            cursor_dir = os.path.join(project_path, ".cursor")
+            rules_dir = os.path.join(cursor_dir, "rules")
+            # Place ai-templates at the project root
+            templates_dir = os.path.join(project_path, ".ai-templates")
+            
+            os.makedirs(rules_dir, exist_ok=True)
+            os.makedirs(templates_dir, exist_ok=True)
+            
+            # Get paths to our rule and template files
+            cursor_rules_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                          "mcp_agile_flow", "cursor_rules")
+            ai_templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                          "mcp_agile_flow", "ai-templates")
+            
+            # Verify source directories exist
+            if not os.path.exists(cursor_rules_dir):
+                raise FileNotFoundError(f"Source rules directory not found: {cursor_rules_dir}")
+            if not os.path.exists(ai_templates_dir):
+                raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
+            
+            # Track what files were initialized
+            initialized_rules = []
+            initialized_templates = []
+            
+            # Copy rules - Ensure they have .mdc extension for Cursor
+            for rule_file in os.listdir(cursor_rules_dir):
+                source_file = os.path.join(cursor_rules_dir, rule_file)
+                
+                # For Cursor, we need to ensure the file has .mdc extension
+                target_filename = rule_file
+                if rule_file.endswith(".md") and not rule_file.endswith(".mdc"):
+                    # Change the extension from .md to .mdc
+                    target_filename = f"{rule_file[:-3]}.mdc"
+                elif not rule_file.endswith(".mdc"):
+                    # Add .mdc extension if it's not already there and doesn't have .md
+                    target_filename = f"{rule_file}.mdc"
+                
+                target_file = os.path.join(rules_dir, target_filename)
+                
+                logger.info(f"FastMCP: Copying rule file from {source_file} to {target_file}")
+                
+                # If target exists and backup is enabled, create a backup
+                if os.path.exists(target_file) and backup_existing:
+                    backup_file = f"{target_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                    shutil.copy2(target_file, backup_file)
+                
+                # Copy the rule file
+                shutil.copy2(source_file, target_file)
+                initialized_rules.append(target_filename)
+            
+            # Verify rules were copied
+            rule_files = os.listdir(rules_dir)
+            logger.info(f"FastMCP: After copying, rules directory contains {len(rule_files)} files: {rule_files}")
+            
+            # Copy templates
+            for template_file in os.listdir(ai_templates_dir):
+                source_file = os.path.join(ai_templates_dir, template_file)
+                target_file = os.path.join(templates_dir, template_file)
+                
+                # No backup for templates, we'll just overwrite them
+                shutil.copy2(source_file, target_file)
+                initialized_templates.append(template_file)
+            
+            # Return successful response
+            response_data = {
+                "success": True,
+                "message": f"Initialized {ide} rules and templates.",
+                "project_path": project_path,
+                "rules_directory": rules_dir,
+                "templates_directory": templates_dir,
+                "initialized_rules": initialized_rules,
+                "initialized_templates": initialized_templates,
+            }
+            
+        elif ide == "windsurf":
+            # Initialize Windsurf rules and templates
+            # Place ai-templates at the project root
+            templates_dir = os.path.join(project_path, ".ai-templates")
+            os.makedirs(templates_dir, exist_ok=True)
+            
+            # Get paths to our template files
+            ai_templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                          "mcp_agile_flow", "ai-templates")
+            cursor_rules_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                          "mcp_agile_flow", "cursor_rules")
+            
+            # Verify source directories exist
+            if not os.path.exists(ai_templates_dir):
+                raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
+            if not os.path.exists(cursor_rules_dir):
+                raise FileNotFoundError(f"Source rules directory not found: {cursor_rules_dir}")
+            
+            # Track what files were initialized
+            initialized_templates = []
+            
+            # Copy templates
+            for template_file in os.listdir(ai_templates_dir):
+                source_file = os.path.join(ai_templates_dir, template_file)
+                target_file = os.path.join(templates_dir, template_file)
+                
+                # No backup for templates, we'll just overwrite them
+                shutil.copy2(source_file, target_file)
+                initialized_templates.append(template_file)
+            
+            # For Windsurf, we combine all cursor rules into one .windsurfrules file
+            windsurf_rules_file = os.path.join(project_path, ".windsurfrules")
+            
+            # If target exists and backup is enabled, create a backup
+            if os.path.exists(windsurf_rules_file) and backup_existing:
+                backup_file = f"{windsurf_rules_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                shutil.copy2(windsurf_rules_file, backup_file)
+            
+            # Build combined rules file
+            with open(windsurf_rules_file, "w") as wf:
+                for rule_file in sorted(os.listdir(cursor_rules_dir)):
+                    source_file = os.path.join(cursor_rules_dir, rule_file)
+                    if os.path.isfile(source_file) and (rule_file.endswith(".md") or rule_file.endswith(".mdc")):
+                        with open(source_file, "r") as rf:
+                            content = rf.read()
+                            wf.write(f"### {rule_file} ###\n\n")
+                            wf.write(content)
+                            wf.write("\n\n")
+            
+            # Return successful response
+            response_data = {
+                "success": True,
+                "message": f"Initialized {ide} rules and templates.",
+                "project_path": project_path,
+                "rules_file": windsurf_rules_file,
+                "templates_directory": templates_dir,
+                "initialized_windsurf": True,
+                "initialized_templates": initialized_templates,
+            }
+            
+        elif ide in ["cline", "copilot"]:
+            # Initialize VS Code extension rules
+            # Place ai-templates at the project root
+            templates_dir = os.path.join(project_path, ".ai-templates")
+            os.makedirs(templates_dir, exist_ok=True)
+            
+            # Get paths to our template files
+            ai_templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                          "mcp_agile_flow", "ai-templates")
+            cursor_rules_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                          "mcp_agile_flow", "cursor_rules")
+            
+            # Verify source directories exist
+            if not os.path.exists(ai_templates_dir):
+                raise FileNotFoundError(f"Source templates directory not found: {ai_templates_dir}")
+            if not os.path.exists(cursor_rules_dir):
+                raise FileNotFoundError(f"Source rules directory not found: {cursor_rules_dir}")
+            
+            # Track what files were initialized
+            initialized_templates = []
+            
+            # Copy templates
+            for template_file in os.listdir(ai_templates_dir):
+                source_file = os.path.join(ai_templates_dir, template_file)
+                target_file = os.path.join(templates_dir, template_file)
+                
+                # No backup for templates, we'll just overwrite them
+                shutil.copy2(source_file, target_file)
+                initialized_templates.append(template_file)
+            
+            # For VS Code extensions, create appropriate rule files
+            if ide == "copilot":
+                # For Copilot, we create a .github directory with copilot-instructions.md
+                github_dir = os.path.join(project_path, ".github")
+                os.makedirs(github_dir, exist_ok=True)
+                rule_file = os.path.join(github_dir, "copilot-instructions.md")
+                
+                # Get the template path
+                template_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                          "mcp_agile_flow", "ide_rules", "ide_rules.md")
+                
+                # Create backup if needed
+                if os.path.exists(rule_file) and backup_existing:
+                    backup_file = f"{rule_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                    shutil.copy2(rule_file, backup_file)
+                
+                # Copy the template to the copilot instructions file
+                shutil.copy2(template_file, rule_file)
+                
+                # Return successful response
+                response_data = {
+                    "success": True,
+                    "message": f"Initialized {ide} rules and templates.",
+                    "project_path": project_path,
+                    "rules_file": rule_file,
+                    "templates_directory": templates_dir,
+                    "initialized_templates": initialized_templates,
+                }
+            else:
+                # For cline, create a .clinerules file
+                vs_code_rules_file = os.path.join(project_path, f".{ide.lower()}rules")
+                
+                # If target exists and backup is enabled, create a backup
+                if os.path.exists(vs_code_rules_file) and backup_existing:
+                    backup_file = f"{vs_code_rules_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                    shutil.copy2(vs_code_rules_file, backup_file)
+                
+                # Get the template path
+                template_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                          "mcp_agile_flow", "ide_rules", "ide_rules.md")
+                
+                # Copy the template
+                shutil.copy2(template_file, vs_code_rules_file)
+                
+                # Return successful response
+                response_data = {
+                    "success": True,
+                    "message": f"Initialized {ide} rules and templates.",
+                    "project_path": project_path,
+                    "rules_file": vs_code_rules_file,
+                    "templates_directory": templates_dir,
+                    "initialized_templates": initialized_templates,
+                }
+        
+        return json.dumps(response_data, indent=2)
+    
+    except Exception as e:
+        logger.error(f"FastMCP: Error initializing IDE rules: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error as JSON
+        response_data = {
+            "success": False,
+            "error": f"Error initializing IDE rules: {str(e)}",
+            "message": "An error occurred during initialization"
+        }
+        return json.dumps(response_data, indent=2)
+
+
+@fastmcp.tool()
 def prime_context(depth: str = "standard", focus_areas: Optional[List[str]] = None, project_path: Optional[str] = None) -> str:
     """
     Analyzes project's AI documentation to build contextual understanding.
@@ -1122,5 +1425,470 @@ def migrate_mcp_config(from_ide: str, to_ide: str, backup: bool = True, conflict
             "success": False,
             "error": f"Error migrating MCP config: {str(e)}",
             "message": "An unexpected error occurred during migration"
+        }
+        return json.dumps(response_data, indent=2) 
+
+
+@fastmcp.tool()
+def create_entities(entities: List[Dict[str, Any]]) -> str:
+    """
+    Create multiple new entities in the knowledge graph.
+    
+    Args:
+        entities: A list of entity data dictionaries, each containing:
+                 - name: The name of the entity
+                 - entityType: The type of the entity
+                 - observations: Optional list of observation contents
+    
+    Returns:
+        JSON string containing the result of the operation
+    """
+    logger.info(f"FastMCP: Creating {len(entities)} entities in the knowledge graph")
+    
+    try:
+        # Create a KnowledgeGraphManager instance
+        manager = KnowledgeGraphManager()
+        
+        # Call the manager's create_entities method
+        created_entities = manager.create_entities(entities)
+        
+        # Convert the returned entities to a serializable format
+        created_entities_data = [
+            {
+                "name": entity.name,
+                "entity_type": entity.entity_type,
+                "observations": entity.observations
+            }
+            for entity in created_entities
+        ]
+        
+        # Create the response data
+        response_data = {
+            "success": True,
+            "created_entities": created_entities_data,
+            "count": len(created_entities)
+        }
+        
+        # Return as JSON string
+        return json.dumps(response_data, indent=2)
+    
+    except Exception as e:
+        logger.error(f"FastMCP: Error creating entities: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error as JSON
+        response_data = {
+            "success": False,
+            "error": f"Error creating entities: {str(e)}",
+            "message": "An error occurred while creating entities in the knowledge graph"
+        }
+        return json.dumps(response_data, indent=2)
+
+
+@fastmcp.tool()
+def create_relations(relations: List[Dict[str, str]]) -> str:
+    """
+    Create multiple new relations between entities in the knowledge graph.
+    
+    Args:
+        relations: A list of relation data dictionaries, each containing:
+                  - from: The name of the entity where the relation starts
+                  - to: The name of the entity where the relation ends
+                  - relationType: The type of the relation
+    
+    Returns:
+        JSON string containing the result of the operation
+    """
+    logger.info(f"FastMCP: Creating {len(relations)} relations in the knowledge graph")
+    
+    try:
+        # Create a KnowledgeGraphManager instance
+        manager = KnowledgeGraphManager()
+        
+        # Call the manager's create_relations method
+        created_relations = manager.create_relations(relations)
+        
+        # Convert the returned relations to a serializable format
+        created_relations_data = [
+            {
+                "from_entity": relation.from_entity,
+                "to_entity": relation.to_entity,
+                "relation_type": relation.relation_type
+            }
+            for relation in created_relations
+        ]
+        
+        # Create the response data
+        response_data = {
+            "success": True,
+            "created_relations": created_relations_data,
+            "count": len(created_relations)
+        }
+        
+        # Return as JSON string
+        return json.dumps(response_data, indent=2)
+    
+    except Exception as e:
+        logger.error(f"FastMCP: Error creating relations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error as JSON
+        response_data = {
+            "success": False,
+            "error": f"Error creating relations: {str(e)}",
+            "message": "An error occurred while creating relations in the knowledge graph"
+        }
+        return json.dumps(response_data, indent=2)
+
+
+@fastmcp.tool()
+def add_observations(observations: List[Dict[str, Any]]) -> str:
+    """
+    Add new observations to existing entities in the knowledge graph.
+    
+    Args:
+        observations: A list of observation data dictionaries, each containing:
+                     - entityName: The name of the entity to add the observations to
+                     - contents: A list of observation contents to add
+    
+    Returns:
+        JSON string containing the result of the operation
+    """
+    logger.info(f"FastMCP: Adding observations to {len(observations)} entities in the knowledge graph")
+    
+    try:
+        # Create a KnowledgeGraphManager instance
+        manager = KnowledgeGraphManager()
+        
+        # Call the manager's add_observations method
+        result = manager.add_observations(observations)
+        
+        # Create the response data
+        response_data = {
+            "success": True,
+            "results": result,
+            "entities_updated": len(result)
+        }
+        
+        # Return as JSON string
+        return json.dumps(response_data, indent=2)
+    
+    except Exception as e:
+        logger.error(f"FastMCP: Error adding observations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error as JSON
+        response_data = {
+            "success": False,
+            "error": f"Error adding observations: {str(e)}",
+            "message": "An error occurred while adding observations in the knowledge graph"
+        }
+        return json.dumps(response_data, indent=2)
+
+
+@fastmcp.tool()
+def delete_entities(entityNames: List[str]) -> str:
+    """
+    Delete multiple entities and their associated relations from the knowledge graph.
+    
+    Args:
+        entityNames: A list of entity names to delete
+    
+    Returns:
+        JSON string containing the result of the operation
+    """
+    logger.info(f"FastMCP: Deleting {len(entityNames)} entities from the knowledge graph")
+    
+    try:
+        # Create a KnowledgeGraphManager instance
+        manager = KnowledgeGraphManager()
+        
+        # Count entities and relations before deletion
+        entities_before = len(manager.graph.entities)
+        relations_before = len(manager.graph.relations)
+        
+        # Call the manager's delete_entities method
+        updated_graph = manager.delete_entities(entityNames)
+        
+        # Count entities and relations after deletion
+        entities_after = len(updated_graph.entities)
+        relations_after = len(updated_graph.relations)
+        
+        # Create the response data
+        response_data = {
+            "success": True,
+            "entities_deleted": entities_before - entities_after,
+            "related_relations_deleted": relations_before - relations_after,
+            "deleted_entity_names": entityNames
+        }
+        
+        # Return as JSON string
+        return json.dumps(response_data, indent=2)
+    
+    except Exception as e:
+        logger.error(f"FastMCP: Error deleting entities: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error as JSON
+        response_data = {
+            "success": False,
+            "error": f"Error deleting entities: {str(e)}",
+            "message": "An error occurred while deleting entities from the knowledge graph"
+        }
+        return json.dumps(response_data, indent=2)
+
+
+@fastmcp.tool()
+def delete_observations(deletions: List[Dict[str, Any]]) -> str:
+    """
+    Delete specific observations from entities in the knowledge graph.
+    
+    Args:
+        deletions: A list of deletion data dictionaries, each containing:
+                  - entityName: The name of the entity containing the observations
+                  - observations: A list of observations to delete
+    
+    Returns:
+        JSON string containing the result of the operation
+    """
+    logger.info(f"FastMCP: Deleting observations from {len(deletions)} entities in the knowledge graph")
+    
+    try:
+        # Create a KnowledgeGraphManager instance
+        manager = KnowledgeGraphManager()
+        
+        # Count observations before deletion
+        observation_counts_before = {}
+        for deletion in deletions:
+            entity_name = deletion["entityName"]
+            entity = next((e for e in manager.graph.entities if e.name == entity_name), None)
+            if entity:
+                observation_counts_before[entity_name] = len(entity.observations)
+        
+        # Call the manager's delete_observations method
+        updated_graph = manager.delete_observations(deletions)
+        
+        # Count observations after deletion and calculate deleted counts
+        result_data = []
+        for deletion in deletions:
+            entity_name = deletion["entityName"]
+            entity = next((e for e in updated_graph.entities if e.name == entity_name), None)
+            if entity and entity_name in observation_counts_before:
+                observations_deleted = observation_counts_before[entity_name] - len(entity.observations)
+                result_data.append({
+                    "entityName": entity_name,
+                    "observations_deleted": observations_deleted
+                })
+        
+        # Create the response data
+        response_data = {
+            "success": True,
+            "results": result_data,
+            "entities_updated": len(result_data)
+        }
+        
+        # Return as JSON string
+        return json.dumps(response_data, indent=2)
+    
+    except Exception as e:
+        logger.error(f"FastMCP: Error deleting observations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error as JSON
+        response_data = {
+            "success": False,
+            "error": f"Error deleting observations: {str(e)}",
+            "message": "An error occurred while deleting observations from the knowledge graph"
+        }
+        return json.dumps(response_data, indent=2)
+
+
+@fastmcp.tool()
+def delete_relations(relations: List[Dict[str, str]]) -> str:
+    """
+    Delete multiple relations from the knowledge graph.
+    
+    Args:
+        relations: A list of relation data dictionaries, each containing:
+                  - from: The name of the entity where the relation starts
+                  - to: The name of the entity where the relation ends
+                  - relationType: The type of the relation
+    
+    Returns:
+        JSON string containing the result of the operation
+    """
+    logger.info(f"FastMCP: Deleting {len(relations)} relations from the knowledge graph")
+    
+    try:
+        # Create a KnowledgeGraphManager instance
+        manager = KnowledgeGraphManager()
+        
+        # Count relations before deletion
+        relations_before = len(manager.graph.relations)
+        
+        # Call the manager's delete_relations method
+        updated_graph = manager.delete_relations(relations)
+        
+        # Count relations after deletion
+        relations_after = len(updated_graph.relations)
+        
+        # Create the response data
+        response_data = {
+            "success": True,
+            "relations_deleted": relations_before - relations_after,
+            "requested_deletions": len(relations)
+        }
+        
+        # Return as JSON string
+        return json.dumps(response_data, indent=2)
+    
+    except Exception as e:
+        logger.error(f"FastMCP: Error deleting relations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error as JSON
+        response_data = {
+            "success": False,
+            "error": f"Error deleting relations: {str(e)}",
+            "message": "An error occurred while deleting relations from the knowledge graph"
+        }
+        return json.dumps(response_data, indent=2)
+
+
+@fastmcp.tool()
+def search_nodes(query: str) -> str:
+    """
+    Search for nodes in the knowledge graph based on a query.
+    
+    Args:
+        query: The search query to match against entity names, types, and observation content
+    
+    Returns:
+        JSON string containing the result of the operation
+    """
+    logger.info(f"FastMCP: Searching for nodes matching query: {query}")
+    
+    try:
+        # Create a KnowledgeGraphManager instance
+        manager = KnowledgeGraphManager()
+        
+        # Call the manager's search_nodes method
+        result_graph = manager.search_nodes(query)
+        
+        # Convert the returned graph to a serializable format
+        entity_data = [
+            {
+                "name": entity.name,
+                "entity_type": entity.entity_type,
+                "observations": entity.observations
+            }
+            for entity in result_graph.entities
+        ]
+        
+        relation_data = [
+            {
+                "from_entity": relation.from_entity,
+                "to_entity": relation.to_entity,
+                "relation_type": relation.relation_type
+            }
+            for relation in result_graph.relations
+        ]
+        
+        # Create the response data
+        response_data = {
+            "success": True,
+            "query": query,
+            "entities_found": len(entity_data),
+            "relations_found": len(relation_data),
+            "entities": entity_data,
+            "relations": relation_data
+        }
+        
+        # Return as JSON string
+        return json.dumps(response_data, indent=2)
+    
+    except Exception as e:
+        logger.error(f"FastMCP: Error searching nodes: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error as JSON
+        response_data = {
+            "success": False,
+            "error": f"Error searching nodes: {str(e)}",
+            "message": "An error occurred while searching the knowledge graph"
+        }
+        return json.dumps(response_data, indent=2)
+
+
+@fastmcp.tool()
+def open_nodes(names: List[str]) -> str:
+    """
+    Open specific nodes in the knowledge graph by their names.
+    
+    Args:
+        names: A list of entity names to retrieve
+    
+    Returns:
+        JSON string containing the result of the operation
+    """
+    logger.info(f"FastMCP: Opening {len(names)} nodes from the knowledge graph")
+    
+    try:
+        # Create a KnowledgeGraphManager instance
+        manager = KnowledgeGraphManager()
+        
+        # Call the manager's open_nodes method
+        result_graph = manager.open_nodes(names)
+        
+        # Convert the returned graph to a serializable format
+        entity_data = [
+            {
+                "name": entity.name,
+                "entity_type": entity.entity_type,
+                "observations": entity.observations
+            }
+            for entity in result_graph.entities
+        ]
+        
+        relation_data = [
+            {
+                "from_entity": relation.from_entity,
+                "to_entity": relation.to_entity,
+                "relation_type": relation.relation_type
+            }
+            for relation in result_graph.relations
+        ]
+        
+        # Create the response data
+        response_data = {
+            "success": True,
+            "entities_found": len(entity_data),
+            "relations_found": len(relation_data),
+            "entities": entity_data,
+            "relations": relation_data,
+            "requested_entities": names,
+            "missing_entities": [name for name in names if name not in [e["name"] for e in entity_data]]
+        }
+        
+        # Return as JSON string
+        return json.dumps(response_data, indent=2)
+    
+    except Exception as e:
+        logger.error(f"FastMCP: Error opening nodes: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error as JSON
+        response_data = {
+            "success": False,
+            "error": f"Error opening nodes: {str(e)}",
+            "message": "An error occurred while retrieving nodes from the knowledge graph"
         }
         return json.dumps(response_data, indent=2) 
