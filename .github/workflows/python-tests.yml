@@ -65,15 +65,11 @@ jobs:
         flake8 src/
         mypy src/
 
-  # This job publishes the coverage report to GitHub Pages
-  # Only runs on the main branch and only for Python 3.10
-  publish-coverage:
+  # Store coverage badge for README.md reference
+  update-badge:
     needs: test
     if: github.ref == 'refs/heads/main' && success()
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     
     steps:
     - name: Checkout repository
@@ -87,22 +83,9 @@ jobs:
         name: coverage-report-python3.10
         path: coverage-artifacts
         
-    - name: Setup Pages
-      uses: actions/configure-pages@v5.0.0
-      
-    - name: Upload Pages artifact
-      uses: actions/upload-pages-artifact@v3.0.1
-      with:
-        path: 'coverage-artifacts/htmlcov/'
-        
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4.0.5
-      
     - name: Move badge to badges directory
       run: |
         mkdir -p badges
-        ls -la coverage-artifacts/
         cp coverage-artifacts/coverage.svg badges/
         
     - name: Commit and push badge
@@ -113,6 +96,4 @@ jobs:
         default_author: github_actions
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write 
+  contents: write 
