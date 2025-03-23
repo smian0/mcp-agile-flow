@@ -7,7 +7,7 @@ It uses the FastMCP API from the official MCP SDK.
 
 import logging
 import os
-from typing import Dict, List, Optional, Union
+import json
 
 from mcp.server.fastmcp import FastMCP
 
@@ -36,131 +36,169 @@ logger = logging.getLogger(__name__)
 # Create the FastMCP server instance
 mcp = FastMCP("agile-flow")  # Must match the name in client configuration
 
+# Register all action-oriented tools (operations that modify state)
+mcp.tool(name="initialize-ide")(initialize_ide)
+mcp.tool(name="initialize-ide-rules")(initialize_ide_rules)
+mcp.tool(name="prime-context")(prime_context)
+mcp.tool(name="migrate-mcp-config")(migrate_mcp_config)
+mcp.tool(name="create-entities")(create_entities)
+mcp.tool(name="create-relations")(create_relations)
+mcp.tool(name="add-observations")(add_observations)
+mcp.tool(name="delete-entities")(delete_entities)
+mcp.tool(name="delete-observations")(delete_observations)
+mcp.tool(name="delete-relations")(delete_relations)
 
-# Register FastMCP tools using the decorator pattern
-@mcp.tool(name="get-project-settings")
-def get_project_settings_tool(proposed_path: Optional[str] = None) -> Dict:
-    """Returns comprehensive project settings including project path, knowledge graph directory, AI docs directory, 
-    project type, metadata, and other configuration."""
-    logger.info(f"Calling get-project-settings with proposed_path: {proposed_path}")
-    return get_project_settings(proposed_path)
+# Add resource-based API for data retrieval operations
+# Project settings resources
+@mcp.resource("settings://project")
+def project_settings_resource() -> dict:
+    """
+    Resource representing the project settings.
+    
+    Returns the comprehensive project settings including project path, 
+    knowledge graph directory, AI docs directory, project type, metadata, 
+    and other configuration.
+    
+    Returns:
+        Dict containing the project settings
+    """
+    logger.info("Resource access: settings://project")
+    
+    # Call the existing implementation but parse the JSON into a dict
+    settings_json = get_project_settings()
+    return json.loads(settings_json)
 
+@mcp.resource("settings://project/{path}")
+def project_settings_with_path(path: str) -> dict:
+    """
+    Resource representing the project settings for a specific path.
+    
+    Returns the comprehensive project settings for the specified path.
+    
+    Args:
+        path: The project path to use
+        
+    Returns:
+        Dict containing the project settings
+    """
+    logger.info(f"Resource access: settings://project/{path}")
+    
+    # Call the existing implementation but parse the JSON into a dict
+    settings_json = get_project_settings(proposed_path=path)
+    return json.loads(settings_json)
 
-@mcp.tool(name="get-mermaid-diagram")
-def get_mermaid_diagram_tool() -> Dict:
-    """Get a Mermaid diagram representation of the knowledge graph"""
-    logger.info("Calling get-mermaid-diagram")
-    return get_mermaid_diagram()
+# Knowledge graph resources
+@mcp.resource("graph://")
+def graph_resource() -> dict:
+    """
+    Resource for accessing the entire knowledge graph.
+    
+    Returns:
+        Dict containing the entire knowledge graph
+    """
+    logger.info("Resource access: graph://")
+    
+    # Call the existing implementation but parse the JSON into a dict
+    graph_json = read_graph()
+    return json.loads(graph_json)
 
+@mcp.resource("graph://mermaid")
+def mermaid_diagram_resource() -> dict:
+    """
+    Resource for accessing the Mermaid diagram representation of the knowledge graph.
+    
+    Returns:
+        Dict containing the Mermaid diagram representation
+    """
+    logger.info("Resource access: graph://mermaid")
+    
+    # Call the existing implementation but parse the JSON into a dict
+    diagram_json = get_mermaid_diagram()
+    result = json.loads(diagram_json)
+    
+    # FastMCP resources should return dicts or lists directly, not strings
+    # Make sure the result includes a 'mermaid' key with the diagram content
+    if isinstance(result, dict) and "content" in result and not "mermaid" in result:
+        # Create a standardized result format with 'mermaid' key
+        return {"mermaid": result["content"], "success": result.get("success", True)}
+    
+    return result
 
-@mcp.tool(name="read-graph")
-def read_graph_tool() -> Dict:
-    """Read the entire knowledge graph"""
-    logger.info("Calling read-graph")
-    return read_graph()
+@mcp.resource("entities://")
+def list_entities() -> list:
+    """
+    Resource for listing all entities in the knowledge graph.
+    
+    Returns:
+        List of entities in the knowledge graph
+    """
+    logger.info("Resource access: entities://")
+    
+    # Call the existing implementation but parse the JSON into a dict
+    graph_json = read_graph()
+    graph_data = json.loads(graph_json)
+    
+    # Return just the entities array
+    return graph_data.get("entities", [])
 
+@mcp.resource("entities/{name}")
+def get_entity(name: str) -> dict:
+    """
+    Resource for accessing a specific entity in the knowledge graph.
+    
+    Args:
+        name: The name of the entity to access
+        
+    Returns:
+        Dict containing the entity data, or None if not found
+    """
+    logger.info(f"Resource access: entities/{name}")
+    
+    # Call the existing implementation but parse the JSON into a list
+    result_json = open_nodes(names=[name])
+    result_data = json.loads(result_json)
+    
+    # Get the entities list
+    entities = result_data.get("entities", [])
+    
+    # Return the first entity if found, otherwise None
+    return entities[0] if entities else None
 
-@mcp.tool(name="initialize-ide")
-def initialize_ide_tool(ide: str = "cursor", project_path: Optional[str] = None) -> Dict:
-    """Initialize a project with rules for a specific IDE"""
-    logger.info(f"Calling initialize-ide with ide: {ide}, project_path: {project_path}")
-    return initialize_ide(ide=ide, project_path=project_path)
-
-
-@mcp.tool(name="initialize-ide-rules")
-def initialize_ide_rules_tool(ide: str = "cursor", project_path: Optional[str] = None) -> Dict:
-    """Initialize a project with rules for a specific IDE"""
-    logger.info(f"Calling initialize-ide-rules with ide: {ide}, project_path: {project_path}")
-    return initialize_ide_rules(ide=ide, project_path=project_path)
-
-
-@mcp.tool(name="prime-context")
-def prime_context_tool(
-    depth: str = "standard", 
-    focus_areas: Optional[List[str]] = None, 
-    project_path: Optional[str] = None
-) -> Dict:
-    """Analyzes project's AI documentation to build contextual understanding"""
-    logger.info(f"Calling prime-context with depth: {depth}, focus_areas: {focus_areas}, project_path: {project_path}")
-    return prime_context(depth=depth, focus_areas=focus_areas, project_path=project_path)
-
-
-@mcp.tool(name="migrate-mcp-config")
-def migrate_mcp_config_tool(
-    from_ide: str, 
-    to_ide: str, 
-    backup: bool = True, 
-    conflict_resolutions: Optional[Dict[str, bool]] = None
-) -> Dict:
-    """Migrate MCP configuration between different IDEs with smart merging and conflict resolution"""
-    logger.info(f"Calling migrate-mcp-config with from_ide: {from_ide}, to_ide: {to_ide}")
-    return migrate_mcp_config(from_ide=from_ide, to_ide=to_ide, backup=backup, conflict_resolutions=conflict_resolutions)
-
-
-@mcp.tool(name="create-entities")
-def create_entities_tool(entities: List[Dict]) -> Dict:
-    """Create multiple new entities in the knowledge graph"""
-    logger.info(f"Calling create-entities with {len(entities)} entities")
-    return create_entities(entities=entities)
-
-
-@mcp.tool(name="create-relations")
-def create_relations_tool(relations: List[Dict]) -> Dict:
-    """Create multiple new relations between entities in the knowledge graph"""
-    logger.info(f"Calling create-relations with {len(relations)} relations")
-    return create_relations(relations=relations)
-
-
-@mcp.tool(name="add-observations")
-def add_observations_tool(observations: List[Dict]) -> Dict:
-    """Add new observations to existing entities in the knowledge graph"""
-    logger.info(f"Calling add-observations with observations for {len(observations)} entities")
-    return add_observations(observations=observations)
-
-
-@mcp.tool(name="delete-entities")
-def delete_entities_tool(entityNames: List[str]) -> Dict:
-    """Delete multiple entities and their associated relations from the knowledge graph"""
-    logger.info(f"Calling delete-entities with {len(entityNames)} entities")
-    return delete_entities(entityNames=entityNames)
-
-
-@mcp.tool(name="delete-observations")
-def delete_observations_tool(deletions: List[Dict]) -> Dict:
-    """Delete specific observations from entities in the knowledge graph"""
-    logger.info(f"Calling delete-observations with deletions for {len(deletions)} entities")
-    return delete_observations(deletions=deletions)
-
-
-@mcp.tool(name="delete-relations")
-def delete_relations_tool(relations: List[Dict]) -> Dict:
-    """Delete multiple relations from the knowledge graph"""
-    logger.info(f"Calling delete-relations with {len(relations)} relations")
-    return delete_relations(relations=relations)
-
-
-@mcp.tool(name="search-nodes")
-def search_nodes_tool(query: str) -> Dict:
-    """Search for nodes in the knowledge graph based on a query"""
-    logger.info(f"Calling search-nodes with query: {query}")
-    return search_nodes(query=query)
-
-
-@mcp.tool(name="open-nodes")
-def open_nodes_tool(names: List[str]) -> Dict:
-    """Open specific nodes in the knowledge graph by their names"""
-    logger.info(f"Calling open-nodes with {len(names)} names")
-    return open_nodes(names=names)
-
+@mcp.resource("entities/search/{query}")
+def search_entities(query: str) -> dict:
+    """
+    Resource for searching entities in the knowledge graph.
+    
+    Args:
+        query: The search query to match against entity names, types, and observation content
+        
+    Returns:
+        Dict containing the search results
+    """
+    logger.info(f"Resource access: entities/search/{query}")
+    
+    # Call the existing implementation but parse the JSON into a dict
+    result_json = search_nodes(query=query)
+    return json.loads(result_json)
 
 def run():
     """Entry point for running the server."""
     logger.info("Starting MCP Agile Flow server (FastMCP mode)")
     print("Starting MCP Agile Flow server...", file=os.sys.stderr)
     
+    # Debug: Print registered resources
+    resources = []
+    for attr_name in dir(mcp):
+        if attr_name.startswith('_') and 'resource' in attr_name.lower():
+            resource_attr = getattr(mcp, attr_name, None)
+            if isinstance(resource_attr, dict):
+                resources = list(resource_attr.keys())
+                break
+    
+    print(f"Registered resources: {resources}", file=os.sys.stderr)
+    
     # Run the FastMCP server
     mcp.run()
-
 
 if __name__ == "__main__":
     # Configure logging when run directly

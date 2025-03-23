@@ -115,6 +115,47 @@ After installation, you can use the MCP tools through any compatible MCP client.
 - `migrate-mcp-config`: Migrate MCP configuration between different IDEs
 - `prime-context`: Analyze project AI documentation to build context
 
+## FastMCP Integration
+
+We've implemented a streamlined FastMCP server that offers a more elegant approach to MCP tools integration:
+
+### Key Features
+
+- **Simplified Architecture**: Direct registration of tool functions without wrapper layers
+- **Reduced Code Volume**: Eliminated ~1,400 lines of boilerplate code
+- **Improved Maintainability**: Consistent patterns for all tools
+- **Better Type Safety**: Proper type hints for parameters and return values
+
+### Usage
+
+You can run the FastMCP server with:
+
+```bash
+# Using the module directly
+python -m mcp_agile_flow.fastmcp_server
+
+# Using the console script
+mcp-agile-flow-fastmcp
+```
+
+### Direct API Access
+
+You can also use the FastMCP tools directly in your Python code:
+
+```python
+from mcp_agile_flow.fastmcp_tools import search_nodes, get_project_settings
+
+# Get project settings
+settings_json = get_project_settings()
+settings = json.loads(settings_json)
+
+# Search for nodes
+results_json = search_nodes(query="TestEntity")
+results = json.loads(results_json)
+```
+
+For more detailed information, see [README-FastMCP.md](README-FastMCP.md).
+
 ## Troubleshooting
 
 ### Common Issues

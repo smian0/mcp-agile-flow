@@ -12,7 +12,6 @@ from typing import Dict, Any, Optional, List
 import re
 import shutil
 
-from mcp.server.fastmcp import FastMCP
 from .utils import get_project_settings as get_settings_util
 from .memory_graph import KnowledgeGraphManager
 from .migration_tool import (
@@ -26,11 +25,6 @@ from .migration_tool import (
 # Set up logging
 logger = logging.getLogger(__name__)
 
-# Create a FastMCP instance
-fastmcp = FastMCP("agile-flow-fast")
-
-
-@fastmcp.tool()
 def get_project_settings(proposed_path: Optional[str] = None) -> str:
     """
     Returns comprehensive project settings including project path, knowledge graph directory, 
@@ -65,7 +59,6 @@ def get_project_settings(proposed_path: Optional[str] = None) -> str:
     return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def get_mermaid_diagram() -> str:
     """
     Get a Mermaid diagram representation of the knowledge graph.
@@ -102,7 +95,6 @@ def get_mermaid_diagram() -> str:
         return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def read_graph() -> str:
     """
     Read the entire knowledge graph.
@@ -155,7 +147,6 @@ def read_graph() -> str:
         return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def initialize_ide(ide: str = "cursor", project_path: Optional[str] = None) -> str:
     """
     Initialize a project with rules for a specific IDE.
@@ -415,7 +406,6 @@ def initialize_ide(ide: str = "cursor", project_path: Optional[str] = None) -> s
         return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def initialize_ide_rules(ide: str = "cursor", project_path: Optional[str] = None) -> str:
     """
     Initialize a project with rules for a specific IDE.
@@ -718,7 +708,6 @@ def initialize_ide_rules(ide: str = "cursor", project_path: Optional[str] = None
         return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def prime_context(depth: str = "standard", focus_areas: Optional[List[str]] = None, project_path: Optional[str] = None) -> str:
     """
     Analyzes project's AI documentation to build contextual understanding.
@@ -1256,7 +1245,6 @@ def _handle_prime_context(project_path, depth="standard", focus_areas=None):
     return response 
 
 
-@fastmcp.tool()
 def migrate_mcp_config(from_ide: str, to_ide: str, backup: bool = True, conflict_resolutions: Optional[Dict[str, bool]] = None) -> str:
     """
     Migrate MCP configuration between different IDEs with smart merging and conflict resolution.
@@ -1429,7 +1417,6 @@ def migrate_mcp_config(from_ide: str, to_ide: str, backup: bool = True, conflict
         return json.dumps(response_data, indent=2) 
 
 
-@fastmcp.tool()
 def create_entities(entities: List[Dict[str, Any]]) -> str:
     """
     Create multiple new entities in the knowledge graph.
@@ -1486,7 +1473,6 @@ def create_entities(entities: List[Dict[str, Any]]) -> str:
         return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def create_relations(relations: List[Dict[str, str]]) -> str:
     """
     Create multiple new relations between entities in the knowledge graph.
@@ -1543,7 +1529,6 @@ def create_relations(relations: List[Dict[str, str]]) -> str:
         return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def add_observations(observations: List[Dict[str, Any]]) -> str:
     """
     Add new observations to existing entities in the knowledge graph.
@@ -1589,7 +1574,6 @@ def add_observations(observations: List[Dict[str, Any]]) -> str:
         return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def delete_entities(entityNames: List[str]) -> str:
     """
     Delete multiple entities and their associated relations from the knowledge graph.
@@ -1642,7 +1626,6 @@ def delete_entities(entityNames: List[str]) -> str:
         return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def delete_observations(deletions: List[Dict[str, Any]]) -> str:
     """
     Delete specific observations from entities in the knowledge graph.
@@ -1708,7 +1691,6 @@ def delete_observations(deletions: List[Dict[str, Any]]) -> str:
         return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def delete_relations(relations: List[Dict[str, str]]) -> str:
     """
     Delete multiple relations from the knowledge graph.
@@ -1761,7 +1743,6 @@ def delete_relations(relations: List[Dict[str, str]]) -> str:
         return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def search_nodes(query: str) -> str:
     """
     Search for nodes in the knowledge graph based on a query.
@@ -1827,7 +1808,6 @@ def search_nodes(query: str) -> str:
         return json.dumps(response_data, indent=2)
 
 
-@fastmcp.tool()
 def open_nodes(names: List[str]) -> str:
     """
     Open specific nodes in the knowledge graph by their names.

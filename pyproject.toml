@@ -80,7 +80,7 @@ disallow_incomplete_defs = false  # Set to false to start with, can be made stri
 ignore_missing_imports = true  # Ignore import errors for missing type stubs
 
 [project.scripts]
-mcp-agile-flow = "mcp_agile_flow.server:run"
+mcp-agile-flow = "mcp_agile_flow.server:run_server"
 mcp-agile-flow-fastmcp = "mcp_agile_flow.fastmcp_server:run"
 
 [project.entry-points."mcp.servers"]
