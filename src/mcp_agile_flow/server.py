@@ -14,7 +14,7 @@ import re
 import shutil
 import sys
 import traceback
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import mcp.types as types
 from mcp.server import NotificationOptions, Server, stdio
@@ -23,7 +23,12 @@ from mcp.server.models import InitializationOptions
 # Import local modules
 from .memory_graph import register_memory_tools
 from .utils import get_project_settings as get_settings_util  # Rename to avoid conflict
-from .fastmcp_tools import get_project_settings, get_mermaid_diagram  # Import the FastMCP implementations
+from .fastmcp_tools import (
+    get_project_settings as get_project_settings_fastmcp,
+    get_mermaid_diagram as get_mermaid_diagram_fastmcp,
+    read_graph as read_graph_fastmcp,
+    initialize_ide as initialize_ide_fastmcp,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -39,7 +44,12 @@ memory_manager = None
 # Export the server instance for MCP plugins
 __mcp__ = mcp
 # Export the FastMCP instance
-__fastmcp__ = get_project_settings, get_mermaid_diagram
+__fastmcp__ = [
+    get_project_settings_fastmcp,
+    get_mermaid_diagram_fastmcp,
+    read_graph_fastmcp,
+    initialize_ide_fastmcp,
+]
 
 
 def create_text_response(text: str, is_error: bool = False) -> types.TextContent:
@@ -230,6 +240,20 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["random_string"],
             },
         ),
+        types.Tool(
+            name="read-graph",
+            description="Read the entire knowledge graph",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "random_string": {
+                        "type": "string",
+                        "description": "Dummy parameter for no-parameter tools",
+                    }
+                },
+                "required": ["random_string"],
+            },
+        ),
     ]
 
     # Add memory graph tools if available
@@ -280,7 +304,7 @@ async def handle_call_tool(
             try:
                 # Execute the FastMCP tool
                 proposed_path = arguments.get("proposed_path") if arguments else None
-                result = get_project_settings(proposed_path=proposed_path)
+                result = get_project_settings_fastmcp(proposed_path=proposed_path)
                 # Result is already a JSON string from the FastMCP implementation
                 return [create_text_response(result)]
             except Exception as e:
@@ -292,11 +316,23 @@ async def handle_call_tool(
             logger.info("Delegating to FastMCP implementation for get-mermaid-diagram")
             try:
                 # Execute the FastMCP tool
-                result = get_mermaid_diagram()
+                result = get_mermaid_diagram_fastmcp()
                 # Result is already a JSON string from the FastMCP implementation
                 return [create_text_response(result)]
             except Exception as e:
                 logger.error(f"Error calling FastMCP get_mermaid_diagram: {str(e)}")
+                return [create_text_response(f"Error: {str(e)}", is_error=True)]
+        
+        elif name == "read-graph":
+            # Call the FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for read-graph")
+            try:
+                # Execute the FastMCP tool
+                result = read_graph_fastmcp()
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error calling FastMCP read_graph: {str(e)}")
                 return [create_text_response(f"Error: {str(e)}", is_error=True)]
 
         # Handle migration tool
@@ -498,187 +534,19 @@ async def handle_call_tool(
                     return [create_text_response(json.dumps(response))]
         elif name == "initialize-ide":
             # Initialize-ide logic (previously existing implementation)
-            if not arguments:
-                arguments = {}
-
-            ide = arguments.get("ide", "cursor")
-            if ide not in ["cursor", "windsurf", "cline", "copilot"]:
-                return [
-                    create_text_response(f"Error: Unknown IDE: {ide}", is_error=True)
-                ]
-
+            # Now using FastMCP implementation
+            logger.info(f"Calling initialize-ide using FastMCP implementation")
             try:
-                # Determine project path with improved handling of current directory
-                if arguments.get("project_path"):
-                    # Explicit path provided - use get_project_settings to validate it
-                    project_settings = get_settings_util(
-                        proposed_path=arguments.get("project_path")
-                    )
-                    project_path = project_settings["project_path"]
-                    source = project_settings["source"]
-                elif os.environ.get("PROJECT_PATH"):
-                    # Environment variable set - use get_project_settings to validate it
-                    project_settings = get_settings_util()
-                    project_path = project_settings["project_path"]
-                    source = project_settings["source"]
-                else:
-                    # No path specified - use current working directory directly
-                    project_path = os.getcwd()
-                    source = "current working directory (direct)"
-
-                    # Check if it's root and handle that case
-                    if project_path == "/" or project_path == "\\":
-                        # Handle case where the path is problematic
-                        response_data = {
-                            "error": "Current directory is the root directory. Please provide a specific project path.",
-                            "status": "error",
-                            "needs_user_input": True,
-                            "current_directory": "/",
-                            "is_root": True,
-                            "message": "Please provide a specific project path using the 'project_path' argument.",
-                            "success": False,
-                        }
-                        return [
-                            create_text_response(
-                                json.dumps(response_data, indent=2), is_error=True
-                            )
-                        ]
-
-                # Log the determined path
-                logger.info(
-                    f"initialize-ide using project_path from {source}: {project_path}"
-                )
-                print(
-                    f"initialize-ide using project_path from {source}: {project_path}"
-                )
-
-                # Create directory structure if it doesn't exist
-                os.makedirs(os.path.join(project_path, "ai-docs"), exist_ok=True)
-                os.makedirs(os.path.join(project_path, ".ai-templates"), exist_ok=True)
-
-                # Create IDE-specific rules directory/file based on IDE
-                if ide == "windsurf":
-                    # For windsurf, create an empty .windsurfrules file
-                    windsurf_rules_path = os.path.join(project_path, ".windsurfrules")
-                    with open(windsurf_rules_path, "w") as f:
-                        f.write("# Windsurf Rules\n")
-                elif ide == "cline":
-                    # For cline, create a .clinerules file
-                    cline_rules_path = os.path.join(project_path, ".clinerules")
-                    with open(cline_rules_path, "w") as f:
-                        f.write("# Cline Rules\n")
-                else:
-                    # For other IDEs, create a rules directory
-                    os.makedirs(
-                        os.path.join(project_path, f".{ide}-rules"), exist_ok=True
-                    )
-
-                # Copy default templates to .ai-templates directory
-                # Source path is within the package's resources
-                # Get the templates from the installed package
-
-                # Create templates directory if it doesn't exist
-                templates_dir = os.path.join(project_path, ".ai-templates")
-                os.makedirs(templates_dir, exist_ok=True)
-
-                # Get the source templates directory path
-                templates_source_dir = os.path.join(
-                    os.path.dirname(__file__), "ai-templates"
-                )
-
-                # Check if the source directory exists
-                if os.path.exists(templates_source_dir) and os.path.isdir(
-                    templates_source_dir
-                ):
-                    # Copy all template files from the source directory
-                    for template_file in os.listdir(templates_source_dir):
-                        try:
-                            template_source_path = os.path.join(
-                                templates_source_dir, template_file
-                            )
-                            template_target_path = os.path.join(
-                                templates_dir, template_file
-                            )
-
-                            # Only copy files, not directories
-                            if os.path.isfile(template_source_path):
-                                shutil.copy2(template_source_path, template_target_path)
-                                print(f"Copied template: {template_file}")
-
-                        except Exception as e:
-                            print(f"Error copying template {template_file}: {str(e)}")
-                else:
-                    print(
-                        f"Warning: Template directory not found at {templates_source_dir}"
-                    )
-
-                # Initialize IDE-specific rules
-                # Call initialize-ide-rules with the IDE parameter for more specific setup
-                if ide == "cursor":
-                    rule_result = await handle_call_tool(
-                        "initialize-ide-rules",
-                        {"project_path": project_path, "ide": "cursor"},
-                    )
-                    if (
-                        rule_result
-                        and len(rule_result) > 0
-                        and rule_result[0].type == "text"
-                    ):
-                        return rule_result
-                else:
-                    # Copy IDE-specific rules
-                    rules_source_dir = os.path.join(
-                        os.path.dirname(__file__), "ide_rules", ide
-                    )
-                    rules_target_dir = os.path.join(project_path, f".{ide}-rules")
-
-                    if os.path.exists(rules_source_dir):
-                        for rule_file in os.listdir(rules_source_dir):
-                            source_file = os.path.join(rules_source_dir, rule_file)
-                            target_file = os.path.join(rules_target_dir, rule_file)
-                            if os.path.isfile(source_file):
-                                shutil.copy2(source_file, target_file)
-                    else:
-                        print(
-                            f"Warning: IDE rules directory not found at {rules_source_dir}"
-                        )
-
-                # Create a JSON response
-                response_data = {
-                    "success": True,
-                    "message": f"Initialized {ide} project in {project_path}",
-                    "project_path": project_path,
-                    "templates_directory": os.path.join(project_path, ".ai-templates"),
-                }
-
-                # Add IDE-specific paths to the response
-                if ide == "windsurf":
-                    response_data["rules_file"] = os.path.join(
-                        project_path, ".windsurfrules"
-                    )
-                    response_data["rules_directory"] = (
-                        None  # No rules directory for windsurf
-                    )
-                    response_data["initialized_windsurf"] = (
-                        True  # Only include this for windsurf
-                    )
-                elif ide == "cline":
-                    response_data["rules_file"] = os.path.join(
-                        project_path, ".clinerules"
-                    )
-                    response_data["rules_directory"] = (
-                        None  # No rules directory for cline
-                    )
-                else:
-                    response_data["rules_directory"] = os.path.join(
-                        project_path, f".{ide}-rules"
-                    )
-
-                return [create_text_response(json.dumps(response_data, indent=2))]
-            except ValueError as e:
-                return [create_text_response(f"Error: {str(e)}", is_error=True)]
+                # Extract parameters for FastMCP implementation
+                ide = arguments.get("ide", "cursor") if arguments else "cursor"
+                project_path = arguments.get("project_path") if arguments else None
+                
+                # Execute the FastMCP tool
+                result = initialize_ide_fastmcp(ide=ide, project_path=project_path)
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
             except Exception as e:
-                print(f"Error in initialize-ide: {str(e)}")
+                logger.error(f"Error in initialize-ide FastMCP implementation: {str(e)}")
                 traceback.print_exc()
                 return [
                     create_text_response(

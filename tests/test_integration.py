@@ -106,6 +106,16 @@ def test_server_handle_call_tool():
     assert result[0].type == "text"
     settings_data = json.loads(result[0].text)
     assert "project_path" in settings_data
+    
+    # Test read-graph
+    result = asyncio.run(handle_call_tool("read-graph", {"random_string": "test"}))
+    assert result[0].type == "text"
+    graph_data = json.loads(result[0].text)
+    assert graph_data["success"] is True
+    assert "entities" in graph_data
+    assert "relations" in graph_data
+    assert "project_type" in graph_data
+    assert "project_metadata" in graph_data
 
 
 def test_initialize_ide_rules_with_custom_path(tmp_path):
