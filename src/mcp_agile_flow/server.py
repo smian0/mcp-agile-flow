@@ -28,6 +28,8 @@ from .fastmcp_tools import (
     get_mermaid_diagram as get_mermaid_diagram_fastmcp,
     read_graph as read_graph_fastmcp,
     initialize_ide as initialize_ide_fastmcp,
+    prime_context as prime_context_fastmcp,
+    migrate_mcp_config as migrate_mcp_config_fastmcp,
 )
 
 # Configure logging
@@ -49,6 +51,8 @@ __fastmcp__ = [
     get_mermaid_diagram_fastmcp,
     read_graph_fastmcp,
     initialize_ide_fastmcp,
+    prime_context_fastmcp,
+    migrate_mcp_config_fastmcp,
 ]
 
 
@@ -337,201 +341,60 @@ async def handle_call_tool(
 
         # Handle migration tool
         elif name == "migrate-mcp-config":
-            from .migration_tool import (
-                detect_conflicts,
-                get_conflict_details,
-                get_ide_path,
-                migrate_config,
-            )
-
-            if not arguments:
-                return [
-                    create_text_response(
-                        json.dumps(
-                            {
+            logger.info("Migrating MCP configuration")
+            
+            # Delegate to FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for migrate-mcp-config")
+            try:
+                # Extract parameters for FastMCP implementation
+                if not arguments:
+                    return [
+                        create_text_response(
+                            json.dumps({
                                 "success": False,
                                 "error": "No arguments provided for migrate-mcp-config",
-                            }
-                        ),
-                        is_error=True,
-                    )
-                ]
-
-            required_args = ["from_ide", "to_ide"]
-            missing_args = [arg for arg in required_args if arg not in arguments]
-            if missing_args:
-                return [
-                    create_text_response(
-                        json.dumps(
-                            {
+                            }),
+                            is_error=True
+                        )
+                    ]
+                
+                # Check for required arguments
+                required_args = ["from_ide", "to_ide"]
+                missing_args = [arg for arg in required_args if arg not in arguments]
+                if missing_args:
+                    return [
+                        create_text_response(
+                            json.dumps({
                                 "success": False,
                                 "error": f"Missing required arguments: {', '.join(missing_args)}",
-                            }
-                        ),
-                        is_error=True,
+                            }),
+                            is_error=True
+                        )
+                    ]
+                
+                # Extract parameters for FastMCP implementation
+                from_ide = arguments["from_ide"]
+                to_ide = arguments["to_ide"]
+                backup = arguments.get("backup", True)
+                conflict_resolutions = arguments.get("conflict_resolutions", None)
+                
+                # Execute the FastMCP tool
+                result = migrate_mcp_config_fastmcp(
+                    from_ide=from_ide, 
+                    to_ide=to_ide, 
+                    backup=backup, 
+                    conflict_resolutions=conflict_resolutions
+                )
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error in migrate-mcp-config FastMCP implementation: {str(e)}")
+                traceback.print_exc()
+                return [
+                    create_text_response(
+                        f"Error migrating MCP configuration: {str(e)}", is_error=True
                     )
                 ]
-
-            from_ide = arguments["from_ide"]
-            to_ide = arguments["to_ide"]
-            backup = arguments.get("backup", True)
-            conflict_resolutions = arguments.get("conflict_resolutions", {})
-
-            # If conflict resolutions are provided, perform the migration with them
-            if conflict_resolutions:
-                try:
-                    from .migration_tool import merge_configurations
-
-                    # Get paths
-                    source_path = get_ide_path(from_ide)
-                    target_path = get_ide_path(to_ide)
-
-                    # Read source configuration
-                    with open(source_path, "r") as f:
-                        source_config = json.load(f)
-
-                    # Read target configuration
-                    target_config = {}
-                    if os.path.exists(target_path):
-                        with open(target_path, "r") as f:
-                            target_config = json.load(f)
-
-                    # Detect conflicts
-                    actual_conflicts = detect_conflicts(source_config, target_config)
-
-                    # Validate conflict resolutions
-                    if not actual_conflicts and conflict_resolutions:
-                        # No actual conflicts but resolutions provided
-                        response = {
-                            "success": False,
-                            "error": "Invalid conflict resolutions: no conflicts were detected",
-                            "actual_conflicts": actual_conflicts,
-                        }
-                        return [
-                            create_text_response(json.dumps(response), is_error=True)
-                        ]
-
-                    # Check if all provided resolutions correspond to actual conflicts
-                    invalid_resolutions = [
-                        server
-                        for server in conflict_resolutions
-                        if server not in actual_conflicts
-                    ]
-                    if invalid_resolutions:
-                        response = {
-                            "success": False,
-                            "error": f"Invalid conflict resolutions: {', '.join(invalid_resolutions)} not in conflicts",
-                            "actual_conflicts": actual_conflicts,
-                        }
-                        return [
-                            create_text_response(json.dumps(response), is_error=True)
-                        ]
-
-                    # Check if all conflicts have resolutions provided
-                    missing_resolutions = [
-                        server
-                        for server in actual_conflicts
-                        if server not in conflict_resolutions
-                    ]
-                    if missing_resolutions:
-                        response = {
-                            "success": False,
-                            "error": f"Missing conflict resolutions for: {', '.join(missing_resolutions)}",
-                            "actual_conflicts": actual_conflicts,
-                            "needs_resolution": True,
-                            "conflicts": actual_conflicts,
-                            "conflict_details": get_conflict_details(
-                                source_config, target_config, actual_conflicts
-                            ),
-                        }
-                        return [
-                            create_text_response(json.dumps(response), is_error=True)
-                        ]
-
-                    # Create backup if requested
-                    if backup and os.path.exists(target_path):
-                        backup_path = f"{target_path}.bak"
-                        shutil.copy2(target_path, backup_path)
-
-                    # Merge configurations with conflict resolutions
-                    merged_config = merge_configurations(
-                        source_config, target_config, conflict_resolutions
-                    )
-
-                    # Create target directory if it doesn't exist
-                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
-
-                    # Write merged configuration
-                    with open(target_path, "w") as f:
-                        json.dump(merged_config, f, indent=2)
-
-                    response = {
-                        "success": True,
-                        "resolved_conflicts": list(conflict_resolutions.keys()),
-                        "source_path": source_path,
-                        "target_path": target_path,
-                    }
-                    return [create_text_response(json.dumps(response))]
-                except Exception as e:
-                    response = {
-                        "success": False,
-                        "error": f"Error during migration with conflict resolutions: {str(e)}",
-                    }
-                    return [create_text_response(json.dumps(response), is_error=True)]
-            else:
-                # Perform migration check first to detect conflicts
-                success, error_message, conflicts, conflict_details = migrate_config(
-                    from_ide, to_ide, backup
-                )
-
-                if not success:
-                    response = {
-                        "success": False,
-                        "error": f"Error during migration check: {error_message}",
-                    }
-                    return [create_text_response(json.dumps(response), is_error=True)]
-
-                if conflicts:
-                    # Check if conflict_resolutions was provided as an empty dict
-                    # This is different from not providing conflict_resolutions at all
-                    if (
-                        "conflict_resolutions" in arguments
-                        and isinstance(conflict_resolutions, dict)
-                        and len(conflict_resolutions) == 0
-                    ):
-                        response = {
-                            "success": False,
-                            "error": "Missing conflict resolutions",
-                            "needs_resolution": True,
-                            "conflicts": conflicts,
-                            "conflict_details": conflict_details,
-                            "source_path": get_ide_path(from_ide),
-                            "target_path": get_ide_path(to_ide),
-                        }
-                        return [
-                            create_text_response(json.dumps(response), is_error=True)
-                        ]
-
-                    # Initial check for conflicts, with no conflict_resolutions provided
-                    # Return success=True to match migrate_config behavior
-                    response = {
-                        "success": True,
-                        "needs_resolution": True,
-                        "conflicts": conflicts,
-                        "conflict_details": conflict_details,
-                        "source_path": get_ide_path(from_ide),
-                        "target_path": get_ide_path(to_ide),
-                    }
-                    return [create_text_response(json.dumps(response))]
-                else:
-                    # No conflicts, migration was successful
-                    response = {
-                        "success": True,
-                        "needs_resolution": False,
-                        "source_path": get_ide_path(from_ide),
-                        "target_path": get_ide_path(to_ide),
-                    }
-                    return [create_text_response(json.dumps(response))]
         elif name == "initialize-ide":
             # Initialize-ide logic (previously existing implementation)
             # Now using FastMCP implementation
@@ -884,38 +747,27 @@ async def handle_call_tool(
 
         elif name == "prime-context":
             logger.info("Analyzing project context")
-            if not arguments:
+            
+            # Delegate to FastMCP implementation
+            logger.info("Delegating to FastMCP implementation for prime-context")
+            try:
+                # Extract parameters for FastMCP implementation
+                depth = arguments.get("depth", "standard") if arguments else "standard"
+                focus_areas = arguments.get("focus_areas") if arguments else None
+                project_path = arguments.get("project_path") if arguments else None
+                
+                # Execute the FastMCP tool
+                result = prime_context_fastmcp(depth=depth, focus_areas=focus_areas, project_path=project_path)
+                # Result is already a JSON string from the FastMCP implementation
+                return [create_text_response(result)]
+            except Exception as e:
+                logger.error(f"Error in prime-context FastMCP implementation: {str(e)}")
+                traceback.print_exc()
                 return [
                     create_text_response(
-                        "Error: Missing arguments for prime-context", is_error=True
+                        f"Error analyzing project context: {str(e)}", is_error=True
                     )
                 ]
-
-            project_path = arguments.get("project_path", None)
-            if not project_path:
-                # Check for PROJECT_PATH environment variable
-                project_path = os.environ.get("PROJECT_PATH")
-
-                if not project_path:
-                    # Use the current working directory
-                    project_path = os.getcwd()
-                    logger.info(
-                        f"Using current directory for project_path: {project_path}"
-                    )
-                else:
-                    logger.info(
-                        f"Using PROJECT_PATH environment variable: {project_path}"
-                    )
-            else:
-                logger.info(f"Using provided project_path: {project_path}")
-
-            depth = arguments.get("depth", "standard")
-            focus_areas = arguments.get("focus_areas", None)
-
-            # Call the prime context function
-            response_data = handle_prime_context(project_path, depth, focus_areas)
-
-            return [create_text_response(json.dumps(response_data, indent=2))]
         else:
             raise ValueError(f"Unknown tool: {name}")
 

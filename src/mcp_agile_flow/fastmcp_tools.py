@@ -8,11 +8,20 @@ These implementations coexist with the traditional MCP tools while we migrate.
 import json
 import logging
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+import re
+import shutil
 
 from mcp.server.fastmcp import FastMCP
 from .utils import get_project_settings as get_settings_util
 from .memory_graph import KnowledgeGraphManager
+from .migration_tool import (
+    detect_conflicts,
+    get_conflict_details,
+    get_ide_path,
+    migrate_config,
+    merge_configurations,
+)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -402,5 +411,716 @@ def initialize_ide(ide: str = "cursor", project_path: Optional[str] = None) -> s
             "success": False,
             "error": f"Error initializing project: {str(e)}",
             "message": "An error occurred during initialization"
+        }
+        return json.dumps(response_data, indent=2)
+
+
+@fastmcp.tool()
+def prime_context(depth: str = "standard", focus_areas: Optional[List[str]] = None, project_path: Optional[str] = None) -> str:
+    """
+    Analyzes project's AI documentation to build contextual understanding.
+    
+    This tool examines PRD, architecture docs, stories, and other AI-generated artifacts
+    to provide a comprehensive project overview and current development state. Always
+    prioritizes data from the ai-docs directory before falling back to README.md.
+    
+    Args:
+        depth: Level of detail to include (minimal, standard, comprehensive)
+        focus_areas: Optional specific areas to focus on
+        project_path: Custom project path to use (optional)
+    
+    Returns:
+        JSON string containing the project context information
+    """
+    logger.info(f"FastMCP: Priming context with depth: {depth}")
+    
+    try:
+        # Determine project path with improved handling of current directory
+        if project_path:
+            # Explicit path provided - use get_project_settings to validate it
+            project_settings = get_settings_util(proposed_path=project_path)
+            project_path = project_settings["project_path"]
+            source = project_settings["source"]
+        elif os.environ.get("PROJECT_PATH"):
+            # Environment variable set - use get_project_settings to validate it
+            project_settings = get_settings_util()
+            project_path = project_settings["project_path"]
+            source = project_settings["source"]
+        else:
+            # No path specified - use current working directory directly
+            project_path = os.getcwd()
+            source = "current working directory (direct)"
+            
+            # Check if it's root and handle that case
+            if project_path == "/" or project_path == "\\":
+                # Handle case where the path is problematic
+                response_data = {
+                    "error": "Current directory is the root directory. Please provide a specific project path.",
+                    "status": "error",
+                    "needs_user_input": True,
+                    "current_directory": "/",
+                    "is_root": True,
+                    "message": "Please provide a specific project path using the 'project_path' argument.",
+                    "success": False,
+                }
+                return json.dumps(response_data, indent=2)
+        
+        # Log the determined path
+        logger.info(f"FastMCP: prime_context using project_path from {source}: {project_path}")
+        
+        # Call internal implementation 
+        response_data = _handle_prime_context(project_path, depth, focus_areas)
+        return json.dumps(response_data, indent=2)
+    
+    except Exception as e:
+        logger.error(f"FastMCP: Error priming context: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error as JSON
+        response_data = {
+            "success": False,
+            "error": f"Error priming context: {str(e)}",
+            "message": "An error occurred while analyzing project documentation"
+        }
+        return json.dumps(response_data, indent=2)
+
+
+def _extract_markdown_title(content):
+    """Extract the title from markdown content.
+
+    Args:
+        content (str): Markdown content
+
+    Returns:
+        str: The title of the document, or "Untitled" if no title found
+    """
+    lines = content.split("\n")
+    for line in lines:
+        # Look for level 1 heading
+        if line.strip().startswith("# "):
+            return line.strip()[2:].strip()
+
+    return "Untitled"
+
+
+def _extract_status(content):
+    """Extract the status from markdown content.
+
+    Args:
+        content (str): Markdown content
+
+    Returns:
+        str: The status of the document, or "Unknown" if no status found
+    """
+    # Check for "## Status" section
+    status_pattern = r"^\s*##\s+Status\s*$"
+    status_section = None
+    lines = content.split("\n")
+
+    for i, line in enumerate(lines):
+        if re.search(status_pattern, line, re.IGNORECASE):
+            status_section = i
+            break
+
+    if status_section is not None:
+        # Look for status value in the lines after the section heading
+        for i in range(status_section + 1, min(status_section + 10, len(lines))):
+            line = lines[i].strip()
+            if line and not line.startswith("#"):
+                # Extract status value which could be in formats like:
+                # - Status: Draft
+                # - Draft
+                # - **Status**: Draft
+
+                # Remove markdown formatting and list markers
+                line = re.sub(r"^\s*[-*]\s+", "", line)
+                line = re.sub(r"\*\*([^*]+)\*\*", r"\1", line)
+
+                # Check if line contains a status indicator
+                if ":" in line:
+                    parts = line.split(":", 1)
+                    if parts[1].strip():
+                        return parts[1].strip()
+
+                # If no colon, check for common status values
+                statuses = [
+                    "Draft",
+                    "In Progress",
+                    "Complete",
+                    "Approved",
+                    "Current",
+                    "Future",
+                ]
+                for status in statuses:
+                    if status.lower() in line.lower():
+                        return status
+
+                # If we got to a non-empty line but didn't find a status, use the whole line
+                return line
+
+    return "Unknown"
+
+
+def _summarize_content(content, depth="standard"):
+    """Summarize markdown content based on depth.
+
+    Args:
+        content (str): Markdown content
+        depth (str): Summarization depth ('minimal', 'standard', or 'comprehensive')
+
+    Returns:
+        str: Summarized content
+    """
+    lines = content.split("\n")
+
+    if depth == "minimal":
+        # Just return the title and a few key sections
+        result = []
+
+        # Extract title
+        title = _extract_markdown_title(content)
+        if title:
+            result.append(f"# {title}")
+
+        # Look for Status section
+        status_section = None
+        for i, line in enumerate(lines):
+            if re.match(r"^\s*##\s+Status\s*$", line, re.IGNORECASE):
+                status_section = i
+                break
+
+        if status_section is not None:
+            result.append(lines[status_section])
+            # Add a few lines after the Status heading
+            for i in range(status_section + 1, min(status_section + 5, len(lines))):
+                if not lines[i].startswith("#"):
+                    result.append(lines[i])
+                else:
+                    break
+
+        return "\n".join(result)
+
+    elif depth == "standard":
+        # Return all headings and their first paragraph
+        result = []
+        current_heading = None
+        paragraph_lines = []
+
+        for line in lines:
+            if line.startswith("#"):
+                # If we were building a paragraph, add it to result
+                if paragraph_lines:
+                    result.append("\n".join(paragraph_lines))
+                    paragraph_lines = []
+
+                # Add the heading
+                result.append(line)
+                current_heading = line
+            elif line.strip() == "" and paragraph_lines:
+                # End of paragraph
+                result.append("\n".join(paragraph_lines))
+                paragraph_lines = []
+            elif current_heading is not None and line.strip():
+                # Add line to current paragraph
+                paragraph_lines.append(line)
+
+        # Add any remaining paragraph
+        if paragraph_lines:
+            result.append("\n".join(paragraph_lines))
+
+        return "\n".join(result)
+
+    else:  # comprehensive or any other value
+        return content
+
+
+def _extract_task_completion(content):
+    """Extract task completion information from markdown content.
+
+    Args:
+        content (str): Markdown content
+
+    Returns:
+        dict: Task completion information
+    """
+    lines = content.split("\n")
+    total = 0
+    completed = 0
+
+    # Look for task items (- [ ] or - [x])
+    for line in lines:
+        line = line.strip()
+        if re.match(r"^\s*-\s*\[\s*\]\s+", line):
+            total += 1
+        elif re.match(r"^\s*-\s*\[\s*x\s*\]\s+", line):
+            total += 1
+            completed += 1
+
+    return {
+        "total": total,
+        "completed": completed,
+        "percentage": round(completed / total * 100) if total > 0 else 0,
+    }
+
+
+def _handle_prime_context(project_path, depth="standard", focus_areas=None):
+    """
+    Prime the context with project information from various documentation sources.
+
+    Args:
+        project_path (str): Project path
+        depth (str): Level of detail to include (minimal, standard, comprehensive)
+        focus_areas (list): Optional specific areas to focus on
+
+    Returns:
+        dict: Structured project context information
+    """
+    logger.info(f"FastMCP: Priming context from project at: {project_path}")
+
+    # Initialize the response structure with base project info
+    context = {
+        "project": {"name": "Untitled Project", "status": "Unknown", "overview": ""}
+    }
+
+    # Initialize other sections only if they're needed or if no focus areas specified
+    if not focus_areas or "architecture" in focus_areas:
+        context["architecture"] = {"overview": "", "components": []}
+
+    if not focus_areas or "epics" in focus_areas:
+        context["epics"] = []
+
+    if not focus_areas or "progress" in focus_areas:
+        context["progress"] = {
+            "summary": "No progress information available",
+            "stories_complete": 0,
+            "stories_in_progress": 0,
+            "stories_not_started": 0,
+        }
+
+    # Get paths to key directories
+    ai_docs_dir = os.path.join(project_path, "ai-docs")
+
+    # Check if the AI docs directory exists
+    if not os.path.exists(ai_docs_dir):
+        logger.info(f"FastMCP: AI docs directory not found at: {ai_docs_dir}")
+        # Create a minimal context structure with defaults
+        summary = "Project documentation not found. Limited context available."
+        return {"context": context, "summary": summary}
+
+    # Filter context based on focus areas if specified
+    if focus_areas:
+        filtered_context = {}
+        for area in focus_areas:
+            if area in context:
+                filtered_context[area] = context[area]
+        context = filtered_context if filtered_context else context
+
+    # Extract project information from PRD or README
+    prd_path = os.path.join(ai_docs_dir, "prd.md")
+    if os.path.exists(prd_path) and ("project" in context):
+        logger.info(f"FastMCP: Found PRD at: {prd_path}")
+        with open(prd_path, "r") as f:
+            prd_content = f.read()
+            context["project"]["name"] = _extract_markdown_title(prd_content)
+            context["project"]["status"] = _extract_status(prd_content)
+            context["project"]["prd_title"] = context["project"]["name"]
+
+            # Extract overview section from PRD
+            overview_match = re.search(
+                r"## Overview\s+([^\n#]*(?:\n(?!#)[^\n]*)*)", prd_content, re.MULTILINE
+            )
+            if overview_match:
+                context["project"]["overview"] = overview_match.group(1).strip()
+
+    # Check if README exists for additional project info
+    readme_path = os.path.join(project_path, "README.md")
+    if os.path.exists(readme_path) and ("project" in context):
+        logger.info(f"FastMCP: Found README at: {readme_path}")
+        with open(readme_path, "r") as f:
+            readme_content = f.read()
+            context["project"]["readme"] = _summarize_content(readme_content, depth)
+
+            # If PRD wasn't found, use README for project name
+            if "prd_title" not in context["project"]:
+                context["project"]["name"] = _extract_markdown_title(readme_content)
+                context["project"]["status"] = _extract_status(readme_content)
+
+    # Extract architecture information
+    arch_path = os.path.join(ai_docs_dir, "architecture.md")
+    if os.path.exists(arch_path) and ("architecture" in context):
+        logger.info(f"FastMCP: Found architecture document at: {arch_path}")
+        with open(arch_path, "r") as f:
+            arch_content = f.read()
+            context["architecture"]["overview"] = _summarize_content(arch_content, depth)
+
+            # Extract components section
+            components_match = re.search(
+                r"## Component Design\s+([^\n#]*(?:\n(?!#)[^\n]*)*)",
+                arch_content,
+                re.MULTILINE,
+            )
+            if components_match:
+                component_text = components_match.group(1).strip()
+                component_items = re.findall(r"- (.+)", component_text)
+                context["architecture"]["components"] = component_items
+
+    # Extract epic information
+    epics_dir = os.path.join(ai_docs_dir, "epics")
+    if os.path.exists(epics_dir) and ("epics" in context) and ("progress" in context):
+        logger.info(f"FastMCP: Found epics directory at: {epics_dir}")
+
+        epic_folders = [
+            f
+            for f in os.listdir(epics_dir)
+            if os.path.isdir(os.path.join(epics_dir, f))
+        ]
+        for epic_folder in epic_folders:
+            epic_path = os.path.join(epics_dir, epic_folder, "epic.md")
+            if os.path.exists(epic_path):
+                logger.info(f"FastMCP: Found epic at: {epic_path}")
+                with open(epic_path, "r") as f:
+                    epic_content = f.read()
+                    epic_info = {
+                        "name": _extract_markdown_title(epic_content),
+                        "status": _extract_status(epic_content),
+                        "description": _summarize_content(epic_content, depth),
+                        "stories": [],
+                    }
+
+                    # Extract stories from the epic
+                    stories_dir = os.path.join(epics_dir, epic_folder, "stories")
+                    if os.path.exists(stories_dir):
+                        story_files = [
+                            f for f in os.listdir(stories_dir) if f.endswith(".md")
+                        ]
+                        for story_file in story_files:
+                            story_path = os.path.join(stories_dir, story_file)
+                            with open(story_path, "r") as sf:
+                                story_content = sf.read()
+                                story_name = _extract_markdown_title(story_content)
+                                story_status = _extract_status(story_content)
+
+                                # Track story completion for progress metrics
+                                if "progress" in context:
+                                    if story_status.lower() == "complete":
+                                        context["progress"]["stories_complete"] += 1
+                                    elif story_status.lower() in [
+                                        "in progress",
+                                        "started",
+                                    ]:
+                                        context["progress"]["stories_in_progress"] += 1
+                                    else:
+                                        context["progress"]["stories_not_started"] += 1
+
+                                # Add story to epic
+                                epic_info["stories"].append(
+                                    {"name": story_name, "status": story_status}
+                                )
+
+                    context["epics"].append(epic_info)
+
+    # Extract Makefile commands if Makefile exists
+    makefile_path = os.path.join(project_path, "Makefile")
+    if os.path.exists(makefile_path):
+        logger.info(f"FastMCP: Found Makefile at: {makefile_path}")
+        with open(makefile_path, "r") as f:
+            makefile_content = f.read()
+
+            # Extract targets from Makefile
+            targets = re.findall(
+                r"^([a-zA-Z0-9_-]+):\s*.*$", makefile_content, re.MULTILINE
+            )
+
+            # Group targets by category
+            categories = {
+                "testing": ["test", "tests", "unittest", "pytest", "check"],
+                "build": ["build", "compile", "install", "setup"],
+                "run": ["run", "start", "serve", "dev", "develop"],
+                "clean": ["clean", "reset", "clear"],
+                "lint": ["lint", "format", "style", "check"],
+                "deploy": ["deploy", "publish", "release"],
+            }
+
+            categorized_targets = {}
+            for category, keywords in categories.items():
+                categorized_targets[category] = []
+                for target in targets:
+                    if any(keyword in target.lower() for keyword in keywords):
+                        # Find the corresponding command
+                        target_pattern = rf"^{re.escape(target)}:.*\n((\t.+\n)+)"
+                        target_match = re.search(
+                            target_pattern, makefile_content, re.MULTILINE
+                        )
+                        command = ""
+                        if target_match:
+                            command = target_match.group(1).strip()
+
+                        categorized_targets[category].append(
+                            {"target": target, "command": command}
+                        )
+
+                        # Remove this target from further consideration
+                        targets = [t for t in targets if t != target]
+
+            # Add "other" category for any remaining targets
+            categorized_targets["other"] = []
+            for target in targets:
+                # Find the corresponding command
+                target_pattern = rf"^{re.escape(target)}:.*\n((\t.+\n)+)"
+                target_match = re.search(target_pattern, makefile_content, re.MULTILINE)
+                command = ""
+                if target_match:
+                    command = target_match.group(1).strip()
+
+                categorized_targets["other"].append(
+                    {"target": target, "command": command}
+                )
+
+            # Add to project context
+            context["project"]["makefile_commands"] = categorized_targets
+
+    # Generate a project summary based on the depth
+    summary_parts = []
+
+    # Add project name and status
+    summary_parts.append(f"Project: {context['project']['name']}")
+    summary_parts.append(f"Status: {context['project']['status']}")
+
+    # Add project overview if available
+    if context["project"].get("overview"):
+        summary_parts.append(f"\nOverview: {context['project']['overview']}")
+
+    # Add architecture summary if available and requested
+    if (
+        "architecture" in context
+        and context["architecture"].get("overview")
+        and (not focus_areas or "architecture" in focus_areas)
+    ):
+        if depth == "minimal":
+            summary_parts.append("\nArchitecture: Available")
+        else:
+            summary_parts.append(
+                f"\nArchitecture: {context['architecture']['overview'][:150]}..."
+            )
+
+    # Add epic summary if available and requested
+    if (
+        "epics" in context
+        and context["epics"]
+        and (not focus_areas or "epics" in focus_areas)
+    ):
+        if depth == "minimal":
+            summary_parts.append(f"\nEpics: {len(context['epics'])} found")
+        else:
+            epic_names = [epic["name"] for epic in context["epics"]]
+            summary_parts.append(
+                f"\nEpics ({len(epic_names)}): {', '.join(epic_names)}"
+            )
+
+    # Add progress summary if available and requested
+    if "progress" in context and (not focus_areas or "progress" in focus_areas):
+        total_stories = (
+            context["progress"]["stories_complete"]
+            + context["progress"]["stories_in_progress"]
+            + context["progress"]["stories_not_started"]
+        )
+
+        if total_stories > 0:
+            progress_pct = (
+                context["progress"]["stories_complete"] / total_stories
+            ) * 100
+            summary_parts.append(
+                f"\nProgress: {progress_pct:.1f}% complete ({context['progress']['stories_complete']}/{total_stories} stories)"
+            )
+
+    # Adjust summary length based on depth
+    summary = "\n".join(summary_parts)
+    if depth == "minimal":
+        summary = "\n".join(summary_parts[:3])  # Just project info
+    elif depth == "comprehensive":
+        # Add more details for comprehensive depth
+        if "epics" in context and context["epics"]:
+            for epic in context["epics"]:
+                summary += f"\n\nEpic: {epic['name']} ({epic['status']})"
+                if epic["stories"]:
+                    for story in epic["stories"]:
+                        summary += f"\n  - {story['name']} ({story['status']})"
+
+    # Create the final response
+    response = {"context": context, "summary": summary}
+
+    return response 
+
+
+@fastmcp.tool()
+def migrate_mcp_config(from_ide: str, to_ide: str, backup: bool = True, conflict_resolutions: Optional[Dict[str, bool]] = None) -> str:
+    """
+    Migrate MCP configuration between different IDEs with smart merging and conflict resolution.
+    
+    Args:
+        from_ide: Source IDE to migrate configuration from
+        to_ide: Target IDE to migrate configuration to
+        backup: Whether to create backups before modifying files
+        conflict_resolutions: Mapping of server names to resolution choices (true = use source, false = keep target)
+    
+    Returns:
+        JSON string containing the migration results
+    """
+    logger.info(f"FastMCP: Migrating MCP config from {from_ide} to {to_ide}")
+    
+    try:
+        # If conflict resolutions are provided, perform the migration with them
+        if conflict_resolutions:
+            try:
+                # Get paths
+                source_path = get_ide_path(from_ide)
+                target_path = get_ide_path(to_ide)
+
+                # Read source configuration
+                with open(source_path, "r") as f:
+                    source_config = json.load(f)
+
+                # Read target configuration
+                target_config = {}
+                if os.path.exists(target_path):
+                    with open(target_path, "r") as f:
+                        target_config = json.load(f)
+
+                # Detect conflicts
+                actual_conflicts = detect_conflicts(source_config, target_config)
+
+                # Validate conflict resolutions
+                if not actual_conflicts and conflict_resolutions:
+                    # No actual conflicts but resolutions provided
+                    response = {
+                        "success": False,
+                        "error": "Invalid conflict resolutions: no conflicts were detected",
+                        "actual_conflicts": actual_conflicts,
+                    }
+                    return json.dumps(response, indent=2)
+
+                # Check if all provided resolutions correspond to actual conflicts
+                invalid_resolutions = [
+                    server
+                    for server in conflict_resolutions
+                    if server not in actual_conflicts
+                ]
+                if invalid_resolutions:
+                    response = {
+                        "success": False,
+                        "error": f"Invalid conflict resolutions: {', '.join(invalid_resolutions)} not in conflicts",
+                        "actual_conflicts": actual_conflicts,
+                    }
+                    return json.dumps(response, indent=2)
+
+                # Check if all conflicts have resolutions provided
+                missing_resolutions = [
+                    server
+                    for server in actual_conflicts
+                    if server not in conflict_resolutions
+                ]
+                if missing_resolutions:
+                    response = {
+                        "success": False,
+                        "error": f"Missing conflict resolutions for: {', '.join(missing_resolutions)}",
+                        "actual_conflicts": actual_conflicts,
+                        "needs_resolution": True,
+                        "conflicts": actual_conflicts,
+                        "conflict_details": get_conflict_details(
+                            source_config, target_config, actual_conflicts
+                        ),
+                    }
+                    return json.dumps(response, indent=2)
+
+                # Create backup if requested
+                if backup and os.path.exists(target_path):
+                    backup_path = f"{target_path}.bak"
+                    shutil.copy2(target_path, backup_path)
+
+                # Merge configurations with conflict resolutions
+                merged_config = merge_configurations(
+                    source_config, target_config, conflict_resolutions
+                )
+
+                # Create target directory if it doesn't exist
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+
+                # Write merged configuration
+                with open(target_path, "w") as f:
+                    json.dump(merged_config, f, indent=2)
+
+                response = {
+                    "success": True,
+                    "resolved_conflicts": list(conflict_resolutions.keys()),
+                    "source_path": source_path,
+                    "target_path": target_path,
+                }
+                return json.dumps(response, indent=2)
+            except Exception as e:
+                response = {
+                    "success": False,
+                    "error": f"Error during migration with conflict resolutions: {str(e)}",
+                }
+                return json.dumps(response, indent=2)
+        else:
+            # Perform migration check first to detect conflicts
+            success, error_message, conflicts, conflict_details = migrate_config(
+                from_ide, to_ide, backup
+            )
+
+            if not success:
+                response = {
+                    "success": False,
+                    "error": f"Error during migration check: {error_message}",
+                }
+                return json.dumps(response, indent=2)
+
+            if conflicts:
+                # Check if conflict_resolutions was provided as an empty dict
+                # This is different from not providing conflict_resolutions at all
+                if conflict_resolutions is not None and len(conflict_resolutions) == 0:
+                    response = {
+                        "success": False,
+                        "error": "Missing conflict resolutions",
+                        "needs_resolution": True,
+                        "conflicts": conflicts,
+                        "conflict_details": conflict_details,
+                        "source_path": get_ide_path(from_ide),
+                        "target_path": get_ide_path(to_ide),
+                    }
+                    return json.dumps(response, indent=2)
+
+                # Initial check for conflicts, with no conflict_resolutions provided
+                # Return success=True to match migrate_config behavior
+                response = {
+                    "success": True,
+                    "needs_resolution": True,
+                    "conflicts": conflicts,
+                    "conflict_details": conflict_details,
+                    "source_path": get_ide_path(from_ide),
+                    "target_path": get_ide_path(to_ide),
+                }
+                return json.dumps(response, indent=2)
+            else:
+                # No conflicts, migration was successful
+                response = {
+                    "success": True,
+                    "needs_resolution": False,
+                    "source_path": get_ide_path(from_ide),
+                    "target_path": get_ide_path(to_ide),
+                }
+                return json.dumps(response, indent=2)
+    
+    except Exception as e:
+        logger.error(f"FastMCP: Error migrating MCP config: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error as JSON
+        response_data = {
+            "success": False,
+            "error": f"Error migrating MCP config: {str(e)}",
+            "message": "An unexpected error occurred during migration"
         }
         return json.dumps(response_data, indent=2) 
