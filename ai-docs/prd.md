@@ -45,24 +45,14 @@ The primary target users include development teams, team leads, project managers
    - Status progression tracking ⚠️
    - Progress visualization ❌
 
-5. **Knowledge Graph** ⚠️
-   - Project entity and relationship tracking ✅
-   - Contextual awareness of documentation connections ⚠️
-   - Semantic search capabilities ❌
-   - Visual representation of project structure ✅
+5. **FastMCP Tools** ✅
+   - Enhanced Pythonic interface for tools ✅
+   - Simplified tool registration and usage ✅
+   - Backward compatibility with existing tools ✅
+   - Improved error handling and logging ✅
 
-6. **MCP Configuration Migration** ✅
-   - Cross-IDE configuration transfer ✅
-   - Smart conflict detection and resolution ✅
-   - Automated merging of compatible settings ✅
-   - Backup creation for safety ✅
-   - User-controlled conflict resolution ✅
-
-7. **Project Path Management** ✅
-   - Safe project path handling with root protection ✅
-   - Fallback mechanisms for invalid paths ✅
-   - Environment variable support ✅
-   - Path validation and normalization ✅
+## Note on Knowledge Graph Functionality
+The knowledge graph functionality (entity and relationship tracking, contextual awareness of documentation connections, and semantic search capabilities) has been moved to a separate MCP server. This decision was made to simplify the core MCP Agile Flow implementation and provide better separation of concerns. The core functionality of MCP Agile Flow continues to work without the knowledge graph.
 
 ### Non-functional Requirements
 1. **Usability**

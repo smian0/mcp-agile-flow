@@ -46,7 +46,7 @@ The current implementation has successfully delivered:
 1. **Cross-IDE Template System**: Standardized templates with dynamic discovery and copying across Cursor, Windsurf, Cline, and Copilot
 2. **IDE Integration Layer**: Adapters for each IDE to ensure consistent rule application
 3. **Template Management**: Centralized storage with automatic template detection and versioning
-4. **Knowledge Graph Foundation**: Basic entity and relationship tracking for project components
+4. **FastMCP Tools**: Enhanced Pythonic interface with simplified tool registration and backward compatibility
 5. **Git Workflow Implementation**: Standardized commit templates and cursor rules with IDE-agnostic implementation ✅
 6. **MCP Configuration Migration**: Smart migration tool with conflict detection and resolution ✅
 7. **Safe Project Path Handling**: Root directory protections and fallback mechanisms ✅
@@ -54,9 +54,11 @@ The current implementation has successfully delivered:
 Ongoing and future work includes:
 
 1. **Enhanced Document Generation**: More automation for document creation and linking
-2. **Advanced Knowledge Graph**: Semantic search and deeper contextual awareness
-3. **Workflow Automation**: Status tracking and progress visualization
-4. **Additional IDE Support**: Potential expansion to other development environments
+2. **Workflow Automation**: Status tracking and progress visualization
+3. **Additional IDE Support**: Potential expansion to other development environments
+
+## Note on Knowledge Graph Functionality
+The knowledge graph functionality (entity and relationship tracking, contextual awareness of documentation connections, and semantic search capabilities) has been moved to a separate MCP server. This decision was made to simplify the core MCP Agile Flow implementation and provide better separation of concerns. The core functionality of MCP Agile Flow continues to work without the knowledge graph.
 
 ## Customer Needs
 

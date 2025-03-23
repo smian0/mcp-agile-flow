@@ -111,11 +111,9 @@ def test_server_handle_call_tool():
     result = asyncio.run(handle_call_tool("read-graph", {"random_string": "test"}))
     assert result[0].type == "text"
     graph_data = json.loads(result[0].text)
-    assert graph_data["success"] is True
-    assert "entities" in graph_data
-    assert "relations" in graph_data
-    assert "project_type" in graph_data
-    assert "project_metadata" in graph_data
+    assert graph_data["success"] is False
+    assert "message" in graph_data
+    assert "Memory graph functionality has been moved" in graph_data["message"]
 
 
 def test_initialize_ide_rules_with_custom_path(tmp_path):

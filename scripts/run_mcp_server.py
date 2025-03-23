@@ -6,7 +6,6 @@ This script runs the MCP Agile Flow server with enhanced functionality:
 - Proper Python path setup for module discovery
 - Comprehensive logging configuration
 - Environment variable detection and validation
-- Memory graph initialization and management
 - Standard MCP protocol over stdin/stdout for IDE integration
 
 Usage: python run_mcp_server.py
@@ -62,23 +61,15 @@ try:
     from mcp.server import stdio
     
     # Import necessary components from server
-    from mcp_agile_flow.server import mcp, register_memory_tools
+    from mcp_agile_flow.server import mcp
     
     logger.info("Successfully imported server modules")
     logger.info("Running server (stdin/stdout mode)...")
     
     async def run_server():
-        """Run the MCP Agile Flow server with memory graph initialization."""
-        # Initialize memory graph tools and manager
-        try:
-            # Register memory tools with the MCP server
-            memory_tools, memory_manager = register_memory_tools(mcp)
-            logger.info(f"Initialized memory graph manager with path: {memory_manager.graph_path}")
-            print(f"Initialized memory graph manager with path: {memory_manager.graph_path}", file=sys.stderr)
-        except Exception as e:
-            logger.error(f"Error initializing memory graph manager: {e}")
-            print(f"Error initializing memory graph manager: {e}", file=sys.stderr)
-            # Continue without memory graph functionality
+        """Run the MCP Agile Flow server."""
+        logger.info("Starting MCP Agile Flow server")
+        print("Starting MCP Agile Flow server...", file=sys.stderr)
         
         async with stdio.stdio_server() as (read_stream, write_stream):
             await mcp.run(

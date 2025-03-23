@@ -8,7 +8,7 @@ from typing import Any, Dict, Tuple
 
 def get_project_settings(proposed_path: str = None) -> Dict[str, Any]:
     """
-    Get project settings including project path, knowledge graph directory, and AI docs directory.
+    Get project settings including project path and AI docs directory.
 
     This is a common utility function used by various components to ensure consistent
     project path handling throughout the application.
@@ -23,7 +23,6 @@ def get_project_settings(proposed_path: str = None) -> Dict[str, Any]:
             - project_path: The project path (defaults to user's home directory if not set)
             - current_directory: The current working directory
             - is_project_path_manually_set: Whether PROJECT_PATH was set manually
-            - knowledge_graph_directory: Path to the knowledge graph directory
             - ai_docs_directory: Path to the AI docs directory
             - source: Information about where the project path was derived from
             - is_root: Whether the path is the root directory (important for safety checks)
@@ -143,16 +142,14 @@ def get_project_settings(proposed_path: str = None) -> Dict[str, Any]:
         exists = os.path.exists(project_path)
         is_writable = exists and os.access(project_path, os.W_OK)
 
-    # Get knowledge graph and AI docs directories
-    knowledge_graph_dir, ai_docs_dir = get_special_directories(project_path)
-    logger.info(f"Knowledge graph directory: {knowledge_graph_dir}")
+    # Get AI docs directory
+    _, ai_docs_dir = get_special_directories(project_path)
     logger.info(f"AI docs directory: {ai_docs_dir}")
 
     result = {
         "project_path": project_path,
         "current_directory": current_directory,
         "is_project_path_manually_set": is_manually_set,
-        "knowledge_graph_directory": knowledge_graph_dir,
         "ai_docs_directory": ai_docs_dir,
         "source": source,
         "is_root": is_root,
@@ -165,44 +162,22 @@ def get_project_settings(proposed_path: str = None) -> Dict[str, Any]:
 
 def get_special_directories(project_path: str) -> Tuple[str, str]:
     """
-    Get the knowledge graph and AI docs directories for a given project path.
-    If the directories don't exist, they will be created.
+    Get the AI docs directory for a given project path.
+    If the directory doesn't exist, it will be created.
 
     Args:
         project_path: The project path to find special directories for
 
     Returns:
-        Tuple of (knowledge_graph_directory, ai_docs_directory)
+        Tuple of (knowledge_graph_directory, ai_docs_directory) - first item is kept for backward compatibility
     """
     import logging
 
     logger = logging.getLogger(__name__)
 
-    # Define knowledge graph directory (primarily ai-kngr, with fallbacks)
-    knowledge_graph_dir = os.path.join(project_path, "ai-kngr")
-    if not os.path.exists(knowledge_graph_dir):
-        # Check fallback directories
-        found_fallback = False
-        for fallback in [".kg", ".knowledge"]:
-            fallback_dir = os.path.join(project_path, fallback)
-            if os.path.exists(fallback_dir):
-                knowledge_graph_dir = fallback_dir
-                found_fallback = True
-                logger.info(
-                    f"Using existing knowledge graph directory: {knowledge_graph_dir}"
-                )
-                break
-
-        # No fallback found - create the default directory
-        if not found_fallback:
-            knowledge_graph_dir = os.path.join(project_path, "ai-kngr")
-            try:
-                os.makedirs(knowledge_graph_dir, exist_ok=True)
-                logger.info(f"Created knowledge graph directory: {knowledge_graph_dir}")
-            except Exception as e:
-                logger.warning(f"Failed to create knowledge graph directory: {e}")
-    else:
-        logger.info(f"Using existing knowledge graph directory: {knowledge_graph_dir}")
+    # For backward compatibility, we'll return a dummy value as the first item
+    # But we won't actually create the knowledge graph directory
+    knowledge_graph_dir = ""
 
     # Define AI docs directory (primarily ai-docs, with fallbacks)
     ai_docs_dir = os.path.join(project_path, "ai-docs")

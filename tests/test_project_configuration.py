@@ -136,7 +136,7 @@ def test_get_project_settings_tool():
 
     # Basic verification of the JSON response
     assert "project_path" in settings_data
-    assert "knowledge_graph_directory" in settings_data
+    # Note: knowledge_graph_directory check removed as functionality has been moved to a separate MCP server
     assert os.path.isdir(settings_data["project_path"])
 
     # Verify the new project type and metadata fields are present
@@ -191,8 +191,7 @@ def test_get_project_settings_default_paths(env_cleanup):
     # Verify default paths are set and relate to each other correctly
     project_path = settings_data["project_path"]
 
-    # Knowledge graph directory should be within the project path
-    assert settings_data["knowledge_graph_directory"].startswith(project_path)
+    # Note: knowledge_graph_directory check removed as functionality has been moved to a separate MCP server
 
     # AI docs directory should be within the project path
     assert settings_data["ai_docs_directory"].startswith(project_path)

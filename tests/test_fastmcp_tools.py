@@ -25,7 +25,6 @@ def test_get_project_settings_with_default_path():
     # Check that the result has the expected keys
     assert "project_path" in settings
     assert "current_directory" in settings
-    assert "knowledge_graph_directory" in settings
     assert "ai_docs_directory" in settings
     assert "project_type" in settings
     assert "project_metadata" in settings
@@ -114,31 +113,11 @@ def test_read_graph():
     # Parse the result as JSON
     graph_data = json.loads(result)
     
-    # Check that the result has the expected keys
+    # Check that the result indicates knowledge graph functionality has been moved
     assert "success" in graph_data
-    assert "project_type" in graph_data
-    assert "project_metadata" in graph_data
-    assert "entities" in graph_data
-    assert "relations" in graph_data
-    
-    # Check specific values
-    assert graph_data["success"] is True
-    assert isinstance(graph_data["entities"], list)
-    assert isinstance(graph_data["relations"], list)
-    
-    # Entities should have the expected structure when present
-    if graph_data["entities"]:
-        entity = graph_data["entities"][0]
-        assert "name" in entity
-        assert "entity_type" in entity
-        assert "observations" in entity
-    
-    # Relations should have the expected structure when present  
-    if graph_data["relations"]:
-        relation = graph_data["relations"][0]
-        assert "from_entity" in relation
-        assert "to_entity" in relation
-        assert "relation_type" in relation
+    assert graph_data["success"] is False
+    assert "message" in graph_data
+    assert "Memory graph functionality has been moved" in graph_data["message"]
 
 
 def test_initialize_ide():

@@ -1,7 +1,7 @@
 # Epic-7: Memory Graph Removal
 
 ## Status
-Planning
+Completed
 
 ## Description
 This epic focuses on removing the Memory Graph functionality from the MCP Agile Flow server. The memory graph functionality will be moved to a separate MCP server to reduce clutter and simplify the core MCP Agile Flow implementation. This removal will include all related code, tests, and dependencies to ensure a clean separation.

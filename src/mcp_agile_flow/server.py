@@ -21,7 +21,6 @@ from mcp.server import NotificationOptions, Server, stdio
 from mcp.server.models import InitializationOptions
 
 # Import local modules
-from .memory_graph import register_memory_tools
 from .utils import get_project_settings as get_settings_util  # Rename to avoid conflict
 from .fastmcp_tools import (
     get_project_settings as get_project_settings_fastmcp,
@@ -46,11 +45,6 @@ logger = logging.getLogger(__name__)
 
 # Initialize MCP server globally so it can be imported by IDE plugins
 mcp = Server("agile-flow")  # Must match entry point name in pyproject.toml
-
-# Initialize memory graph tools and manager
-# These will be populated when run() is called
-memory_tools = []
-memory_manager = None
 
 # Export the server instance for MCP plugins
 __mcp__ = mcp
@@ -117,14 +111,28 @@ def parse_greeting_command(message: str) -> Tuple[str, Dict[str, Any]]:
 @mcp.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
     """
-    List available tools.
-    Each tool specifies its arguments using JSON Schema validation.
+    Handler for the list_tools method.
 
     Returns:
-        A list of Tool objects defining the available tools and their arguments.
+        A list of available tools.
     """
-    # Start with the standard tools
+    logger.info("List tools request received")
+
+    # Basic tools
     tools = [
+        types.Tool(
+            name="get-project-settings",
+            description="Get information about the current project settings such as IDE and project path.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "proposed_path": {
+                        "type": "string",
+                        "description": "Proposed project path to use, if not using the current workspace.",
+                    }
+                },
+            },
+        ),
         types.Tool(
             name="migrate-mcp-config",
             description="Migrate MCP configuration between different IDEs with smart merging and conflict resolution.",
@@ -235,20 +243,6 @@ async def handle_list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
-            name="get-project-settings",
-            description="Returns comprehensive project settings including project path, knowledge graph directory, AI docs directory, project type, metadata, and other configuration. Also validates the path to ensure it's safe and writable. If the root directory or a non-writable path is detected, it will automatically use a safe alternative path. Takes an optional 'proposed_path' parameter to check a specific path.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "proposed_path": {
-                        "type": "string",
-                        "description": "Optional path to check. If not provided, standard environment variables or default paths will be used.",
-                    }
-                },
-                "required": [],
-            },
-        ),
-        types.Tool(
             name="get-mermaid-diagram",
             description="Get a Mermaid diagram representation of the knowledge graph",
             inputSchema={
@@ -276,11 +270,21 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["random_string"],
             },
         ),
+        types.Tool(
+            name="list-projects",
+            description="List all projects in the memory bank",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "random_string": {
+                        "type": "string",
+                        "description": "Dummy parameter for no-parameter tools",
+                    }
+                },
+                "required": ["random_string"],
+            },
+        ),
     ]
-
-    # Add memory graph tools if available
-    if "memory_tools" in globals() and memory_tools is not None:
-        tools.extend(memory_tools)
 
     return tools
 
@@ -312,28 +316,6 @@ async def handle_call_tool(
             logger.info(f"Normalized tool name from '{name}' to '{normalized_name}'")
             print(f"DEBUG: Normalized tool name from '{name}' to '{normalized_name}'")
             name = normalized_name
-
-        # Handle memory graph tools
-        if memory_manager is not None and name in memory_tools:
-            # Check if this is a FastMCP-implemented tool
-            if name in [
-                "create-entities", 
-                "create-relations", 
-                "add-observations", 
-                "delete-entities", 
-                "delete-observations", 
-                "delete-relations", 
-                "search-nodes", 
-                "open-nodes",
-                "get-mermaid-diagram",
-                "read-graph"
-            ]:
-                # These tools are implemented using FastMCP and handled below
-                logger.info(f"Using FastMCP implementation for {name} instead of memory_manager")
-                pass  # Continue to the tool-specific logic below
-            else:
-                # These tools are registered by the memory graph manager and not migrated yet
-                return await memory_manager.handle_tool_call(name, arguments)
 
         # First check if this is a FastMCP-implemented tool
         # Currently we only have get-project-settings implemented with FastMCP
@@ -1506,26 +1488,8 @@ async def run_server():
     This sets up the MCP server to communicate over stdin/stdout,
     which allows it to be used with the MCP protocol directly.
     """
-    global memory_tools, memory_manager
-
     logger.info("Starting MCP Agile Flow server (stdin/stdout mode)")
     print("Starting MCP Agile Flow server...", file=sys.stderr)
-
-    # Initialize memory graph tools and manager
-    try:
-        # Register memory tools with the MCP server
-        memory_tools, memory_manager = register_memory_tools(mcp)
-        logger.info(
-            f"Initialized memory graph manager with path: {memory_manager.graph_path}"
-        )
-        print(
-            f"Initialized memory graph manager with path: {memory_manager.graph_path}",
-            file=sys.stderr,
-        )
-    except Exception as e:
-        logger.error(f"Error initializing memory graph manager: {e}")
-        print(f"Error initializing memory graph manager: {e}", file=sys.stderr)
-        # Continue without memory graph functionality
 
     async with stdio.stdio_server() as (read_stream, write_stream):
         await mcp.run(

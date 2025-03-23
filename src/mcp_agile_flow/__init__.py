@@ -11,7 +11,7 @@ Primary tools:
 - migrate-mcp-config: Migrate MCP configuration between different IDEs
 - prime-context: Analyze project AI documentation to build context
 
-Knowledge graph tools:
+FastMCP implementations:
 - create-entities: Create multiple new entities in the knowledge graph
 - create-relations: Create multiple new relations between entities
 - add-observations: Add new observations to existing entities
@@ -27,21 +27,13 @@ Knowledge graph tools:
 __version__ = "0.9.1"
 
 # Expose key modules for external use
-from . import memory_graph, initialize_ide_rules, fastmcp_tools
-
-# For simplified imports
-from .memory_graph import Entity, KnowledgeGraph, KnowledgeGraphManager, Relation
+from . import initialize_ide_rules, fastmcp_tools
 
 # Expose the FastMCP server for direct use
 from . import fastmcp_server
 
 __all__ = [
     "initialize_ide_rules",
-    "memory_graph",
-    "KnowledgeGraphManager",
-    "Entity",
-    "Relation",
-    "KnowledgeGraph",
     "fastmcp_tools",
     "fastmcp_server",
 ]

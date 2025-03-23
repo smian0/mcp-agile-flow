@@ -13,7 +13,6 @@ import re
 import shutil
 
 from .utils import get_project_settings as get_settings_util
-from .memory_graph import KnowledgeGraphManager
 from .migration_tool import (
     detect_conflicts,
     get_conflict_details,
@@ -27,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 def get_project_settings(proposed_path: Optional[str] = None) -> str:
     """
-    Returns comprehensive project settings including project path, knowledge graph directory, 
-    AI docs directory, project type, metadata, and other configuration.
+    Returns comprehensive project settings including project path, AI docs directory, 
+    project type, metadata, and other configuration.
     
     Also validates the path to ensure it's safe and writable. If the root directory or a 
     non-writable path is detected, it will automatically use a safe alternative path.
@@ -48,7 +47,6 @@ def get_project_settings(proposed_path: Optional[str] = None) -> str:
     )
     
     # Add default project type and metadata
-    # In a real implementation, we would get these from memory_manager if available
     response_data["project_type"] = "generic"
     response_data["project_metadata"] = {}
     
@@ -61,90 +59,24 @@ def get_project_settings(proposed_path: Optional[str] = None) -> str:
 
 def get_mermaid_diagram() -> str:
     """
-    Get a Mermaid diagram representation of the knowledge graph.
-    
-    Returns:
-        JSON string containing a Mermaid diagram representation
+    Generate a Mermaid diagram of the knowledge graph.
+    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
     """
-    logger.info("FastMCP: Getting Mermaid diagram representation of knowledge graph")
-    
-    try:
-        # This is a placeholder implementation
-        # In a real implementation, you would:
-        # 1. Import the necessary function to generate the diagram
-        # 2. Call that function to get the diagram data
-        # 3. Format and return it as JSON
-        
-        # Placeholder response
-        response_data = {
-            "success": True,
-            "diagram_type": "mermaid",
-            "content": "graph TD;\nA[Knowledge Graph] --> B[No nodes available];"
-        }
-        
-        # Return as a JSON string to match the expected return type
-        return json.dumps(response_data, indent=2)
-    except Exception as e:
-        logger.error(f"FastMCP: Error getting Mermaid diagram: {str(e)}")
-        
-        # Return error as JSON
-        response_data = {
-            "success": False,
-            "error": str(e)
-        }
-        return json.dumps(response_data, indent=2)
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
+    })
 
 
 def read_graph() -> str:
     """
     Read the entire knowledge graph.
-    
-    Returns:
-        JSON string containing the entire knowledge graph
+    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
     """
-    logger.info("FastMCP: Reading the entire knowledge graph")
-    
-    try:
-        # Create a KnowledgeGraphManager instance
-        manager = KnowledgeGraphManager()
-        
-        # Get the graph data
-        graph = manager.graph
-        
-        # Convert to a serializable format
-        graph_data = {
-            "success": True,
-            "project_type": graph.project_type,
-            "project_metadata": graph.project_metadata,
-            "entities": [
-                {
-                    "name": entity.name,
-                    "entity_type": entity.entity_type,
-                    "observations": entity.observations
-                }
-                for entity in graph.entities
-            ],
-            "relations": [
-                {
-                    "from_entity": relation.from_entity,
-                    "to_entity": relation.to_entity,
-                    "relation_type": relation.relation_type
-                }
-                for relation in graph.relations
-            ]
-        }
-        
-        # Return as a JSON string
-        return json.dumps(graph_data, indent=2)
-    except Exception as e:
-        logger.error(f"FastMCP: Error reading knowledge graph: {str(e)}")
-        
-        # Return error as JSON
-        response_data = {
-            "success": False,
-            "error": str(e)
-        }
-        return json.dumps(response_data, indent=2)
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
+    })
 
 
 def initialize_ide(ide: str = "cursor", project_path: Optional[str] = None) -> str:
@@ -1420,455 +1352,86 @@ def migrate_mcp_config(from_ide: str, to_ide: str, backup: bool = True, conflict
 def create_entities(entities: List[Dict[str, Any]]) -> str:
     """
     Create multiple new entities in the knowledge graph.
-    
-    Args:
-        entities: A list of entity data dictionaries, each containing:
-                 - name: The name of the entity
-                 - entityType: The type of the entity
-                 - observations: Optional list of observation contents
-    
-    Returns:
-        JSON string containing the result of the operation
+    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
     """
-    logger.info(f"FastMCP: Creating {len(entities)} entities in the knowledge graph")
-    
-    try:
-        # Create a KnowledgeGraphManager instance
-        manager = KnowledgeGraphManager()
-        
-        # Call the manager's create_entities method
-        created_entities = manager.create_entities(entities)
-        
-        # Convert the returned entities to a serializable format
-        created_entities_data = [
-            {
-                "name": entity.name,
-                "entity_type": entity.entity_type,
-                "observations": entity.observations
-            }
-            for entity in created_entities
-        ]
-        
-        # Create the response data
-        response_data = {
-            "success": True,
-            "created_entities": created_entities_data,
-            "count": len(created_entities)
-        }
-        
-        # Return as JSON string
-        return json.dumps(response_data, indent=2)
-    
-    except Exception as e:
-        logger.error(f"FastMCP: Error creating entities: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return error as JSON
-        response_data = {
-            "success": False,
-            "error": f"Error creating entities: {str(e)}",
-            "message": "An error occurred while creating entities in the knowledge graph"
-        }
-        return json.dumps(response_data, indent=2)
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
+    })
 
 
 def create_relations(relations: List[Dict[str, str]]) -> str:
     """
     Create multiple new relations between entities in the knowledge graph.
-    
-    Args:
-        relations: A list of relation data dictionaries, each containing:
-                  - from: The name of the entity where the relation starts
-                  - to: The name of the entity where the relation ends
-                  - relationType: The type of the relation
-    
-    Returns:
-        JSON string containing the result of the operation
+    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
     """
-    logger.info(f"FastMCP: Creating {len(relations)} relations in the knowledge graph")
-    
-    try:
-        # Create a KnowledgeGraphManager instance
-        manager = KnowledgeGraphManager()
-        
-        # Call the manager's create_relations method
-        created_relations = manager.create_relations(relations)
-        
-        # Convert the returned relations to a serializable format
-        created_relations_data = [
-            {
-                "from_entity": relation.from_entity,
-                "to_entity": relation.to_entity,
-                "relation_type": relation.relation_type
-            }
-            for relation in created_relations
-        ]
-        
-        # Create the response data
-        response_data = {
-            "success": True,
-            "created_relations": created_relations_data,
-            "count": len(created_relations)
-        }
-        
-        # Return as JSON string
-        return json.dumps(response_data, indent=2)
-    
-    except Exception as e:
-        logger.error(f"FastMCP: Error creating relations: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return error as JSON
-        response_data = {
-            "success": False,
-            "error": f"Error creating relations: {str(e)}",
-            "message": "An error occurred while creating relations in the knowledge graph"
-        }
-        return json.dumps(response_data, indent=2)
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
+    })
 
 
 def add_observations(observations: List[Dict[str, Any]]) -> str:
     """
     Add new observations to existing entities in the knowledge graph.
-    
-    Args:
-        observations: A list of observation data dictionaries, each containing:
-                     - entityName: The name of the entity to add the observations to
-                     - contents: A list of observation contents to add
-    
-    Returns:
-        JSON string containing the result of the operation
+    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
     """
-    logger.info(f"FastMCP: Adding observations to {len(observations)} entities in the knowledge graph")
-    
-    try:
-        # Create a KnowledgeGraphManager instance
-        manager = KnowledgeGraphManager()
-        
-        # Call the manager's add_observations method
-        result = manager.add_observations(observations)
-        
-        # Create the response data
-        response_data = {
-            "success": True,
-            "results": result,
-            "entities_updated": len(result)
-        }
-        
-        # Return as JSON string
-        return json.dumps(response_data, indent=2)
-    
-    except Exception as e:
-        logger.error(f"FastMCP: Error adding observations: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return error as JSON
-        response_data = {
-            "success": False,
-            "error": f"Error adding observations: {str(e)}",
-            "message": "An error occurred while adding observations in the knowledge graph"
-        }
-        return json.dumps(response_data, indent=2)
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
+    })
 
 
 def delete_entities(entityNames: List[str]) -> str:
     """
     Delete multiple entities and their associated relations from the knowledge graph.
-    
-    Args:
-        entityNames: A list of entity names to delete
-    
-    Returns:
-        JSON string containing the result of the operation
+    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
     """
-    logger.info(f"FastMCP: Deleting {len(entityNames)} entities from the knowledge graph")
-    
-    try:
-        # Create a KnowledgeGraphManager instance
-        manager = KnowledgeGraphManager()
-        
-        # Count entities and relations before deletion
-        entities_before = len(manager.graph.entities)
-        relations_before = len(manager.graph.relations)
-        
-        # Call the manager's delete_entities method
-        updated_graph = manager.delete_entities(entityNames)
-        
-        # Count entities and relations after deletion
-        entities_after = len(updated_graph.entities)
-        relations_after = len(updated_graph.relations)
-        
-        # Create the response data
-        response_data = {
-            "success": True,
-            "entities_deleted": entities_before - entities_after,
-            "related_relations_deleted": relations_before - relations_after,
-            "deleted_entity_names": entityNames
-        }
-        
-        # Return as JSON string
-        return json.dumps(response_data, indent=2)
-    
-    except Exception as e:
-        logger.error(f"FastMCP: Error deleting entities: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return error as JSON
-        response_data = {
-            "success": False,
-            "error": f"Error deleting entities: {str(e)}",
-            "message": "An error occurred while deleting entities from the knowledge graph"
-        }
-        return json.dumps(response_data, indent=2)
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
+    })
 
 
 def delete_observations(deletions: List[Dict[str, Any]]) -> str:
     """
     Delete specific observations from entities in the knowledge graph.
-    
-    Args:
-        deletions: A list of deletion data dictionaries, each containing:
-                  - entityName: The name of the entity containing the observations
-                  - observations: A list of observations to delete
-    
-    Returns:
-        JSON string containing the result of the operation
+    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
     """
-    logger.info(f"FastMCP: Deleting observations from {len(deletions)} entities in the knowledge graph")
-    
-    try:
-        # Create a KnowledgeGraphManager instance
-        manager = KnowledgeGraphManager()
-        
-        # Count observations before deletion
-        observation_counts_before = {}
-        for deletion in deletions:
-            entity_name = deletion["entityName"]
-            entity = next((e for e in manager.graph.entities if e.name == entity_name), None)
-            if entity:
-                observation_counts_before[entity_name] = len(entity.observations)
-        
-        # Call the manager's delete_observations method
-        updated_graph = manager.delete_observations(deletions)
-        
-        # Count observations after deletion and calculate deleted counts
-        result_data = []
-        for deletion in deletions:
-            entity_name = deletion["entityName"]
-            entity = next((e for e in updated_graph.entities if e.name == entity_name), None)
-            if entity and entity_name in observation_counts_before:
-                observations_deleted = observation_counts_before[entity_name] - len(entity.observations)
-                result_data.append({
-                    "entityName": entity_name,
-                    "observations_deleted": observations_deleted
-                })
-        
-        # Create the response data
-        response_data = {
-            "success": True,
-            "results": result_data,
-            "entities_updated": len(result_data)
-        }
-        
-        # Return as JSON string
-        return json.dumps(response_data, indent=2)
-    
-    except Exception as e:
-        logger.error(f"FastMCP: Error deleting observations: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return error as JSON
-        response_data = {
-            "success": False,
-            "error": f"Error deleting observations: {str(e)}",
-            "message": "An error occurred while deleting observations from the knowledge graph"
-        }
-        return json.dumps(response_data, indent=2)
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
+    })
 
 
 def delete_relations(relations: List[Dict[str, str]]) -> str:
     """
     Delete multiple relations from the knowledge graph.
-    
-    Args:
-        relations: A list of relation data dictionaries, each containing:
-                  - from: The name of the entity where the relation starts
-                  - to: The name of the entity where the relation ends
-                  - relationType: The type of the relation
-    
-    Returns:
-        JSON string containing the result of the operation
+    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
     """
-    logger.info(f"FastMCP: Deleting {len(relations)} relations from the knowledge graph")
-    
-    try:
-        # Create a KnowledgeGraphManager instance
-        manager = KnowledgeGraphManager()
-        
-        # Count relations before deletion
-        relations_before = len(manager.graph.relations)
-        
-        # Call the manager's delete_relations method
-        updated_graph = manager.delete_relations(relations)
-        
-        # Count relations after deletion
-        relations_after = len(updated_graph.relations)
-        
-        # Create the response data
-        response_data = {
-            "success": True,
-            "relations_deleted": relations_before - relations_after,
-            "requested_deletions": len(relations)
-        }
-        
-        # Return as JSON string
-        return json.dumps(response_data, indent=2)
-    
-    except Exception as e:
-        logger.error(f"FastMCP: Error deleting relations: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return error as JSON
-        response_data = {
-            "success": False,
-            "error": f"Error deleting relations: {str(e)}",
-            "message": "An error occurred while deleting relations from the knowledge graph"
-        }
-        return json.dumps(response_data, indent=2)
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
+    })
 
 
 def search_nodes(query: str) -> str:
     """
     Search for nodes in the knowledge graph based on a query.
-    
-    Args:
-        query: The search query to match against entity names, types, and observation content
-    
-    Returns:
-        JSON string containing the result of the operation
+    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
     """
-    logger.info(f"FastMCP: Searching for nodes matching query: {query}")
-    
-    try:
-        # Create a KnowledgeGraphManager instance
-        manager = KnowledgeGraphManager()
-        
-        # Call the manager's search_nodes method
-        result_graph = manager.search_nodes(query)
-        
-        # Convert the returned graph to a serializable format
-        entity_data = [
-            {
-                "name": entity.name,
-                "entity_type": entity.entity_type,
-                "observations": entity.observations
-            }
-            for entity in result_graph.entities
-        ]
-        
-        relation_data = [
-            {
-                "from_entity": relation.from_entity,
-                "to_entity": relation.to_entity,
-                "relation_type": relation.relation_type
-            }
-            for relation in result_graph.relations
-        ]
-        
-        # Create the response data
-        response_data = {
-            "success": True,
-            "query": query,
-            "entities_found": len(entity_data),
-            "relations_found": len(relation_data),
-            "entities": entity_data,
-            "relations": relation_data
-        }
-        
-        # Return as JSON string
-        return json.dumps(response_data, indent=2)
-    
-    except Exception as e:
-        logger.error(f"FastMCP: Error searching nodes: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return error as JSON
-        response_data = {
-            "success": False,
-            "error": f"Error searching nodes: {str(e)}",
-            "message": "An error occurred while searching the knowledge graph"
-        }
-        return json.dumps(response_data, indent=2)
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
+    })
 
 
 def open_nodes(names: List[str]) -> str:
     """
     Open specific nodes in the knowledge graph by their names.
-    
-    Args:
-        names: A list of entity names to retrieve
-    
-    Returns:
-        JSON string containing the result of the operation
+    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
     """
-    logger.info(f"FastMCP: Opening {len(names)} nodes from the knowledge graph")
-    
-    try:
-        # Create a KnowledgeGraphManager instance
-        manager = KnowledgeGraphManager()
-        
-        # Call the manager's open_nodes method
-        result_graph = manager.open_nodes(names)
-        
-        # Convert the returned graph to a serializable format
-        entity_data = [
-            {
-                "name": entity.name,
-                "entity_type": entity.entity_type,
-                "observations": entity.observations
-            }
-            for entity in result_graph.entities
-        ]
-        
-        relation_data = [
-            {
-                "from_entity": relation.from_entity,
-                "to_entity": relation.to_entity,
-                "relation_type": relation.relation_type
-            }
-            for relation in result_graph.relations
-        ]
-        
-        # Create the response data
-        response_data = {
-            "success": True,
-            "entities_found": len(entity_data),
-            "relations_found": len(relation_data),
-            "entities": entity_data,
-            "relations": relation_data,
-            "requested_entities": names,
-            "missing_entities": [name for name in names if name not in [e["name"] for e in entity_data]]
-        }
-        
-        # Return as JSON string
-        return json.dumps(response_data, indent=2)
-    
-    except Exception as e:
-        logger.error(f"FastMCP: Error opening nodes: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return error as JSON
-        response_data = {
-            "success": False,
-            "error": f"Error opening nodes: {str(e)}",
-            "message": "An error occurred while retrieving nodes from the knowledge graph"
-        }
-        return json.dumps(response_data, indent=2) 
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
+    }) 
