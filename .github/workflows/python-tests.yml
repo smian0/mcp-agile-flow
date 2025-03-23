@@ -48,7 +48,7 @@ jobs:
         coverage-badge -o coverage.svg -f
     
     - name: Upload coverage report as artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4.6.2
       with:
         name: coverage-report-python${{ matrix.python-version }}
         path: |
@@ -74,21 +74,21 @@ jobs:
     
     steps:
     - name: Download coverage artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4.2.1
       with:
         name: coverage-report-python3.10
         
     - name: Setup Pages
-      uses: actions/configure-pages@v4
+      uses: actions/configure-pages@v5.0.0
       
     - name: Upload Pages artifact
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@v3.0.1
       with:
         path: 'htmlcov/'
         
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v4
+      uses: actions/deploy-pages@v4.0.5
       
     - name: Copy coverage badge to repo
       uses: actions/checkout@v4.2.2
@@ -101,7 +101,7 @@ jobs:
         cp coverage.svg badges/
         
     - name: Commit and push badge
-      uses: EndBug/add-and-commit@v9
+      uses: EndBug/add-and-commit@v9.1.4
       with:
         add: 'badges/coverage.svg'
         message: 'Update coverage badge'
