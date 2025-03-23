@@ -6,9 +6,10 @@ import json
 import os
 import pytest
 import tempfile
-from unittest.mock import patch
+from unittest.mock import patch, mock_open
 from pathlib import Path
 import shutil
+import logging
 
 from mcp_agile_flow.fastmcp_tools import get_project_settings, read_graph, initialize_ide
 
@@ -177,4 +178,48 @@ def test_initialize_ide():
         assert data["rules_directory"] is None
         
         # Check for windsurf-specific field
-        assert data["initialized_windsurf"] is True 
+        assert data["initialized_windsurf"] is True
+
+
+def test_prime_context():
+    """Test the prime_context function."""
+    # Create a temporary directory to use as project path
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Call prime_context with the temporary directory 
+        from mcp_agile_flow.fastmcp_tools import prime_context
+        result = prime_context(project_path=temp_dir)
+        data = json.loads(result)
+        
+        # Check the response structure
+        assert "context" in data
+        assert "summary" in data
+        
+        # Check that context contains project info even when no files exist
+        assert "project" in data["context"]
+        assert "name" in data["context"]["project"]
+        assert "status" in data["context"]["project"]
+        
+        # Check summary - should contain basic project info
+        assert isinstance(data["summary"], str)
+        assert "Project: " in data["summary"]
+        assert "Status: " in data["summary"]
+        
+        # Test with different depth parameter
+        result = prime_context(depth="minimal", project_path=temp_dir)
+        minimal_data = json.loads(result)
+        assert "context" in minimal_data
+        assert "summary" in minimal_data 
+
+def test_migrate_mcp_config_structure():
+    """Test that the migrate_mcp_config function returns well-formed JSON."""
+    from mcp_agile_flow.fastmcp_tools import migrate_mcp_config
+    
+    # Even if there's an error, the function should return valid JSON
+    result = migrate_mcp_config("cursor", "windsurf")
+    
+    # Parse the result to ensure it's valid JSON
+    data = json.loads(result)
+    
+    # Check basic structure
+    assert isinstance(data, dict)
+    assert "success" in data  # All responses should have a success field 
