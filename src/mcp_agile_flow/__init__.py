@@ -27,10 +27,13 @@ Knowledge graph tools:
 __version__ = "0.9.1"
 
 # Expose key modules for external use
-from . import memory_graph, initialize_ide_rules
+from . import memory_graph, initialize_ide_rules, fastmcp_tools
 
 # For simplified imports
 from .memory_graph import Entity, KnowledgeGraph, KnowledgeGraphManager, Relation
+
+# Expose the FastMCP server for direct use
+from . import fastmcp_server
 
 __all__ = [
     "initialize_ide_rules",
@@ -39,4 +42,6 @@ __all__ = [
     "Entity",
     "Relation",
     "KnowledgeGraph",
+    "fastmcp_tools",
+    "fastmcp_server",
 ]

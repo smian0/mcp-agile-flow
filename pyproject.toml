@@ -81,9 +81,11 @@ ignore_missing_imports = true  # Ignore import errors for missing type stubs
 
 [project.scripts]
 mcp-agile-flow = "mcp_agile_flow.server:run"
+mcp-agile-flow-fastmcp = "mcp_agile_flow.fastmcp_server:run"
 
 [project.entry-points."mcp.servers"]
 agile-flow = "mcp_agile_flow.server:run"
+agile-flow-fastmcp = "mcp_agile_flow.fastmcp_server:run"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_agile_flow"]
@@ -94,3 +96,4 @@ packages = ["src/mcp_agile_flow"]
 [tool.hatch.build.targets.wheel.forced-include]
 "src/mcp_agile_flow/cursor_rules" = "mcp_agile_flow/cursor_rules"
 "src/mcp_agile_flow/cursor_templates" = "mcp_agile_flow/cursor_templates"
+"new_server.py" = "new_server.py"
