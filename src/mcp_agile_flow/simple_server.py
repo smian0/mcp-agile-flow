@@ -464,16 +464,45 @@ async def handle_call_tool(
                 ]
 
             try:
-                # Get project path
-                project_settings = get_project_settings(
-                    proposed_path=arguments.get("project_path") if arguments else None
-                )
-                project_path = project_settings["project_path"]
-                source = project_settings["source"]
+                # Determine project path with improved handling of current directory
+                if arguments.get("project_path"):
+                    # Explicit path provided - use get_project_settings to validate it
+                    project_settings = get_project_settings(
+                        proposed_path=arguments.get("project_path")
+                    )
+                    project_path = project_settings["project_path"]
+                    source = project_settings["source"]
+                elif os.environ.get("PROJECT_PATH"):
+                    # Environment variable set - use get_project_settings to validate it
+                    project_settings = get_project_settings()
+                    project_path = project_settings["project_path"]
+                    source = project_settings["source"]
+                else:
+                    # No path specified - use current working directory directly
+                    project_path = os.getcwd()
+                    source = "current working directory (direct)"
+                    
+                    # Check if it's root and handle that case
+                    if project_path == "/" or project_path == "\\":
+                        # Handle case where the path is problematic
+                        response_data = {
+                            "error": "Current directory is the root directory. Please provide a specific project path.",
+                            "status": "error",
+                            "needs_user_input": True,
+                            "current_directory": "/",
+                            "is_root": True,
+                            "message": "Please provide a specific project path using the 'project_path' argument.",
+                            "success": False,
+                        }
+                        return [
+                            create_text_response(
+                                json.dumps(response_data, indent=2), is_error=True
+                            )
+                        ]
 
-                print(
-                    f"initialize-ide using project_path from {source}: {project_path}"
-                )
+                # Log the determined path
+                logger.info(f"initialize-ide using project_path from {source}: {project_path}")
+                print(f"initialize-ide using project_path from {source}: {project_path}")
 
                 # Create directory structure if it doesn't exist
                 os.makedirs(os.path.join(project_path, "ai-docs"), exist_ok=True)
@@ -609,14 +638,47 @@ async def handle_call_tool(
                     )
                 ]
         elif name == "initialize-ide-rules":
-            # Get a safe project path using the utility function
+            # Get a safe project path using the utility function with improved handling
             try:
-                project_settings = get_project_settings(
-                    proposed_path=arguments.get("project_path") if arguments else None
-                )
-                project_path = project_settings["project_path"]
-                source = project_settings["source"]
+                # Determine project path with improved handling of current directory
+                if arguments and arguments.get("project_path"):
+                    # Explicit path provided - use get_project_settings to validate it
+                    project_settings = get_project_settings(
+                        proposed_path=arguments.get("project_path")
+                    )
+                    project_path = project_settings["project_path"]
+                    source = project_settings["source"]
+                elif os.environ.get("PROJECT_PATH"):
+                    # Environment variable set - use get_project_settings to validate it
+                    project_settings = get_project_settings()
+                    project_path = project_settings["project_path"]
+                    source = project_settings["source"]
+                else:
+                    # No path specified - use current working directory directly
+                    project_path = os.getcwd()
+                    source = "current working directory (direct)"
+                    
+                    # Check if it's root and handle that case
+                    if project_path == "/" or project_path == "\\":
+                        # Handle case where the path is problematic
+                        response_data = {
+                            "error": "Current directory is the root directory. Please provide a specific project path.",
+                            "status": "error",
+                            "needs_user_input": True,
+                            "current_directory": "/",
+                            "is_root": True,
+                            "message": "Please provide a specific project path using the 'project_path' argument.",
+                            "success": False,
+                        }
+                        return [
+                            create_text_response(
+                                json.dumps(response_data, indent=2), is_error=True
+                            )
+                        ]
+
+                # Log the determined path
                 logger.info(f"Using project_path from {source}: {project_path}")
+                print(f"{name} using project_path from {source}: {project_path}")
             except Exception as e:
                 # Handle case where the path is problematic
                 current_dir = os.getcwd()
