@@ -12,6 +12,7 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
+from unittest import mock, skip
 
 import pytest
 
@@ -24,7 +25,7 @@ src_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(src_dir))
 
 # Import MCP-related functions
-from src.mcp_agile_flow.adapter import call_tool, call_tool_sync
+from src.mcp_agile_flow import call_tool, call_tool_sync
 
 @pytest.mark.asyncio
 async def test_get_project_settings():

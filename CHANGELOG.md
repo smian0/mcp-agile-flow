@@ -11,6 +11,7 @@
 - Deleted archived test files and legacy scripts
 - Removed deprecated mermaid graph functionality stubs and tests
 - Removed migration-related files and test scripts
+- Removed `adapter.py` in favor of direct implementation in `__init__.py`
 
 ### New Features
 
@@ -18,6 +19,7 @@
 - Improved error handling in the adapter
 - Better synchronous and asynchronous support in the adapter
 - Added `clean-archived` Makefile target for easy cleanup
+- Simplified architecture by removing redundant adapter layer
 
 ### Fixes
 
@@ -25,6 +27,7 @@
 - Fixed import paths in all modules
 - Simplified server configuration
 - Updated installation script to use new module path and remove deprecated tools
+- Improved maintainability by following standard FastMCP patterns
 
 ### Other Changes
 
@@ -33,6 +36,7 @@
 - Updated documentation
 - Simplified project structure
 - Migrated memory graph functionality to a separate MCP server
+- Refactored code to align with official FastMCP implementation examples
 
 ## [Unreleased]
 

@@ -9,9 +9,10 @@ import tempfile
 import pytest
 import json
 from pathlib import Path
+from unittest import mock
 
 # Import the adapter instead of server
-from src.mcp_agile_flow.adapter import call_tool, call_tool_sync
+from src.mcp_agile_flow import call_tool, call_tool_sync
 
 # Set up test environment
 os.environ["PYTEST_ENV_VAR_TEST"] = "true"

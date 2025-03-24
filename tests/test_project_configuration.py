@@ -14,9 +14,11 @@ import tempfile
 from pathlib import Path
 import logging
 import pytest
+import json
+from unittest import mock
 
 # Update imports to use the adapter
-from src.mcp_agile_flow.adapter import call_tool, call_tool_sync
+from src.mcp_agile_flow import call_tool, call_tool_sync
 from src.mcp_agile_flow.utils import get_project_settings
 
 # Configure logging

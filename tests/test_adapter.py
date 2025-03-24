@@ -1,37 +1,68 @@
 """
-Tests for the production adapter.
-
-This file tests the adapter.py file which provides a convenient interface
-to the FastMCP functionality.
+Tests for the MCP Agile Flow Tool API
 """
-
-import asyncio
+import json
 import pytest
-from pathlib import Path
+from unittest import mock
+
+from src.mcp_agile_flow import call_tool, call_tool_sync, SUPPORTED_TOOLS
+
 
 @pytest.mark.asyncio
-async def test_adapter_functionality():
-    """Test that the adapter can call tools successfully."""
-    # Import the adapter
-    from src.mcp_agile_flow.adapter import call_tool
+async def test_call_tool_for_supported_tool():
+    """Test that calling a supported tool works correctly."""
+    tool_name = "get-project-settings"
     
-    # Call a simple tool
-    result = await call_tool("get-project-settings", {})
+    # Mock the get_project_settings function to avoid real implementation
+    mock_result = {"success": True, "data": {"project_path": "/test/path"}}
     
-    # Check that the result has the expected structure
-    assert "project_path" in result
-    assert "current_directory" in result
-    assert Path(result["project_path"]).exists()
+    with mock.patch('src.mcp_agile_flow.fastmcp_tools.get_project_settings', 
+                   return_value=json.dumps(mock_result)):
+        result = await call_tool(tool_name)
+    
+    assert isinstance(result, dict)
+    assert result["success"] is True
 
-def test_adapter_sync_version():
-    """Test the synchronous version of the adapter."""
-    # Import the adapter
-    from src.mcp_agile_flow.adapter import call_tool_sync
+
+def test_call_tool_sync():
+    """Test that the synchronous version works correctly."""
+    tool_name = "get-project-settings"
     
-    # Call a simple tool
-    result = call_tool_sync("get-project-settings", {})
+    # Mock the get_project_settings function to avoid real implementation
+    mock_result = {"success": True, "data": {"project_path": "/test/path"}}
     
-    # Check that the result has the expected structure
-    assert "project_path" in result
-    assert "current_directory" in result
-    assert Path(result["project_path"]).exists() 
+    with mock.patch('src.mcp_agile_flow.fastmcp_tools.get_project_settings', 
+                   return_value=json.dumps(mock_result)):
+        result = call_tool_sync(tool_name)
+    
+    assert isinstance(result, dict)
+    assert result["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_call_tool_for_unsupported_tool():
+    """Test that calling an unsupported tool returns an error."""
+    tool_name = "unsupported-tool"
+    
+    result = await call_tool(tool_name)
+    
+    assert isinstance(result, dict)
+    assert result["success"] is False
+    assert "not supported" in result["error"]
+    assert all(tool in result["error"] for tool in SUPPORTED_TOOLS)
+
+
+@pytest.mark.asyncio
+async def test_call_tool_handles_exceptions():
+    """Test that exceptions in tool execution are properly handled."""
+    tool_name = "get-project-settings"
+    
+    # Mock the get_project_settings function to raise an exception
+    with mock.patch('src.mcp_agile_flow.fastmcp_tools.get_project_settings', 
+                   side_effect=ValueError("Test error")):
+        result = await call_tool(tool_name)
+    
+    assert isinstance(result, dict)
+    assert result["success"] is False
+    assert "Error processing tool" in result["error"]
+    assert "Test error" in result["error"] 
