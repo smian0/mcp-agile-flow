@@ -6,8 +6,7 @@ import sys
 import logging
 from typing import Optional
 
-from fastmcp import FastMCPServer
-from .fastmcp_tools import register_tools
+from fastmcp.server import FastMCP
 from .version import __version__
 
 
@@ -42,8 +41,23 @@ def main(debug: bool = False) -> Optional[int]:
         configure_logging()
     
     # Create and run the server
-    server = FastMCPServer()
-    register_tools(server)
+    server = FastMCP(name="mcp-agile-flow")
+    
+    # Import all tools directly and register them with the server
+    from .fastmcp_tools import (
+        get_project_settings,
+        initialize_ide,
+        initialize_ide_rules,
+        prime_context,
+        migrate_mcp_config
+    )
+    
+    # Register tools with the server
+    server.tool(name="get-project-settings")(get_project_settings)
+    server.tool(name="initialize-ide")(initialize_ide)
+    server.tool(name="initialize-ide-rules")(initialize_ide_rules)
+    server.tool(name="prime-context")(prime_context)
+    server.tool(name="migrate-mcp-config")(migrate_mcp_config)
     
     try:
         server.start()

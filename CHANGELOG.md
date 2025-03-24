@@ -8,12 +8,14 @@
 - Removed all direct imports from `server.py`
 - Updated adapter to use FastMCP implementation only
 - Changed import paths to remove `src.` prefix
+- Deleted archived test files and legacy scripts
 
 ### New Features
 
 - Added version information and command-line version checking
 - Improved error handling in the adapter
 - Better synchronous and asynchronous support in the adapter
+- Added `clean-archived` Makefile target for easy cleanup
 
 ### Fixes
 
@@ -23,7 +25,8 @@
 
 ### Other Changes
 
-- Archived legacy test files
+- Archived and then removed legacy test files
+- Created backup system for archived files
 - Updated documentation
 - Simplified project structure
 

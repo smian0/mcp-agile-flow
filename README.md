@@ -6,7 +6,7 @@ A comprehensive system for managing AI-assisted agile development workflows.
 
 ## Status
 
-✅ **Server Migration Complete**: The migration from legacy server to FastMCP implementation is complete.
+✅ **Migration Complete**: The migration from legacy server to FastMCP implementation is fully complete. All legacy code and tests have been removed.
 
 ## Key Features
 
@@ -69,6 +69,14 @@ To set up for development:
 4. Run tests:
    ```
    pytest
+   ```
+
+5. Common Makefile commands:
+   ```
+   make test         # Run tests
+   make coverage     # Generate coverage report
+   make clean        # Clean build artifacts
+   make clean-archived  # Remove archived legacy files
    ```
 
 ## License

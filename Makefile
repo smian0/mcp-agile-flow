@@ -1,7 +1,7 @@
 # MCP Agile Flow - Makefile
 # -------------------------
 
-.PHONY: help venv install test test-coverage coverage test-kg test-core test-full test-agent test-via-agent run-server setup-cursor clean clean-all quality format lint type-check fix-lint setup-quality all
+.PHONY: help venv install test test-coverage coverage test-kg test-core test-full test-agent test-via-agent run-server setup-cursor clean clean-all clean-archived quality format lint type-check fix-lint setup-quality all
 
 # Configuration
 # -------------
@@ -38,6 +38,7 @@ help:
 	@echo "setup-quality:    Set up quality tools (formatting, linting, type checking)"
 	@echo "clean:            Remove build artifacts and cache files"
 	@echo "clean-all:        Remove build artifacts, cache files, and virtual environment"
+	@echo "clean-archived:   Remove archived files (creates backup first)"
 	@echo "quality:          Run all code quality checks (formatting, linting, type checking)"
 	@echo "format:           Run code formatting with Black"
 	@echo "lint:             Run code linting with Ruff and Flake8"
@@ -157,6 +158,11 @@ clean:
 # Remove everything including the virtual environment
 clean-all: clean
 	rm -rf $(VENV_DIR)
+
+# Remove archived files (with backup)
+clean-archived:
+	@echo "Running cleanup script for archived files..."
+	chmod +x scripts/cleanup_archives.sh && ./scripts/cleanup_archives.sh
 
 # Code quality
 # ------------
