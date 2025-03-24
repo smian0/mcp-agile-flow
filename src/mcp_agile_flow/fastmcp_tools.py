@@ -20,6 +20,7 @@ from .migration_tool import (
     migrate_config,
     merge_configurations,
 )
+from .think_tool import think, get_thoughts, clear_thoughts, get_thought_stats
 
 # Set up logging
 logger = logging.getLogger(__name__)

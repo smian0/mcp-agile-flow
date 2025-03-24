@@ -26,7 +26,11 @@ SUPPORTED_TOOLS = [
     "initialize-ide-rules",
     "get-project-settings",
     "prime-context", 
-    "migrate-mcp-config"
+    "migrate-mcp-config",
+    "think",
+    "get-thoughts",
+    "clear-thoughts",
+    "get-thought-stats"
 ]
 
 async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -58,7 +62,11 @@ async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, An
             initialize_ide,
             initialize_ide_rules,
             prime_context,
-            migrate_mcp_config
+            migrate_mcp_config,
+            think,
+            get_thoughts,
+            clear_thoughts,
+            get_thought_stats
         )
         
         # Call the appropriate function based on the tool name
@@ -72,6 +80,14 @@ async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, An
             result = prime_context(**arguments)
         elif name == "migrate-mcp-config":
             result = migrate_mcp_config(**arguments)
+        elif name == "think":
+            result = think(**arguments)
+        elif name == "get-thoughts":
+            result = get_thoughts()
+        elif name == "clear-thoughts":
+            result = clear_thoughts()
+        elif name == "get-thought-stats":
+            result = get_thought_stats()
         else:
             raise ValueError(f"Unknown tool: {name}")
             

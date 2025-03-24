@@ -111,6 +111,10 @@ The MCP Agile Flow provides several tools:
 - `initialize-ide-rules`: Initialize AI rule files for specific IDEs
 - `prime-context`: Analyze project documentation and build contextual understanding
 - `migrate-mcp-config`: Migrate MCP configuration between different IDEs
+- `think`: Record a thought for complex reasoning and step-by-step analysis
+- `get-thoughts`: Retrieve all thoughts recorded in the current session
+- `clear-thoughts`: Clear all recorded thoughts from the current session
+- `get-thought-stats`: Get statistics about the thoughts recorded in the current session
 
 ## Development
 

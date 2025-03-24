@@ -49,7 +49,11 @@ def main(debug: bool = False) -> Optional[int]:
         initialize_ide,
         initialize_ide_rules,
         prime_context,
-        migrate_mcp_config
+        migrate_mcp_config,
+        think,
+        get_thoughts,
+        clear_thoughts,
+        get_thought_stats
     )
     
     # Register tools with the server
@@ -58,6 +62,10 @@ def main(debug: bool = False) -> Optional[int]:
     server.tool(name="initialize-ide-rules")(initialize_ide_rules)
     server.tool(name="prime-context")(prime_context)
     server.tool(name="migrate-mcp-config")(migrate_mcp_config)
+    server.tool(name="think")(think)
+    server.tool(name="get-thoughts")(get_thoughts)
+    server.tool(name="clear-thoughts")(clear_thoughts)
+    server.tool(name="get-thought-stats")(get_thought_stats)
     
     try:
         server.run()
