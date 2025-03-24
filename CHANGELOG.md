@@ -12,6 +12,8 @@
 - Removed deprecated mermaid graph functionality stubs and tests
 - Removed migration-related files and test scripts
 - Removed `adapter.py` in favor of direct implementation in `__init__.py`
+- MCP client configuration updated: references to `mcp_agile_flow.fastmcp_server` should be changed to `mcp_agile_flow`
+- Updated Cursor MCP configuration in mcp.json to use `mcp_agile_flow` instead of `mcp_agile_flow.fastmcp_server`
 
 ### New Features
 
@@ -29,6 +31,8 @@
 - Updated installation script to use new module path and remove deprecated tools
 - Improved maintainability by following standard FastMCP patterns
 - Renamed misleading test function to better reflect its purpose
+- Fixed incompatible API usage in the CLI: replaced `server.start()` with `server.run()`
+- Improved maintainability with consistent code style
 
 ### Other Changes
 
@@ -40,6 +44,16 @@
 - Refactored code to align with official FastMCP implementation examples
 - Removed obsolete memory graph stub functions from fastmcp_tools.py
 - Removed non-existent `get-safe-project-path` tool reference from supported tools list
+- Removed redundant `fastmcp_server.py` file that duplicated functionality in `__main__.py`
+- Refactored imports in `__init__.py` for better code organization and readability
+- Documentation updates in README.md and docstrings
+- Project structure simplification
+- Removal of legacy files and redundant code
+- Removed `adapter.py` and integrated functionality directly into `__init__.py`
+- Removed redundant `fastmcp_server.py`
+- Improved import structure in `__init__.py`
+- Fixed asyncio deprecation warning in `call_tool_sync` function
+- Updated Makefile test-core target to reference existing tests
 
 ## [Unreleased]
 

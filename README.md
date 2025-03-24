@@ -2,11 +2,19 @@
 
 [![Coverage](https://github.com/yourusername/mcp-agile-flow/raw/main/badges/coverage.svg)](https://yourusername.github.io/mcp-agile-flow/)
 
-A comprehensive system for managing AI-assisted agile development workflows.
+A comprehensive system for managing AI-assisted agile development workflows with a modern, resource-based API using FastMCP.
 
 ## Status
 
 ✅ **Migration Complete**: The migration from legacy server to FastMCP implementation is fully complete. All legacy code and tests have been removed.
+
+## Overview
+
+The MCP Agile Flow project uses a resource-based approach with FastMCP from the official MCP SDK, focusing on:
+
+- **RESTful API Design** - Clean, intuitive resource URIs for data access
+- **Resource-First Architecture** - Optimized for data retrieval and state representation
+- **Action-Oriented Tools** - Tools used only for operations that modify state
 
 ## Key Features
 
@@ -14,6 +22,9 @@ A comprehensive system for managing AI-assisted agile development workflows.
 - **Project Structure**: Organize your project with AI-generated files and directories
 - **IDE Integration**: Direct integration with various AI IDEs (Cursor, Windsurf, Cline)
 - **Workflow Management**: Track agile stories and progress
+- **Intuitive API Structure**: Resources organized in a RESTful hierarchy
+- **Simplified Integration**: Direct mapping to resource URIs
+- **Improved Performance**: Optimized for data access patterns
 
 ## Getting Started
 
@@ -34,6 +45,62 @@ To use MCP Agile Flow:
    # Or use sync interface
    result = call_tool_sync("get-project-settings", {})
    ```
+
+## MCP Client Configuration
+
+### Important: Configuration Update Required
+
+If you had previously configured MCP Agile Flow, you need to update your configuration. The `fastmcp_server.py` module has been removed as part of code cleanup, and functionality has been consolidated into the main package.
+
+Update your MCP client configuration from:
+
+```json
+{
+    "name": "mcp-agile-flow",
+    "server": {
+        "type": "module",
+        "module": "mcp_agile_flow.fastmcp_server",
+        "entry_point": "run"
+    }
+}
+```
+
+To:
+
+```json
+{
+    "name": "mcp-agile-flow",
+    "server": {
+        "type": "module",
+        "module": "mcp_agile_flow",
+        "entry_point": "main"
+    }
+}
+```
+
+For Cursor users, also update the mcp.json file (typically at ~/.cursor/mcp.json):
+
+```json
+"mcp-agile-flow": {
+  "command": "/path/to/python",
+  "args": [
+    "-m",
+    "mcp_agile_flow"  // Updated from "mcp_agile_flow.fastmcp_server"
+  ],
+  "autoApprove": [
+    // ...
+  ]
+}
+```
+
+### Command Line Usage
+
+You can also run the server directly from the command line:
+
+```bash
+# Using Python
+python -m mcp_agile_flow
+```
 
 ## Available Tools
 
@@ -76,6 +143,7 @@ To set up for development:
    make test         # Run tests
    make coverage     # Generate coverage report
    make clean        # Clean build artifacts
+   make clean-all    # Clean everything including venv
    make clean-archived  # Remove archived legacy files
    ```
 

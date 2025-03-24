@@ -60,7 +60,7 @@ def main(debug: bool = False) -> Optional[int]:
     server.tool(name="migrate-mcp-config")(migrate_mcp_config)
     
     try:
-        server.start()
+        server.run()
         return None
     except KeyboardInterrupt:
         logging.info("Server stopped by user")

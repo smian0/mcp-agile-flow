@@ -108,8 +108,10 @@ test-core: venv
 	@echo "Installing development dependencies..."
 	$(UV) pip install -e ".[test]"
 	$(UV) pip install -e .
+	@echo "Installing pytest-asyncio..."
+	$(UV) pip install pytest-asyncio
 	@echo "Running core tests only (migration and integration)..."
-	$(UV) run pytest $(PYTEST_FLAGS) -s --show-capture=all --tb=short tests/test_mcp_config_migration.py tests/test_integration.py::test_server_imports tests/test_project_configuration.py::test_get_project_settings_tool tests/test_integration.py::test_server_handle_call_tool tests/test_integration.py::test_get_project_settings_tool_with_proposed_path
+	$(UV) run pytest $(PYTEST_FLAGS) -s --show-capture=all --tb=short tests/test_integration.py::test_get_project_settings tests/test_project_configuration.py::test_get_project_settings_tool tests/test_integration.py::test_get_project_settings_with_path
 
 test-full: venv
 	@echo "Installing full development dependencies..."
