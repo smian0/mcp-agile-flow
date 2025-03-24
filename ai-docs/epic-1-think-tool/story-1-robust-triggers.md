@@ -14,6 +14,7 @@ As a user of LLM assistants, I want the think tool to be automatically triggered
 - Implemented thought templates for different reasoning scenarios
 - Added self-assessment mechanism to evaluate when thinking is needed
 - Updated tests to verify new functionality
+- Added support for "think deeper/harder/more/again" directives
 
 ## Story Points
 5
@@ -52,6 +53,13 @@ Enhance the think tool server with the following improvements:
    - Create heuristics for identifying complex queries
    - Test with various query types to validate effectiveness
 
+5. **Add Support for Thinking Depth**
+   - Implement detection of "think harder", "think deeper", "think more", and "think again" phrases
+   - Add depth tracking to thoughts to represent iterations of thinking
+   - Create functionality to build on previous thoughts with deeper analysis
+   - Establish parent-child relationships between thoughts
+   - Allow viewing thoughts organized by their depth chains
+
 ### Test Plan
 - Unit tests for each new functionality
 - Integration tests to verify the end-to-end flow
@@ -80,5 +88,12 @@ Enhance the think tool server with the following improvements:
   - Added should_think function to evaluate query complexity
   - Implemented complexity indicators and phrases detection
   - Added suggestion of appropriate template based on query content
-- Created tests for new functionality: 2024-03-24
-  - Added test_robust_triggers.py with test cases for all new features 
+- Implementation of thinking depth support: 2024-03-24
+  - Added detect_thinking_directive function to recognize thinking depth phrases
+  - Enhanced think function to support depth levels and previous thought references
+  - Added think_more function to facilitate deeper thinking on previous thoughts
+  - Updated get_thoughts to support depth chain organization
+  - Created tests for the new thinking depth functionality
+  - Added test_robust_triggers.py with test cases for all new features
+  - Added test_think_deeper.py with tests for thinking depth functionality
+  - All tests passing: 11 tests for thinking depth and 10 tests for other features 

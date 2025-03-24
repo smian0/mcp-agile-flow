@@ -151,7 +151,57 @@ class ThoughtStorage:
 # Create a single instance to be used throughout the module
 _storage = ThoughtStorage()
 
-def think(thought: str, category: Optional[str] = None) -> str:
+def detect_thinking_directive(text: str) -> Dict[str, Any]:
+    """
+    Detect if the user is asking to think harder, deeper, again, or more thoroughly.
+    
+    This function analyzes text for phrases indicating that the AI should continue
+    or deepen its thinking process on a previous thought.
+    
+    Args:
+        text: The text to analyze for thinking directives
+        
+    Returns:
+        Dictionary with directive information:
+        - detected: Boolean indicating if a directive was detected
+        - directive_type: Type of directive (deeper, again, harder, more)
+        - confidence: Confidence level in the detection
+    """
+    # Convert to lowercase for case-insensitive matching
+    text_lower = text.lower()
+    
+    # Define directive patterns to look for
+    deeper_patterns = ["think deeper", "think more deeply", "go deeper", "analyze deeper"]
+    harder_patterns = ["think harder", "try harder", "more effort", "think with more effort"]
+    again_patterns = ["think again", "reconsider", "re-think", "try thinking again"]
+    more_patterns = ["think more", "think further", "continue thinking", "keep thinking"]
+    
+    # Check for each pattern type
+    for pattern_list, directive_type in [
+        (deeper_patterns, "deeper"),
+        (harder_patterns, "harder"),
+        (again_patterns, "again"),
+        (more_patterns, "more")
+    ]:
+        for pattern in pattern_list:
+            if pattern in text_lower:
+                # Calculate confidence based on exact match or partial match
+                confidence = "high" if text_lower.strip() == pattern else "medium"
+                return {
+                    "detected": True,
+                    "directive_type": directive_type,
+                    "confidence": confidence,
+                    "matched_pattern": pattern
+                }
+    
+    # No directive found
+    return {
+        "detected": False,
+        "directive_type": None,
+        "confidence": "low"
+    }
+
+def think(thought: str, category: Optional[str] = None, depth: int = 1, previous_thought_id: Optional[int] = None) -> str:
     """
     Record a thought for complex reasoning or step-by-step analysis.
     
@@ -165,6 +215,7 @@ def think(thought: str, category: Optional[str] = None) -> str:
     - Making decisions with multiple considerations or trade-offs
     - Debugging or troubleshooting complex systems
     - Planning a sequence of tool calls or actions
+    - When asked to "think harder", "think deeper", "think more", or "think again"
     
     Args:
         thought: Your structured reasoning, which should follow these best practices:
@@ -181,32 +232,50 @@ def think(thought: str, category: Optional[str] = None) -> str:
                  - "planning": Sequencing steps for a solution
                  - "metadata-analysis": Processing information from tools
                  - "error-handling": Addressing errors or edge cases
+        depth: The iteration or depth level of thinking (1 = initial thought, 
+               2+ = deeper thinking or refinement)
+        previous_thought_id: Optional ID of a previous thought this builds upon
     
     Returns:
         JSON string containing success status and a confirmation message
     """
-    # Log the thought with a timestamp and category
+    # Log the thought with a timestamp, category, and depth info
     timestamp = datetime.datetime.now().isoformat()
     thought_data = {
         "timestamp": timestamp,
         "thought": thought,
-        "category": category or "general"
+        "category": category or "general",
+        "depth": depth,
+        "previous_thought_id": previous_thought_id
     }
     
     # Store in ThoughtStorage
     thoughts = _storage.get_thoughts()
+    thought_index = len(thoughts) + 1  # 1-indexed for user-facing ID
+    thought_data["id"] = thought_index
     thoughts.append(thought_data)
     _storage._write_thoughts(thoughts)
+    
+    # Determine the appropriate message based on depth
+    depth_indicator = ""
+    if depth > 1:
+        if depth == 2:
+            depth_indicator = " (deeper analysis)"
+        elif depth == 3:
+            depth_indicator = " (much deeper analysis)"
+        else:
+            depth_indicator = f" (depth level {depth})"
     
     # Return a confirmation
     response = {
         "success": True,
-        "message": f"Thought recorded ({category or 'general'}): {thought[:50]}..." if len(thought) > 50 else f"Thought recorded ({category or 'general'}): {thought}"
+        "thought_id": thought_index,
+        "message": f"Thought{depth_indicator} recorded ({category or 'general'}): {thought[:50]}..." if len(thought) > 50 else f"Thought{depth_indicator} recorded ({category or 'general'}): {thought}"
     }
     
     return json.dumps(response)
 
-def get_thoughts(category: Optional[str] = None) -> str:
+def get_thoughts(category: Optional[str] = None, include_depth_chain: bool = False) -> str:
     """
     Retrieve all thoughts recorded in the current session.
     
@@ -214,6 +283,7 @@ def get_thoughts(category: Optional[str] = None) -> str:
     
     Args:
         category: Optional category to filter thoughts by
+        include_depth_chain: Whether to organize thoughts in depth chains
     
     Returns:
         JSON string containing success status and all recorded thoughts
@@ -229,19 +299,71 @@ def get_thoughts(category: Optional[str] = None) -> str:
         }
     else:
         formatted_thoughts = []
-        for i, entry in enumerate(thoughts, 1):
-            formatted_thoughts.append({
-                "index": i,
-                "timestamp": entry["timestamp"],
-                "thought": entry["thought"],
-                "category": entry.get("category", "general")
-            })
+        
+        if include_depth_chain:
+            # Organize thoughts by depth chains
+            thought_chains = {}
+            root_thoughts = []
+            
+            # First, organize all thoughts
+            for entry in thoughts:
+                entry_id = entry.get("id", None)
+                
+                if entry.get("depth", 1) == 1 or entry.get("previous_thought_id") is None:
+                    # This is a root thought
+                    formatted_entry = {
+                        "id": entry_id,
+                        "index": entry_id,
+                        "timestamp": entry["timestamp"],
+                        "thought": entry["thought"],
+                        "category": entry.get("category", "general"),
+                        "depth": entry.get("depth", 1),
+                        "deeper_thoughts": []
+                    }
+                    root_thoughts.append(formatted_entry)
+                    thought_chains[entry_id] = formatted_entry
+                else:
+                    # This is a deeper thought, linked to a previous one
+                    prev_id = entry.get("previous_thought_id")
+                    formatted_entry = {
+                        "id": entry_id,
+                        "index": entry_id,
+                        "timestamp": entry["timestamp"],
+                        "thought": entry["thought"],
+                        "category": entry.get("category", "general"),
+                        "depth": entry.get("depth", 1),
+                        "deeper_thoughts": []
+                    }
+                    
+                    # If we have the parent, add this as a child
+                    if prev_id in thought_chains:
+                        thought_chains[prev_id]["deeper_thoughts"].append(formatted_entry)
+                    else:
+                        # If we don't have the parent (might happen with filtering), treat as root
+                        root_thoughts.append(formatted_entry)
+                    
+                    thought_chains[entry_id] = formatted_entry
+            
+            formatted_thoughts = root_thoughts
+        else:
+            # Just list thoughts without chain organization
+            for i, entry in enumerate(thoughts, 1):
+                formatted_thoughts.append({
+                    "id": entry.get("id", i),
+                    "index": i,
+                    "timestamp": entry["timestamp"],
+                    "thought": entry["thought"],
+                    "category": entry.get("category", "general"),
+                    "depth": entry.get("depth", 1),
+                    "previous_thought_id": entry.get("previous_thought_id")
+                })
         
         category_msg = f" in category '{category}'" if category else ""
         response = {
             "success": True,
             "message": f"Retrieved {len(formatted_thoughts)} thoughts{category_msg}.",
-            "thoughts": formatted_thoughts
+            "thoughts": formatted_thoughts,
+            "organized_by_depth": include_depth_chain
         }
     
     return json.dumps(response)
@@ -645,5 +767,82 @@ def should_think(question: str, context: Optional[str] = None) -> str:
             "message": "This question seems straightforward and may not require the think tool. You can still use it if you want to document your reasoning process.",
             "complexity_score": total_score
         }
+    
+    return json.dumps(response)
+
+def think_more(depth_directive: str, thought_id: Optional[int] = None) -> str:
+    """
+    Continue thinking on a topic with increased depth or a new approach.
+    
+    This function builds on previous thoughts, providing deeper analysis
+    or taking a different perspective on the same problem.
+    
+    Args:
+        depth_directive: The type of deeper thinking to perform: "deeper", "harder", "again", or "more"
+        thought_id: Optional ID of the thought to build upon. If not provided, uses the most recent thought.
+    
+    Returns:
+        JSON string with guidance for deeper thinking
+    """
+    # Get all existing thoughts
+    all_thoughts = _storage.get_thoughts()
+    
+    if not all_thoughts:
+        return json.dumps({
+            "success": False,
+            "message": "No previous thoughts found to build upon.",
+            "guidance": None
+        })
+    
+    # Find the thought to build upon
+    source_thought = None
+    if thought_id:
+        for thought in all_thoughts:
+            if thought.get("id") == thought_id:
+                source_thought = thought
+                break
+        
+        if not source_thought:
+            return json.dumps({
+                "success": False,
+                "message": f"Could not find thought with ID {thought_id}.",
+                "guidance": None
+            })
+    else:
+        # Use the most recent thought
+        source_thought = all_thoughts[-1]
+    
+    # Determine the depth level for the next thought
+    current_depth = source_thought.get("depth", 1)
+    next_depth = current_depth + 1
+    
+    # Generate guidance based on the directive type
+    category = source_thought.get("category", "general")
+    original_thought = source_thought.get("thought", "")
+    thought_summary = original_thought[:100] + "..." if len(original_thought) > 100 else original_thought
+    
+    directive_guidance = {
+        "deeper": f"Analyze this more deeply by considering additional factors, hidden assumptions, or second-order effects that weren't addressed in the original thought.",
+        "harder": f"Apply more rigorous analysis, challenge your initial conclusions, or consider more complex interactions between elements of the problem.",
+        "again": f"Reconsider this from a different perspective, challenging your initial assumptions or using a different analytical framework.",
+        "more": f"Continue this line of reasoning by extending your analysis, considering additional implications, or exploring related questions."
+    }
+    
+    guidance = directive_guidance.get(depth_directive, directive_guidance["deeper"])
+    
+    # Return guidance for the deeper thought
+    response = {
+        "success": True,
+        "message": f"Ready to think {depth_directive} about previous thought.",
+        "source_thought": {
+            "id": source_thought.get("id"),
+            "thought": thought_summary,
+            "category": category,
+            "depth": current_depth
+        },
+        "guidance": guidance,
+        "suggested_depth": next_depth,
+        "suggested_category": category
+    }
     
     return json.dumps(response) 
