@@ -199,7 +199,7 @@ mkdir -p "$SCRIPT_DIR"
 
 cat > "$SCRIPT_DIR/mcp-agile-flow" << EOF
 #!/bin/bash
-$PYTHON_PATH -m mcp_agile_flow.server "\$@"
+$PYTHON_PATH -m mcp_agile_flow "\$@"
 EOF
 
 chmod +x "$SCRIPT_DIR/mcp-agile-flow"
@@ -219,7 +219,7 @@ if [[ "$install_inspector" =~ ^[Yy]$ ]]; then
         # Create debug script
         cat > "$SCRIPT_DIR/mcp-agile-flow-debug" << EOF
 #!/bin/bash
-npx @modelcontextprotocol/inspector $PYTHON_PATH -m mcp_agile_flow.server "\$@"
+npx @modelcontextprotocol/inspector $PYTHON_PATH -m mcp_agile_flow "\$@"
 EOF
         chmod +x "$SCRIPT_DIR/mcp-agile-flow-debug"
         echo -e "${GREEN}✓ Debug command created: mcp-agile-flow-debug${NC}"
