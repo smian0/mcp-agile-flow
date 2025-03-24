@@ -57,28 +57,6 @@ def get_project_settings(proposed_path: Optional[str] = None) -> str:
     return json.dumps(response_data, indent=2)
 
 
-def get_mermaid_diagram() -> str:
-    """
-    Generate a Mermaid diagram of the knowledge graph.
-    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
-    """
-    return json.dumps({
-        "success": False,
-        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
-    })
-
-
-def read_graph() -> str:
-    """
-    Read the entire knowledge graph.
-    This is now a stub as the memory graph functionality has been moved to a separate MCP server.
-    """
-    return json.dumps({
-        "success": False,
-        "message": "Memory graph functionality has been moved to a separate MCP server. Please update your tools to use the new server."
-    })
-
-
 def initialize_ide(ide: str = "cursor", project_path: Optional[str] = None) -> str:
     """
     Initialize a project with rules for a specific IDE.

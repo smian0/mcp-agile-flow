@@ -107,13 +107,12 @@ def test_server_handle_call_tool():
     settings_data = json.loads(result[0].text)
     assert "project_path" in settings_data
     
-    # Test read-graph
+    # Test read-graph - now expect an error since it's been removed
     result = asyncio.run(handle_call_tool("read-graph", {"random_string": "test"}))
     assert result[0].type == "text"
-    graph_data = json.loads(result[0].text)
-    assert graph_data["success"] is False
-    assert "message" in graph_data
-    assert "Memory graph functionality has been moved" in graph_data["message"]
+    assert result[0].is_error is True
+    assert "Error processing tool" in result[0].text
+    assert "Unknown tool: read-graph" in result[0].text
 
 
 def test_initialize_ide_rules_with_custom_path(tmp_path):

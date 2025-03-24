@@ -11,7 +11,7 @@ from pathlib import Path
 import shutil
 import logging
 
-from mcp_agile_flow.fastmcp_tools import get_project_settings, read_graph, initialize_ide
+from mcp_agile_flow.fastmcp_tools import get_project_settings, initialize_ide
 
 
 def test_get_project_settings_with_default_path():
@@ -103,21 +103,6 @@ def test_get_project_settings_with_root_path():
     assert settings["project_path"] != "/"
     assert "fallback" in settings["source"]
     assert settings["is_root"] is False
-
-
-def test_read_graph():
-    """Test the read_graph function."""
-    # Call the tool function
-    result = read_graph()
-    
-    # Parse the result as JSON
-    graph_data = json.loads(result)
-    
-    # Check that the result indicates knowledge graph functionality has been moved
-    assert "success" in graph_data
-    assert graph_data["success"] is False
-    assert "message" in graph_data
-    assert "Memory graph functionality has been moved" in graph_data["message"]
 
 
 def test_initialize_ide():

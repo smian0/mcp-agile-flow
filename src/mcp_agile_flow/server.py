@@ -24,20 +24,10 @@ from mcp.server.models import InitializationOptions
 from .utils import get_project_settings as get_settings_util  # Rename to avoid conflict
 from .fastmcp_tools import (
     get_project_settings as get_project_settings_fastmcp,
-    get_mermaid_diagram as get_mermaid_diagram_fastmcp,
-    read_graph as read_graph_fastmcp,
     initialize_ide as initialize_ide_fastmcp,
     prime_context as prime_context_fastmcp,
     migrate_mcp_config as migrate_mcp_config_fastmcp,
     initialize_ide_rules as initialize_ide_rules_fastmcp,
-    create_entities as create_entities_fastmcp,
-    create_relations as create_relations_fastmcp,
-    add_observations as add_observations_fastmcp,
-    delete_entities as delete_entities_fastmcp,
-    delete_observations as delete_observations_fastmcp,
-    delete_relations as delete_relations_fastmcp,
-    search_nodes as search_nodes_fastmcp,
-    open_nodes as open_nodes_fastmcp,
 )
 
 # Configure logging
@@ -51,21 +41,34 @@ __mcp__ = mcp
 # Export the FastMCP instance
 __fastmcp__ = [
     get_project_settings_fastmcp,
-    get_mermaid_diagram_fastmcp,
-    read_graph_fastmcp,
     initialize_ide_fastmcp,
     prime_context_fastmcp,
     migrate_mcp_config_fastmcp,
     initialize_ide_rules_fastmcp,
-    create_entities_fastmcp,
-    create_relations_fastmcp,
-    add_observations_fastmcp,
-    delete_entities_fastmcp,
-    delete_observations_fastmcp,
-    delete_relations_fastmcp,
-    search_nodes_fastmcp,
-    open_nodes_fastmcp,
 ]
+
+# Define stub functions for removed functionalities
+def search_nodes(*args, **kwargs):
+    """Stub for search_nodes - functionality moved to memory graph server."""
+    logger.info("search_nodes called - returning stub response")
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to the memory graph MCP server."
+    })
+
+def open_nodes(*args, **kwargs):
+    """Stub for open_nodes - functionality moved to memory graph server."""
+    logger.info("open_nodes called - returning stub response")
+    return json.dumps({
+        "success": False,
+        "message": "Memory graph functionality has been moved to the memory graph MCP server."
+    })
+
+def get_project_settings(*args, **kwargs):
+    """Delegate to FastMCP implementation."""
+    logger.info("get_project_settings called - delegating to FastMCP implementation")
+    return get_project_settings_fastmcp(*args, **kwargs)
+
 
 
 def create_text_response(text: str, is_error: bool = False) -> types.TextContent:
@@ -243,34 +246,6 @@ async def handle_list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
-            name="get-mermaid-diagram",
-            description="Get a Mermaid diagram representation of the knowledge graph",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "random_string": {
-                        "type": "string",
-                        "description": "Dummy parameter for no-parameter tools",
-                    }
-                },
-                "required": ["random_string"],
-            },
-        ),
-        types.Tool(
-            name="read-graph",
-            description="Read the entire knowledge graph",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "random_string": {
-                        "type": "string",
-                        "description": "Dummy parameter for no-parameter tools",
-                    }
-                },
-                "required": ["random_string"],
-            },
-        ),
-        types.Tool(
             name="list-projects",
             description="List all projects in the memory bank",
             parameters={
@@ -332,31 +307,6 @@ async def handle_call_tool(
                 logger.error(f"Error calling FastMCP get_project_settings: {str(e)}")
                 return [create_text_response(f"Error: {str(e)}", is_error=True)]
         
-        elif name == "get-mermaid-diagram":
-            # Call the FastMCP implementation
-            logger.info("Delegating to FastMCP implementation for get-mermaid-diagram")
-            try:
-                # Execute the FastMCP tool
-                result = get_mermaid_diagram_fastmcp()
-                # Result is already a JSON string from the FastMCP implementation
-                return [create_text_response(result)]
-            except Exception as e:
-                logger.error(f"Error calling FastMCP get_mermaid_diagram: {str(e)}")
-                return [create_text_response(f"Error: {str(e)}", is_error=True)]
-        
-        elif name == "read-graph":
-            # Call the FastMCP implementation
-            logger.info("Delegating to FastMCP implementation for read-graph")
-            try:
-                # Execute the FastMCP tool
-                result = read_graph_fastmcp()
-                # Result is already a JSON string from the FastMCP implementation
-                return [create_text_response(result)]
-            except Exception as e:
-                logger.error(f"Error calling FastMCP read_graph: {str(e)}")
-                return [create_text_response(f"Error: {str(e)}", is_error=True)]
-
-        # Handle migration tool
         elif name == "migrate-mcp-config":
             logger.info("Migrating MCP configuration")
             
