@@ -28,6 +28,7 @@
 - Simplified server configuration
 - Updated installation script to use new module path and remove deprecated tools
 - Improved maintainability by following standard FastMCP patterns
+- Renamed misleading test function to better reflect its purpose
 
 ### Other Changes
 
@@ -37,6 +38,8 @@
 - Simplified project structure
 - Migrated memory graph functionality to a separate MCP server
 - Refactored code to align with official FastMCP implementation examples
+- Removed obsolete memory graph stub functions from fastmcp_tools.py
+- Removed non-existent `get-safe-project-path` tool reference from supported tools list
 
 ## [Unreleased]
 

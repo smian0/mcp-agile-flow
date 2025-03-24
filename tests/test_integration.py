@@ -135,9 +135,9 @@ async def test_migrate_mcp_config():
             pytest.skip(f"migrate-mcp-config test failed with error: {str(e)}")
             
 @pytest.mark.asyncio
-async def test_get_safe_project_path():
-    """Test the get-safe-project-path tool."""
-    # Test the get-safe-project-path tool with the current directory
+async def test_get_project_settings_with_path():
+    """Test the get-project-settings tool with different paths."""
+    # Test the get-project-settings tool with the current directory
     result = await call_tool("get-project-settings", {})
     
     # Check that the result contains a project path

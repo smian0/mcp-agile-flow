@@ -26,8 +26,7 @@ SUPPORTED_TOOLS = [
     "initialize-ide-rules",
     "get-project-settings",
     "prime-context", 
-    "migrate-mcp-config",
-    "get-safe-project-path"
+    "migrate-mcp-config"
 ]
 
 async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -69,9 +68,6 @@ async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, An
         elif name == "migrate-mcp-config":
             from .fastmcp_tools import migrate_mcp_config
             result = migrate_mcp_config(**arguments)
-        elif name == "get-safe-project-path":
-            from .fastmcp_tools import get_safe_project_path
-            result = get_safe_project_path(**arguments)
         else:
             raise ValueError(f"Unknown tool: {name}")
             

@@ -26,7 +26,7 @@ To use MCP Agile Flow:
 
 2. Import in your code:
    ```python
-   from mcp_agile_flow.adapter import call_tool, call_tool_sync
+   from mcp_agile_flow import call_tool, call_tool_sync
    
    # Use async interface
    result = await call_tool("get-project-settings", {})
