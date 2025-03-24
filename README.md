@@ -98,8 +98,14 @@ For Cursor users, also update the mcp.json file (typically at ~/.cursor/mcp.json
 You can also run the server directly from the command line:
 
 ```bash
-# Using Python
+# Using Python (logs disabled by default)
 python -m mcp_agile_flow
+
+# Enable normal logging
+python -m mcp_agile_flow --verbose
+
+# Debug mode (most verbose logging)
+python -m mcp_agile_flow --debug
 ```
 
 ## Available Tools
