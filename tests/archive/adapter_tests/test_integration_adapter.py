@@ -1,8 +1,7 @@
 """
-Integration tests for the MCP Agile Flow server using the test adapter.
+Integration tests for the MCP Agile Flow server using the adapter.
 
-This file adapts the original integration tests to work with both the legacy server
-and the FastMCP implementation through the test adapter.
+This file tests the FastMCP implementation through the adapter interface.
 """
 
 import asyncio
@@ -24,8 +23,8 @@ logger = logging.getLogger(__name__)
 src_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(src_dir))
 
-# Import the test adapter
-from src.mcp_agile_flow.test_adapter import call_tool
+# Import the adapter
+from src.mcp_agile_flow.adapter import call_tool
 
 # Define path to test_outputs directory
 TEST_OUTPUTS_DIR = Path(__file__).parent / "test_outputs"
@@ -424,21 +423,21 @@ Planning
 
 @pytest.mark.asyncio
 async def test_server_imports():
-    """Test that server imports succeed and basic functionality works."""
-    # Verify handle_call_tool import works
-    from src.mcp_agile_flow.server import handle_call_tool
-    assert handle_call_tool is not None
+    """Test that adapter imports succeed and basic functionality works."""
+    # Verify adapter imports work
+    from src.mcp_agile_flow.adapter import call_tool, call_tool_sync
     
-    # Test module loading
-    from src.mcp_agile_flow import server
-    assert server is not None
+    # Verify we can import fastmcp_tools and key functions
+    from src.mcp_agile_flow.fastmcp_tools import (
+        get_project_settings,
+        initialize_ide,
+        prime_context,
+        migrate_mcp_config
+    )
     
-    # Test utils import
-    from src.mcp_agile_flow import utils
-    assert utils is not None
-    
-    # Test existence of key functions
-    assert callable(handle_call_tool)
+    # Test a simple function call to ensure imports are working
+    result = get_project_settings()
+    assert result is not None
 
 @pytest.mark.asyncio
 async def test_server_handle_call_tool():

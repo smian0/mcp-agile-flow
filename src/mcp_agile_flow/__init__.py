@@ -1,5 +1,8 @@
 """
-MCP Agile Flow Tools
+MCP Agile Flow - A package for enhancing agile workflows with AI-assisted tools.
+
+This package provides tools for managing project structure, documentation, and IDE integration
+using the Model Context Protocol (MCP).
 
 Primary tools:
 - get-project-settings: Returns project settings including paths and configuration
@@ -23,17 +26,7 @@ FastMCP implementations:
 - open-nodes: Open specific nodes in the knowledge graph by their names
 """
 
-# Import version
-__version__ = "0.9.1"
+from .version import __version__, get_version
+from .adapter import call_tool, call_tool_sync
 
-# Expose key modules for external use
-from . import initialize_ide_rules, fastmcp_tools
-
-# Expose the FastMCP server for direct use
-from . import fastmcp_server
-
-__all__ = [
-    "initialize_ide_rules",
-    "fastmcp_tools",
-    "fastmcp_server",
-]
+__all__ = ["__version__", "get_version", "call_tool", "call_tool_sync"]

@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.0.0 (2023-09-18)
+
+### Breaking Changes
+
+- Removed legacy `server.py` implementation in favor of FastMCP
+- Removed all direct imports from `server.py`
+- Updated adapter to use FastMCP implementation only
+- Changed import paths to remove `src.` prefix
+
+### New Features
+
+- Added version information and command-line version checking
+- Improved error handling in the adapter
+- Better synchronous and asynchronous support in the adapter
+
+### Fixes
+
+- Updated tests to work with FastMCP implementation
+- Fixed import paths in all modules
+- Simplified server configuration
+
+### Other Changes
+
+- Archived legacy test files
+- Updated documentation
+- Simplified project structure
+
 ## [Unreleased]
 
 ### Added

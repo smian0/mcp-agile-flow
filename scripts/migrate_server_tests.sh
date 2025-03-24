@@ -1,6 +1,5 @@
 #!/bin/bash
-# Utility script to run tests against both server implementations
-# and compare results to ensure they're equivalent.
+# Utility script to run tests against the FastMCP implementation.
 
 set -e # Exit on error
 
@@ -48,86 +47,33 @@ if [ $VERBOSE -eq 1 ]; then
     PYTEST_ARGS="-v"
 fi
 
-# Function to run tests with a specific server implementation
+# Function to run tests with FastMCP
 run_tests() {
-    implementation=$1
-    test_file=$2
+    test_file=$1
     
-    echo -e "${BLUE}Running tests with $implementation implementation...${NC}"
-    
-    if [ "$implementation" == "FastMCP" ]; then
-        export MCP_USE_FASTMCP=true
-    else
-        export MCP_USE_FASTMCP=false
-    fi
+    echo -e "${BLUE}Running tests with FastMCP implementation...${NC}"
     
     if [ -n "$test_file" ]; then
         python -m pytest $test_file $PYTEST_ARGS
     else
         # Run all adapter-based tests
-        python -m pytest tests/test_*_adapter.py $PYTEST_ARGS
+        python -m pytest tests/test_*.py $PYTEST_ARGS
     fi
     
     result=$?
     
     if [ $result -eq 0 ]; then
-        echo -e "${GREEN}Tests passed with $implementation implementation${NC}"
+        echo -e "${GREEN}Tests passed with FastMCP implementation${NC}"
     else
-        echo -e "${RED}Tests failed with $implementation implementation${NC}"
+        echo -e "${RED}Tests failed with FastMCP implementation${NC}"
         exit 1
     fi
     
     return $result
 }
 
-# Run tests with both implementations
-echo -e "${YELLOW}=============== TESTING BOTH SERVER IMPLEMENTATIONS ===============${NC}"
-echo -e "${YELLOW}First testing with legacy server implementation...${NC}"
-run_tests "Legacy" "$TEST_FILE"
+# Run tests
+echo -e "${YELLOW}=============== RUNNING TESTS ===============${NC}"
+run_tests "$TEST_FILE"
 
-echo -e "\n${YELLOW}Now testing with FastMCP implementation...${NC}"
-run_tests "FastMCP" "$TEST_FILE"
-
-echo -e "\n${GREEN}ALL TESTS PASSED WITH BOTH IMPLEMENTATIONS! The implementations are equivalent.${NC}"
-
-# Check if any other adapter-based tests need to be created
-echo -e "\n${YELLOW}Checking for tests that need to be migrated to use the adapter...${NC}"
-
-# Get all test files
-all_test_files=$(find tests -name "test_*.py" | grep -v "_adapter.py" | sort)
-adapter_test_files=$(find tests -name "test_*_adapter.py" | sort)
-
-# Extract base names for adapter tests
-adapter_base_names=()
-for file in $adapter_test_files; do
-    base_name=$(basename "$file" | sed 's/_adapter.py$//')
-    adapter_base_names+=("$base_name")
-done
-
-# Check which test files don't have adapter versions
-for file in $all_test_files; do
-    base_name=$(basename "$file" | sed 's/.py$//')
-    
-    # Skip files that start with test_ but aren't actual test files
-    if [[ ! -f "$file" || ! "$file" =~ test_ ]]; then
-        continue
-    fi
-    
-    # Check if this test has an adapter version
-    has_adapter=0
-    for adapter_base in "${adapter_base_names[@]}"; do
-        if [[ "$base_name" == "$adapter_base" ]]; then
-            has_adapter=1
-            break
-        fi
-    done
-    
-    if [[ $has_adapter -eq 0 ]]; then
-        # Check if this file uses handle_call_tool from server.py
-        if grep -q "handle_call_tool" "$file"; then
-            echo -e "${YELLOW}Test file '$file' uses handle_call_tool but doesn't have an adapter version.${NC}"
-        fi
-    fi
-done
-
-echo -e "\n${GREEN}Migration test completed.${NC}" 
+echo -e "\n${GREEN}ALL TESTS PASSED! The implementation is working correctly.${NC}" 

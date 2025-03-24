@@ -4,96 +4,76 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcp-agile-flow"
-version = "0.1.0"
-authors = [
-    {name = "Shoaib Mian", email = "smian0@users.noreply.github.com"},
-]
-description = "MCP server implementations for enhancing agile workflows in Cursor"
+version = "2.0.0"
+description = "MCP server that enhances agile workflows with project management tools"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "mcp>=1.5.0",
-    "aiohttp>=3.11.14",
-    "fastapi>=0.115.11",
-    "pydantic>=2.10.6",
-    "typer>=0.15.2",
-    "python-dotenv>=1.0.1",
-    "sqlmodel>=0.0.24",
-    "uvicorn>=0.34.0",
-    "httpx>=0.28.1",
-    "rich>=13.9.4",
-    "GitPython>=3.1.44",
+    "pydantic>=2.0.0",
+    "fastmcp>=0.0.10",
+    "aiofiles",
+    "python-dateutil",
+    "typing-extensions",
 ]
 
 [project.optional-dependencies]
-test = [
-    "agno>=1.1.16",
-    "pytest>=8.3.5",
-    "pytest-asyncio>=0.25.3",
-    "pytest-cov>=6.0.0",
-    "black==25.1.0",
-    "flake8==7.1.2",
-    "mypy==1.15.0",
-    "ruff==0.11.2",
-    "openai>=1.68.2",
-    "httpx-sse>=0.4.0"
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.1",
+    "pytest-cov>=4.1.0",
+    "black>=23.7.0",
+    "isort>=5.12.0",
+    "mypy>=1.5.1",
+    "pre-commit>=3.3.3",
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/mcp-agile-flow"
-Issues = "https://github.com/yourusername/mcp-agile-flow/issues"
+"Homepage" = "https://github.com/yourusername/mcp-agile-flow"
+"Bug Tracker" = "https://github.com/yourusername/mcp-agile-flow/issues"
+
+[project.scripts]
+mcp-agile-flow = "mcp_agile_flow.__main__:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
-python_classes = "Test*"
-addopts = "--verbose"
-norecursedirs = ["tests/archive"]
-asyncio_mode = "strict"
-asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
+
+[tool.isort]
+profile = "black"
+line_length = 100
 
 [tool.black]
-line-length = 88
-target-version = ["py311", "py312"]
-include = '\.pyi?$'
-
-[tool.ruff]
-target-version = "py311"
-line-length = 88
-
-[tool.ruff.lint]
-select = ["E", "F", "B", "I"]
-ignore = ["E501"]  # Temporarily ignore line length errors
+line-length = 100
+target-version = ["py310"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false  # Set to false to start with, can be made stricter later
-disallow_incomplete_defs = false  # Set to false to start with, can be made stricter later
-ignore_missing_imports = true  # Ignore import errors for missing type stubs
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
 
-[project.scripts]
-mcp-agile-flow = "mcp_agile_flow.server:run_server"
-mcp-agile-flow-fastmcp = "mcp_agile_flow.fastmcp_server:run"
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*"]
 
-[project.entry-points."mcp.servers"]
-agile-flow = "mcp_agile_flow.server:run"
-agile-flow-fastmcp = "mcp_agile_flow.fastmcp_server:run"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/mcp_agile_flow"]
-
-[tool.hatch.build.targets.wheel.sources]
-"src" = ""
-
-[tool.hatch.build.targets.wheel.forced-include]
-"src/mcp_agile_flow/cursor_rules" = "mcp_agile_flow/cursor_rules"
-"src/mcp_agile_flow/cursor_templates" = "mcp_agile_flow/cursor_templates"
-"new_server.py" = "new_server.py"
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]

@@ -1,0 +1,485 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+examples/
+  example_usage.md
+src/
+  think_tool/
+    __init__.py
+    server.py
+.gitignore
+LICENSE
+pyproject.toml
+README.md
+setup.py
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="examples/example_usage.md">
+# Example Usage of the Think Tool
+
+This document demonstrates how to use the think tool effectively in various scenarios.
+
+## Example 1: Complex Problem Solving
+
+When Claude is working on a multi-step problem:
+Human: Can you help me optimize our company's supply chain? We have 5 warehouses and 12 retail locations, and we need to minimize shipping costs while ensuring timely delivery.
+Claude: I'll help you optimize your supply chain. Let me think through this problem systematically.
+[Claude uses the think tool]
+Thought: This is a complex optimization problem with multiple variables to consider:
+
+Locations of 5 warehouses and 12 retail locations (need coordinates or distances)
+Shipping costs between each warehouse-retail pair
+Delivery time constraints for each retail location
+Inventory capacity at each warehouse
+Demand patterns at each retail location
+
+I need to:
+
+Gather the complete data set
+Formulate this as a linear programming problem
+Consider both cost minimization and time constraints
+Possibly implement a modified transportation algorithm
+Evaluate multiple solutions for robustness
+
+[Claude responds with a structured approach based on the thinking]
+
+## Example 2: Policy Adherence
+
+When Claude needs to ensure compliance with complex policies:
+Human: I want to return this product I bought 45 days ago, but I lost the receipt. The package is opened. Can I still get a refund?
+Claude: Let me check our return policy carefully.
+[Claude uses the think tool]
+Thought: I need to analyze this return request against our store policy:
+
+Item was purchased 45 days ago
+Customer has no receipt
+Package is opened
+
+According to standard policy, returns require:
+
+Returns within 30 days (this is outside that window at 45 days)
+Original receipt (customer doesn't have this)
+Unopened packaging for certain items (package is opened)
+
+Exceptions to consider:
+
+Store credit might be possible even without receipt if we can verify purchase in our system
+Manager override for the 45-day window might be possible
+Product category matters - electronics vs. clothing have different policies
+Loyalty program members may have extended return windows
+
+I need to explain these policy details and suggest possible options.
+[Claude responds with a policy-compliant answer]
+
+## Example 3: Tool Output Analysis
+
+When Claude needs to process results from multiple tool calls:
+Human: Search our customer database and find all premium users who haven't logged in for 60+ days, then draft an email campaign to re-engage them.
+Claude: I'll help you identify inactive premium users and create a re-engagement campaign.
+[Claude uses database search tool, gets results]
+[Claude uses the think tool]
+Thought: I've received the query results showing 342 premium users who haven't logged in for 60+ days. Let me analyze this data:
+Patterns I'm noticing:
+
+45% of inactive users are in the 6-12 month subscription cohort
+Most common last activity was "viewed dashboard" (72%)
+Very few (8%) used our newest features before becoming inactive
+28% had support tickets in their last active month
+
+For the email campaign, I should:
+
+Segment these users into 2-3 groups based on their usage patterns
+Focus on new features they haven't explored
+Address possible pain points for users who had support tickets
+Include personalized incentives based on their historical usage
+Create a clear, compelling call-to-action
+
+[Claude proceeds to design a targeted campaign based on this analysis]
+</file>
+
+<file path="src/think_tool/__init__.py">
+from .server import ThinkToolServer
+
+__version__ = "0.1.0"
+</file>
+
+<file path="src/think_tool/server.py">
+#!/usr/bin/env python3
+
+from typing import Any, Dict, List, Optional
+import json
+import datetime
+from mcp.server.fastmcp import FastMCP
+
+class ThinkToolServer:
+    def __init__(self, server_name="think-tool"):
+        # Initialize FastMCP server
+        self.mcp = FastMCP(server_name)
+        
+        # Store the thoughts for logging purposes
+        self.thoughts_log = []
+        
+        # Register tools
+        self.register_tools()
+    
+    def register_tools(self):
+        # Register the think tool
+        @self.mcp.tool()
+        async def think(thought: str) -> str:
+            """Use this tool to think about something. It will not obtain new information or change anything, 
+            but just append the thought to the log. Use it when complex reasoning or cache memory is needed.
+
+            Args:
+                thought: A thought to think about. This can be structured reasoning, step-by-step analysis,
+                        policy verification, or any other mental process that helps with problem-solving.
+            """
+            # Log the thought with a timestamp
+            timestamp = datetime.datetime.now().isoformat()
+            self.thoughts_log.append({
+                "timestamp": timestamp,
+                "thought": thought
+            })
+            
+            # Return a confirmation
+            return f"Thought recorded: {thought[:50]}..." if len(thought) > 50 else f"Thought recorded: {thought}"
+
+        @self.mcp.tool()
+        async def get_thoughts() -> str:
+            """Retrieve all thoughts recorded in the current session.
+            
+            This tool helps review the thinking process that has occurred so far.
+            """
+            if not self.thoughts_log:
+                return "No thoughts have been recorded yet."
+            
+            formatted_thoughts = []
+            for i, entry in enumerate(self.thoughts_log, 1):
+                formatted_thoughts.append(f"Thought #{i} ({entry['timestamp']}):\n{entry['thought']}\n")
+            
+            return "\n".join(formatted_thoughts)
+
+        @self.mcp.tool()
+        async def clear_thoughts() -> str:
+            """Clear all recorded thoughts from the current session.
+            
+            Use this to start fresh if the thinking process needs to be reset.
+            """
+            count = len(self.thoughts_log)
+            self.thoughts_log = []
+            return f"Cleared {count} recorded thoughts."
+
+        @self.mcp.tool()
+        async def get_thought_stats() -> str:
+            """Get statistics about the thoughts recorded in the current session."""
+            if not self.thoughts_log:
+                return "No thoughts have been recorded yet."
+            
+            total_thoughts = len(self.thoughts_log)
+            avg_length = sum(len(entry["thought"]) for entry in self.thoughts_log) / total_thoughts if total_thoughts else 0
+            longest_thought = max((len(entry["thought"]), i) for i, entry in enumerate(self.thoughts_log)) if self.thoughts_log else (0, -1)
+            
+            stats = {
+                "total_thoughts": total_thoughts,
+                "average_length": round(avg_length, 2),
+                "longest_thought_index": longest_thought[1] + 1 if longest_thought[1] >= 0 else None,
+                "longest_thought_length": longest_thought[0] if longest_thought[0] > 0 else None
+            }
+            
+            return json.dumps(stats, indent=2)
+    
+    def run(self, transport='stdio'):
+        """Run the server with the specified transport"""
+        print(f"Starting Think Tool MCP Server with {transport} transport...")
+        self.mcp.run(transport=transport)
+
+
+def main():
+    server = ThinkToolServer()
+    server.run()
+
+
+if __name__ == "__main__":
+    main()
+</file>
+
+<file path=".gitignore">
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+*.db
+*.sqlite3
+</file>
+
+<file path="LICENSE">
+MIT License
+
+Copyright (c) 2025
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</file>
+
+<file path="pyproject.toml">
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+</file>
+
+<file path="README.md">
+# MCP Think Tool Server
+
+A Model Context Protocol (MCP) server implementing the "think" tool for improving Claude's complex reasoning capabilities.
+
+## Overview
+
+This MCP server implements the "think" tool as described in Anthropic's [blog post](https://www.anthropic.com/engineering/claude-think-tool), which provides Claude with a dedicated space for structured thinking during complex problem-solving tasks. The think tool has been shown to significantly improve performance in complex tasks requiring policy adherence and reasoning in long chains of tool calls.
+
+## Features
+
+- **Structured Thinking Space**: Provides Claude with a dedicated place to break down complex problems
+- **Thought History**: Maintains a log of all thoughts with timestamps for reference
+- **Statistics and Analysis**: Offers metadata about thinking patterns
+- **Clean Slate Option**: Allows clearing thought history when starting fresh
+
+## Installation
+
+Install from PyPI:
+
+```bash
+pip install mcp-think-tool
+```
+
+## Configuration
+
+To use this tool with Claude in Windsurf, add the following configuration to your MCP config file:
+
+```json
+"think": {
+    "command": "/home/xxx/.local/bin/mcp-think-tool",
+    "args": [],
+    "type": "stdio",
+    "pollingInterval": 30000,
+    "startupTimeout": 30000,
+    "restartOnFailure": true
+}
+```
+
+The `command` field should point to the directory where you installed the python package using pip.
+</file>
+
+<file path="setup.py">
+from setuptools import setup, find_packages
+
+setup(
+    name="mcp-think-tool",
+    version="0.1.0",
+    description="An MCP server implementing the think tool for Claude and other LLMs",
+    author="Your Name",
+    author_email="your.email@example.com",
+    url="https://github.com/yourusername/mcp-think-tool",
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
+    install_requires=[
+        "mcp>=1.2.0",
+    ],
+    python_requires=">=3.10",
+    entry_points={
+        "console_scripts": [
+            "mcp-think-tool=think_tool.server:main",
+        ],
+    },
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+    ],
+)
+</file>
+
+</files>

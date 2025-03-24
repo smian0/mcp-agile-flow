@@ -1,36 +1,23 @@
 """
 Adapter Module for MCP Agile Flow
 
-This module provides a compatibility layer for clients migrating from the legacy
-server implementation to the FastMCP implementation. It allows for a gradual transition
-without breaking existing code.
+This module provides a convenient interface to the FastMCP implementation.
+It offers both synchronous and asynchronous ways to call MCP tools.
 
 Usage:
-    from src.mcp_agile_flow.adapter import call_tool
+    from mcp_agile_flow.adapter import call_tool
     
-    # Call a tool (will use FastMCP by default)
+    # Call a tool asynchronously
     result = await call_tool("initialize-ide", {"project_path": "/path/to/project"})
     
-    # To use the legacy implementation (not recommended), set the environment variable:
-    # MCP_USE_LEGACY=true
+    # Or synchronously:
+    from mcp_agile_flow.adapter import call_tool_sync
+    result = call_tool_sync("initialize-ide", {"project_path": "/path/to/project"})
 """
 
 import asyncio
 import json
-import os
-import warnings
-from typing import Dict, Any, Union
-
-# Set this environment variable to use the legacy implementation (not recommended)
-USE_LEGACY = os.environ.get("MCP_USE_LEGACY", "false").lower() in ("true", "1", "yes")
-
-if USE_LEGACY:
-    warnings.warn(
-        "Using the legacy server implementation which is deprecated and will be removed in a future version. "
-        "Please migrate to the FastMCP implementation by removing the MCP_USE_LEGACY environment variable.",
-        DeprecationWarning,
-        stacklevel=2
-    )
+from typing import Dict, Any
 
 class MCPAdapter:
     """Adapter class that provides a consistent interface for calling tools."""
@@ -50,10 +37,6 @@ class MCPAdapter:
         """
         Call an MCP tool with the specified name and arguments.
         
-        This method will use the FastMCP implementation by default, but can be
-        configured to use the legacy server implementation by setting the
-        MCP_USE_LEGACY environment variable.
-        
         Args:
             name: The name of the tool to call
             arguments: The arguments to pass to the tool
@@ -71,38 +54,29 @@ class MCPAdapter:
                 "error": f"Tool '{name}' is not supported by this adapter. Supported tools: {', '.join(MCPAdapter.SUPPORTED_TOOLS)}"
             }
             
-        if USE_LEGACY:
-            # Use the legacy server implementation
-            return await MCPAdapter._call_legacy_tool(name, arguments)
-        else:
-            # Use the FastMCP implementation directly (default)
-            return await MCPAdapter._call_fastmcp_tool(name, arguments)
-    
-    @staticmethod
-    async def _call_fastmcp_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Call a tool using the FastMCP implementation directly."""
+        # Use the FastMCP implementation
         try:
             # Convert tool name format (handle-tool-name to handle_tool_name)
             function_name = name.replace("-", "_")
             
             # Import the appropriate function from fastmcp_tools
             if name == "initialize-ide":
-                from mcp_agile_flow.fastmcp_tools import initialize_ide
+                from .fastmcp_tools import initialize_ide
                 result = initialize_ide(**arguments)
             elif name == "initialize-ide-rules":
-                from mcp_agile_flow.fastmcp_tools import initialize_ide_rules
+                from .fastmcp_tools import initialize_ide_rules
                 result = initialize_ide_rules(**arguments)
             elif name == "get-project-settings":
-                from mcp_agile_flow.fastmcp_tools import get_project_settings
+                from .fastmcp_tools import get_project_settings
                 result = get_project_settings(**arguments)
             elif name == "prime-context":
-                from mcp_agile_flow.fastmcp_tools import prime_context
+                from .fastmcp_tools import prime_context
                 result = prime_context(**arguments)
             elif name == "migrate-mcp-config":
-                from mcp_agile_flow.fastmcp_tools import migrate_mcp_config
+                from .fastmcp_tools import migrate_mcp_config
                 result = migrate_mcp_config(**arguments)
             elif name == "get-safe-project-path":
-                from mcp_agile_flow.fastmcp_tools import get_safe_project_path
+                from .fastmcp_tools import get_safe_project_path
                 result = get_safe_project_path(**arguments)
             else:
                 raise ValueError(f"Unknown tool: {name}")
@@ -114,30 +88,6 @@ class MCPAdapter:
             return {
                 "success": False,
                 "error": f"Error processing tool '{name}': {str(e)}"
-            }
-    
-    @staticmethod
-    async def _call_legacy_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Call a tool using the legacy server implementation."""
-        warnings.warn(
-            f"Using the legacy implementation for tool '{name}' which is deprecated. "
-            "Please migrate to the FastMCP implementation.",
-            DeprecationWarning,
-            stacklevel=3
-        )
-        
-        from src.mcp_agile_flow.server import handle_call_tool
-        
-        # Call the tool through the server's handle_call_tool function
-        result = await handle_call_tool(name, arguments)
-        
-        # Parse the response
-        if result and len(result) > 0:
-            return json.loads(result[0].text)
-        else:
-            return {
-                "success": False,
-                "error": f"No response from tool '{name}'"
             }
 
 # Convenience function for calling tools

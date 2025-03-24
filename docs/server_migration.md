@@ -1,84 +1,44 @@
-# Server Implementation to FastMCP Migration Plan
+# MCP Agile Flow Server Migration
 
-This document outlines the plan for transitioning from the legacy `server.py` implementation to the new FastMCP-based implementation.
+## Status: Migration Complete
 
-## Background
+The migration from `server.py` to `FastMCP` implementation is now complete. The `server.py` module has been removed, and all functionality is now available through the adapter interface that uses the FastMCP implementation.
 
-The project currently has two parallel implementations of the MCP server:
+## Architecture
 
-1. **Legacy Server Implementation** (`server.py`): Uses the standard MCP protocol over stdin/stdout.
-2. **FastMCP Implementation** (`fastmcp_server.py`): Uses the FastMCP API from the official MCP SDK.
+The MCP Agile Flow server architecture has been simplified:
 
-Both implementations currently perform the same functions, but the FastMCP implementation is more modern, has better error handling, and is easier to maintain. The goal is to gradually transition to using only the FastMCP implementation.
+1. The `adapter.py` module now serves as the main interface to the FastMCP implementation.
+2. The `fastmcp_tools.py` module provides all the tool implementations.
+3. The `adapter.py` module exposes both synchronous and asynchronous interfaces for compatibility.
 
-## Migration Strategy
+## Usage
 
-We will use an incremental approach to migrate the tests and code from the legacy server implementation to the FastMCP implementation:
-
-1. **Phase 1: Build Compatibility Layer**
-   - Create a test adapter that can switch between implementations
-   - Add comparison tests to verify equivalent behavior
-   - Ensure all FastMCP implementations match server behavior
-
-2. **Phase 2: Migrate Tests**
-   - Create a parallel set of tests using the adapter
-   - Run tests against both implementations to verify equivalence
-   - Gradually deprecate tests that directly import from `server.py`
-
-3. **Phase 3: Update Dependencies**
-   - Identify all imports of `server.py` across the codebase
-   - Replace direct imports with adapter usage or FastMCP imports
-   - Update scripts that directly run `server.py`
-
-4. **Phase 4: Deprecate Legacy Server**
-   - Once all tests pass with both implementations, mark `server.py` as deprecated
-   - Add deprecation warnings to `server.py` functions
-   - Update documentation to recommend FastMCP usage
-
-5. **Phase 5: Remove Legacy Server**
-   - Once all dependencies are updated, remove `server.py`
-   - Keep a simplified adapter for backward compatibility
-
-## Test Adapter
-
-We've created a test adapter (`test_adapter.py`) that provides a consistent interface for calling tools using either implementation. The adapter determines which implementation to use based on the `MCP_USE_FASTMCP` environment variable.
-
-### Using the Test Adapter
+All clients should use the `adapter.py` interface:
 
 ```python
-from src.mcp_agile_flow.test_adapter import call_tool
+from mcp_agile_flow.adapter import call_tool, call_tool_sync
 
-# Call a tool (will use either implementation based on the environment variable)
-result = await call_tool("initialize-ide", {"project_path": "/path/to/project"})
+# Asynchronous usage
+result = await call_tool("get-project-settings", {})
+
+# Synchronous usage
+result = call_tool_sync("get-project-settings", {})
 ```
 
-To switch between implementations, set the `MCP_USE_FASTMCP` environment variable:
+## Tests
 
-```bash
-# Use the FastMCP implementation
-export MCP_USE_FASTMCP=true
+We've updated all tests to use the adapter interface. Legacy test files that depended on the server.py implementation have been moved to the `tests/archive/legacy/` directory.
 
-# Use the legacy server implementation (default)
-export MCP_USE_FASTMCP=false
-```
+## Future Development
 
-## Migration Progress
+Future development should focus on enhancing the FastMCP implementation with additional features and improvements, while maintaining the simple adapter interface for backward compatibility.
 
-| Tool | FastMCP Implementation | Tests Migrated | Notes |
-|------|----------------------|----------------|-------|
-| get-project-settings | ✅ | ✅ | Already implemented in FastMCP, tests migrated |
-| initialize-ide | ✅ | ✅ | Already implemented in FastMCP, tests migrated |
-| initialize-ide-rules | ✅ | ✅ | Already implemented in FastMCP, tests migrated |
-| prime-context | ✅ | ⚠️ | Already implemented in FastMCP, tests not migrated |
-| migrate-mcp-config | ✅ | ⚠️ | Already implemented in FastMCP, tests not migrated |
+## Legacy modules
 
-Note: All memory graph-related functionality (create-entities, create-relations, etc.) has been moved to a separate memory graph MCP server and is no longer part of this codebase.
+The following legacy modules have been archived and are no longer maintained:
 
-## Next Steps
-
-1. Run and validate the adapter-based tests
-2. Migrate tests for prime-context and migrate-mcp-config
-3. Update all dependencies on `server.py`
-4. Run tests using the FastMCP implementation only
-5. Add deprecation warning to `server.py`
-6. Remove `server.py` once all dependencies are updated 
+1. `server.py` - Removed in favor of FastMCP implementation
+2. `scripts/check_tools.py` - Legacy server utility
+3. `scripts/run_mcp_server.py` - Legacy server runner
+4. Several test files that directly imported the server module 
