@@ -1,7 +1,7 @@
 # MCP Agile Flow - Makefile
 # -------------------------
 
-.PHONY: help venv install test test-coverage coverage test-kg test-core test-full test-agent test-via-agent run-server setup-cursor clean clean-all clean-archived quality format lint type-check fix-lint setup-quality all
+.PHONY: help venv install test test-coverage coverage test-kg test-core test-nl-commands test-full test-agent test-via-agent run-server setup-cursor clean clean-all clean-archived quality format lint type-check fix-lint setup-quality all
 
 # Configuration
 # -------------
@@ -29,6 +29,7 @@ help:
 	@echo "test-coverage:    Run tests with coverage report (basic)"
 	@echo "coverage:         Run tests with detailed coverage reports and badge generation"
 	@echo "test-core:        Run only the core tests (migration and integration)"
+	@echo "test-nl-commands: Run only the natural language command detection tests"
 	@echo "test-agent:       Run only the agent tests (test_mcp_via_agno_agent.py)"
 	@echo "test-via-agent:   Run only the tests that use an AI agent for testing"
 	@echo "test-full:        Run all tests with full dependencies"
@@ -59,24 +60,20 @@ install: venv
 # Testing
 # -------
 test: venv
-	@echo "Installing development dependencies..."
+	@echo "Installing test dependencies..."
 	$(UV) pip install -e ".[test]"
-	$(UV) pip install -e .
 	@echo "Running tests with debug output..."
 	$(UV) run pytest $(PYTEST_FLAGS) -s --show-capture=all --tb=short $(TEST_MARKERS) $(TEST_PATH)
 
 test-coverage: venv
-	@echo "Installing development dependencies..."
+	@echo "Installing test dependencies..."
 	$(UV) pip install -e ".[test]"
-	$(UV) pip install -e .
 	@echo "Running tests with coverage..."
 	$(UV) run pytest $(PYTEST_FLAGS) --cov=$(PACKAGE_NAME) --cov-report=term --cov-report=html $(TEST_MARKERS) $(TESTS_DIR)
 
 coverage: venv
-	@echo "Installing development dependencies..."
-	$(UV) pip install -e ".[test]"
-	$(UV) pip install -e .
-	$(UV) pip install coverage-badge
+	@echo "Installing test and development dependencies..."
+	$(UV) pip install -e ".[dev]"
 	@echo "Running tests with detailed coverage report..."
 	. $(VENV_ACTIVATE) && UV_LINK_MODE=copy coverage run -m pytest $(TEST_MARKERS) $(TESTS_DIR)
 	. $(VENV_ACTIVATE) && coverage report -m
@@ -87,9 +84,8 @@ coverage: venv
 	@echo "Coverage badge generated at coverage.svg"
 
 test-kg: venv
-	@echo "Installing development dependencies..."
+	@echo "Installing test dependencies..."
 	$(UV) pip install -e ".[test]"
-	$(UV) pip install -e .
 	@echo "Running knowledge graph test..."
 	$(UV) run python -c "from tests.test_mcp_via_agno_agent import test_fastapi_project_knowledge_graph; test_fastapi_project_knowledge_graph()"
 
@@ -97,28 +93,29 @@ test-kg: venv
 test-agent: test-via-agent
 
 test-via-agent: venv
-	@echo "Installing development and agent-specific dependencies..."
+	@echo "Installing test and agent-specific dependencies..."
 	$(UV) pip install -e ".[test]"
-	$(UV) pip install -e .
 	$(UV) pip install agno rich openai
 	@echo "Running tests via AI agent..."
 	$(UV) run pytest $(PYTEST_FLAGS) -s --show-capture=all --tb=short tests/test_mcp_via_agno_agent.py
 
 test-core: venv
-	@echo "Installing development dependencies..."
+	@echo "Installing test dependencies..."
 	$(UV) pip install -e ".[test]"
-	$(UV) pip install -e .
-	@echo "Installing pytest-asyncio..."
-	$(UV) pip install pytest-asyncio
 	@echo "Running core tests only (migration and integration)..."
 	$(UV) run pytest $(PYTEST_FLAGS) -s --show-capture=all --tb=short tests/test_integration.py::test_get_project_settings tests/test_project_configuration.py::test_get_project_settings_tool tests/test_integration.py::test_get_project_settings_with_path
 
+test-nl-commands: venv
+	@echo "Installing test dependencies..."
+	$(UV) pip install -e ".[test]"
+	@echo "Running natural language command detection tests..."
+	$(UV) run pytest $(PYTEST_FLAGS) -s --show-capture=all --tb=short tests/test_nl_commands.py
+
 test-full: venv
 	@echo "Installing full development dependencies..."
-	$(UV) pip install -e ".[test]"
-	$(UV) pip install -e .
+	$(UV) pip install -e ".[dev]"
 	@echo "Installing additional dependencies for FastAPI tests..."
-	$(UV) pip install fastapi sqlmodel httpx pytest-cov email-validator pydantic[email]
+	$(UV) pip install fastapi sqlmodel httpx email-validator pydantic[email]
 	@echo "Installing agent dependencies..."
 	$(UV) pip install agno rich openai
 	@echo "Running all tests with debug output..."

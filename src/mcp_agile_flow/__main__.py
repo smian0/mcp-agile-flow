@@ -5,10 +5,12 @@ This module runs the FastMCP server implementation.
 import sys
 import logging
 import argparse
-from typing import Optional
+from typing import Optional, Dict, Any
+import json
 
 from fastmcp.server import FastMCP
 from .version import __version__
+from .utils import detect_mcp_command
 
 
 def configure_logging(quiet: bool = True) -> None:
@@ -84,6 +86,77 @@ def main(debug: bool = False, quiet: bool = True, verbose: bool = False) -> Opti
     server.tool(name="get-thoughts")(get_thoughts)
     server.tool(name="clear-thoughts")(clear_thoughts)
     server.tool(name="get-thought-stats")(get_thought_stats)
+    
+    # Add special natural language command processing endpoint
+    @server.tool(name="process-natural-language")
+    def process_natural_language(query: str) -> str:
+        """
+        Process natural language command and route to appropriate tool.
+        
+        Args:
+            query: The natural language query to process
+            
+        Returns:
+            JSON string with the result of the processed command or error
+        """
+        # Detect command in the query
+        tool_name, arguments = detect_mcp_command(query)
+        
+        if not tool_name:
+            # No command detected
+            response = {
+                "success": False,
+                "error": "No command detected in the query",
+                "message": "Please try a more specific command or check documentation for supported commands"
+            }
+            return json.dumps(response, indent=2)
+        
+        # Call the appropriate tool
+        try:
+            if tool_name == "get-project-settings":
+                result = get_project_settings(**(arguments or {}))
+            elif tool_name == "initialize-ide":
+                result = initialize_ide(**(arguments or {}))
+            elif tool_name == "initialize-ide-rules":
+                result = initialize_ide_rules(**(arguments or {}))
+            elif tool_name == "prime-context":
+                result = prime_context(**(arguments or {}))
+            elif tool_name == "migrate-mcp-config":
+                result = migrate_mcp_config(**(arguments or {}))
+            elif tool_name == "think":
+                result = think(**(arguments or {}))
+            elif tool_name == "get-thoughts":
+                result = get_thoughts()
+            elif tool_name == "clear-thoughts":
+                result = clear_thoughts()
+            elif tool_name == "get-thought-stats":
+                result = get_thought_stats()
+            else:
+                response = {
+                    "success": False,
+                    "error": f"Unknown tool: {tool_name}",
+                    "message": "The detected command could not be routed to a known tool"
+                }
+                return json.dumps(response, indent=2)
+            
+            # Check if the result is already a JSON string
+            try:
+                # Try to parse as JSON to see if it's already a JSON string
+                parsed_result = json.loads(result)
+                # If it's already JSON, just return it
+                return result
+            except (json.JSONDecodeError, TypeError):
+                # If it's not a JSON string, return it directly
+                return result
+                
+        except Exception as e:
+            # Handle any errors during processing
+            response = {
+                "success": False,
+                "error": f"Error processing command: {str(e)}",
+                "message": "An error occurred while processing your command"
+            }
+            return json.dumps(response, indent=2)
     
     try:
         server.run()

@@ -3,7 +3,8 @@ Utility functions for MCP Agile Flow.
 """
 
 import os
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Optional
+import re
 
 
 def get_project_settings(proposed_path: str = None) -> Dict[str, Any]:
@@ -204,3 +205,103 @@ def get_special_directories(project_path: str) -> Tuple[str, str]:
         logger.info(f"Using existing AI docs directory: {ai_docs_dir}")
 
     return knowledge_graph_dir, ai_docs_dir
+
+
+def detect_mcp_command(text: str) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """
+    Detects MCP commands from natural language text.
+    
+    Maps various ways users might phrase commands to the appropriate MCP tool.
+    
+    Args:
+        text: The natural language text to analyze
+        
+    Returns:
+        Tuple of (tool_name, arguments) or (None, None) if no command is detected
+    """
+    # Normalize text for consistent matching
+    normalized_text = text.lower().strip()
+    
+    # Define valid IDE names and aliases
+    valid_ides = {
+        "cursor", "windsurf-next", "windsurf", "cline", "roo", "claude-desktop"
+    }
+    
+    # Define IDE aliases
+    ide_aliases = {
+        "claude": "claude-desktop",  # Map "claude" to "claude-desktop"
+        "copilot": "cursor",  # For backward compatibility
+    }
+    
+    def validate_ide(ide):
+        """Validate IDE name and map to correct name if needed."""
+        if ide in valid_ides:
+            return ide
+        if ide in ide_aliases:
+            return ide_aliases[ide]
+        return ide  # Return as is, will be caught by migration tool
+    
+    # Migration command patterns
+    migration_patterns = [
+        r'migrate\s+(?:mcp\s+)?config(?:\s+from\s+(\w+(?:-\w+)?))?\s+to\s+(\w+(?:-\w+)?)',
+        r'(?:copy|transfer|move)\s+(?:mcp\s+)?config(?:\s+from\s+(\w+(?:-\w+)?))?\s+to\s+(\w+(?:-\w+)?)',
+        r'migrate\s+(?:mcp\s+)?settings(?:\s+from\s+(\w+(?:-\w+)?))?\s+to\s+(\w+(?:-\w+)?)',
+        r'(?:copy|transfer|move)\s+(?:mcp\s+)?settings(?:\s+from\s+(\w+(?:-\w+)?))?\s+to\s+(\w+(?:-\w+)?)',
+    ]
+    
+    for pattern in migration_patterns:
+        match = re.search(pattern, normalized_text)
+        if match:
+            from_ide = match.group(1) if match.group(1) else 'cursor'
+            to_ide = match.group(2)
+            
+            # Validate and correct IDE names
+            from_ide = validate_ide(from_ide)
+            to_ide = validate_ide(to_ide)
+            
+            return "migrate-mcp-config", {"from_ide": from_ide, "to_ide": to_ide}
+    
+    # Initialize IDE patterns
+    init_patterns = [
+        r'initialize\s+(?:ide|rules)\s+(?:for\s+)?(\w+(?:-\w+)?)',
+        r'setup\s+(?:ide|rules)\s+(?:for\s+)?(\w+(?:-\w+)?)',
+        r'create\s+(?:ide|rules)\s+(?:for\s+)?(\w+(?:-\w+)?)',
+    ]
+    
+    for pattern in init_patterns:
+        match = re.search(pattern, normalized_text)
+        if match:
+            ide = match.group(1)
+            # Validate and correct IDE name
+            ide = validate_ide(ide)
+            return "initialize-ide", {"ide": ide}
+    
+    # Project settings patterns
+    settings_patterns = [
+        r'get\s+(?:project\s+)?settings',
+        r'show\s+(?:project\s+)?settings',
+        r'project\s+settings',
+    ]
+    
+    for pattern in settings_patterns:
+        if re.search(pattern, normalized_text):
+            return "get-project-settings", {}
+    
+    # Prime context patterns
+    context_patterns = [
+        r'prime\s+(?:project\s+)?context',
+        r'analyze\s+(?:project\s+)?context',
+        r'build\s+(?:project\s+)?context',
+    ]
+    
+    for pattern in context_patterns:
+        if re.search(pattern, normalized_text):
+            return "prime-context", {}
+    
+    # Think patterns
+    if re.search(r'think\s+about', normalized_text):
+        thought = re.sub(r'^think\s+about\s+', '', normalized_text)
+        return "think", {"thought": thought}
+        
+    # No command detected
+    return None, None
