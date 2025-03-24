@@ -1,23 +1,41 @@
 """
-Test Adapter Module for MCP Agile Flow
+Adapter Module for MCP Agile Flow
 
-This module provides an adapter interface that allows tests to run against 
-either the legacy server implementation or the new FastMCP implementation.
-The goal is to make it easy to migrate tests incrementally.
+This module provides a compatibility layer for clients migrating from the legacy
+server implementation to the FastMCP implementation. It allows for a gradual transition
+without breaking existing code.
+
+Usage:
+    from src.mcp_agile_flow.adapter import call_tool
+    
+    # Call a tool (will use FastMCP by default)
+    result = await call_tool("initialize-ide", {"project_path": "/path/to/project"})
+    
+    # To use the legacy implementation (not recommended), set the environment variable:
+    # MCP_USE_LEGACY=true
 """
 
 import asyncio
 import json
 import os
+import warnings
 from typing import Dict, Any, Union
 
-# Set this environment variable to determine which implementation to use
-USE_FASTMCP = os.environ.get("MCP_USE_FASTMCP", "false").lower() in ("true", "1", "yes")
+# Set this environment variable to use the legacy implementation (not recommended)
+USE_LEGACY = os.environ.get("MCP_USE_LEGACY", "false").lower() in ("true", "1", "yes")
 
-class MCPToolAdapter:
+if USE_LEGACY:
+    warnings.warn(
+        "Using the legacy server implementation which is deprecated and will be removed in a future version. "
+        "Please migrate to the FastMCP implementation by removing the MCP_USE_LEGACY environment variable.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+
+class MCPAdapter:
     """Adapter class that provides a consistent interface for calling tools."""
     
-    # List of supported tools (tools implemented in both server and FastMCP)
+    # List of supported tools
     SUPPORTED_TOOLS = [
         "initialize-ide",
         "initialize-ide-rules",
@@ -32,8 +50,9 @@ class MCPToolAdapter:
         """
         Call an MCP tool with the specified name and arguments.
         
-        This method will use either the FastMCP implementation or the server implementation
-        based on the USE_FASTMCP environment variable.
+        This method will use the FastMCP implementation by default, but can be
+        configured to use the legacy server implementation by setting the
+        MCP_USE_LEGACY environment variable.
         
         Args:
             name: The name of the tool to call
@@ -46,23 +65,22 @@ class MCPToolAdapter:
             arguments = {}
             
         # Check if the tool is supported
-        if name not in MCPToolAdapter.SUPPORTED_TOOLS:
+        if name not in MCPAdapter.SUPPORTED_TOOLS:
             return {
                 "success": False,
-                "error": f"Tool '{name}' is not supported by this adapter. Supported tools: {', '.join(MCPToolAdapter.SUPPORTED_TOOLS)}"
+                "error": f"Tool '{name}' is not supported by this adapter. Supported tools: {', '.join(MCPAdapter.SUPPORTED_TOOLS)}"
             }
             
-        if USE_FASTMCP:
-            # Use the FastMCP implementation directly
-            return await MCPToolAdapter._call_fastmcp_tool(name, arguments)
+        if USE_LEGACY:
+            # Use the legacy server implementation
+            return await MCPAdapter._call_legacy_tool(name, arguments)
         else:
-            # Use the server implementation
-            return await MCPToolAdapter._call_server_tool(name, arguments)
+            # Use the FastMCP implementation directly (default)
+            return await MCPAdapter._call_fastmcp_tool(name, arguments)
     
     @staticmethod
     async def _call_fastmcp_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Call a tool using the FastMCP implementation directly."""
-        # Import the function dynamically to avoid circular imports
         try:
             # Convert tool name format (handle-tool-name to handle_tool_name)
             function_name = name.replace("-", "_")
@@ -99,8 +117,15 @@ class MCPToolAdapter:
             }
     
     @staticmethod
-    async def _call_server_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Call a tool using the server implementation."""
+    async def _call_legacy_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Call a tool using the legacy server implementation."""
+        warnings.warn(
+            f"Using the legacy implementation for tool '{name}' which is deprecated. "
+            "Please migrate to the FastMCP implementation.",
+            DeprecationWarning,
+            stacklevel=3
+        )
+        
         from src.mcp_agile_flow.server import handle_call_tool
         
         # Call the tool through the server's handle_call_tool function
@@ -120,7 +145,7 @@ async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, An
     """
     Call an MCP tool with the specified name and arguments.
     
-    This is a convenience function that delegates to MCPToolAdapter.call_tool.
+    This is a convenience function that delegates to MCPAdapter.call_tool.
     
     Args:
         name: The name of the tool to call
@@ -129,4 +154,37 @@ async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, An
     Returns:
         The parsed JSON response as a dictionary
     """
-    return await MCPToolAdapter.call_tool(name, arguments) 
+    return await MCPAdapter.call_tool(name, arguments)
+
+# Synchronous version for convenience
+def call_tool_sync(name: str, arguments: Dict[str, Any] = None) -> Dict[str, Any]:
+    """
+    Synchronous version of call_tool.
+    
+    This is a convenience function for code that can't use async/await.
+    
+    Args:
+        name: The name of the tool to call
+        arguments: The arguments to pass to the tool
+        
+    Returns:
+        The parsed JSON response as a dictionary
+    """
+    try:
+        # First, try to get the current event loop
+        loop = asyncio.get_event_loop()
+        
+        # Check if the loop is already running
+        if loop.is_running():
+            # If we're in an existing event loop, create a new one for this call
+            loop = asyncio.new_event_loop()
+            try:
+                return loop.run_until_complete(call_tool(name, arguments))
+            finally:
+                loop.close()
+        else:
+            # If we have a loop but it's not running, use it
+            return loop.run_until_complete(call_tool(name, arguments))
+    except RuntimeError:
+        # If we can't get an event loop, create a new one
+        return asyncio.run(call_tool(name, arguments)) 

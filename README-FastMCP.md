@@ -409,4 +409,48 @@ Run tests with both implementations:
 
 # Test with increased verbosity
 ./scripts/migrate_server_tests.sh -f tests/test_initialize_ide_adapter.py -vv
-``` 
+```
+
+### Migration Progress
+
+#### Migrated Tools
+
+1. **initialize-ide** - Fully migrated and tested
+   - Legacy: `src/mcp_agile_flow/tools.py`
+   - FastMCP: `src/mcp_agile_flow/fastmcp_tools.py`
+   - Testing: `tests/test_initialize_ide_adapter.py`
+
+2. **initialize-ide-rules** - Fully migrated and tested
+   - Legacy: `src/mcp_agile_flow/tools.py`
+   - FastMCP: `src/mcp_agile_flow/fastmcp_tools.py`
+   - Testing: `tests/test_initialize_ide_rules_adapter.py`
+
+3. **prime-context** - Fully migrated and tested
+   - Legacy: `src/mcp_agile_flow/tools.py`
+   - FastMCP: `src/mcp_agile_flow/fastmcp_tools.py`
+   - Testing: `tests/test_prime_context_adapter.py`
+
+4. **migrate-mcp-config** - Fully migrated and tested
+   - Legacy: `src/mcp_agile_flow/tools.py`
+   - FastMCP: `src/mcp_agile_flow/fastmcp_tools.py`
+   - Testing: `tests/test_mcp_config_migration_adapter.py`
+
+5. **get-project-settings** - Fully migrated and tested
+   - Legacy: `src/mcp_agile_flow/tools.py`
+   - FastMCP: `src/mcp_agile_flow/fastmcp_tools.py`
+   - Testing: `tests/test_project_configuration_adapter.py`
+
+6. **Environment variables handling (PROJECT_PATH)** - Fully migrated and tested
+   - Legacy: `src/mcp_agile_flow/tools.py`
+   - FastMCP: `src/mcp_agile_flow/utils.py`
+   - Testing: `tests/test_env_variables_adapter.py`
+
+7. **get-safe-project-path (replaced with get-project-settings)** - Migration complete
+   - Legacy: This tool was deprecated in the legacy server
+   - FastMCP: Functionality covered by `get-project-settings` in `src/mcp_agile_flow/fastmcp_tools.py`
+   - Testing: `tests/test_integration_adapter.py::test_archive_path_tests`
+
+#### Remaining Tests to Migrate
+
+- `test_fastmcp_tools.py`
+- `test_integration.py` 

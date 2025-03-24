@@ -3,26 +3,23 @@
 ## [Unreleased]
 
 ### Added
-- Migration of environment variables handling (PROJECT_PATH) to FastMCP implementation
-- Migration of get-project-settings tool to FastMCP implementation
-- Adapter tests for environment variables functionality
-- Adapter tests for project configuration (get-project-settings)
-- Documentation updates for FastMCP migration progress
+- Migration of `get-safe-project-path` functionality to `get-project-settings`
+- Adapter test for `get-safe-project-path` as `test_archive_path_tests`
+- Improved error handling in test adapter to support FastMCP migration
 
 ### Changed
-- Updated README.md with latest migration status
-- Enhanced README-FastMCP.md with detailed migration guide
-- Updated test adapter to support all migrated tools
+- Updated README.md and README-FastMCP.md with latest migration status
+- Enhanced test adapter to better handle differences between legacy and FastMCP implementations
+- Fixed tests to properly support both implementations 
 
 ### Fixed
-- Improved asyncio support in adapter tests
-- Fixed compatibility issues between implementations
-- Enhanced test stability for both implementations
+- Resolved issues with `migrate-mcp-config` parameter handling in adapter tests
+- Improved test stability for FastMCP tool tests
 
 ## [0.1.0] - 2024-03-23
 
 ### Added
 - Initial FastMCP migration for core tools
-- Adapter-based testing infrastructure
-- Migration script for comparing implementations
-- Comprehensive documentation of migration process 
+- Test adapter infrastructure
+- Compatibility tests for both legacy and FastMCP implementations
+- Documentation for migration process 

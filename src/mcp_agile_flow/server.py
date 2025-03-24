@@ -1,5 +1,9 @@
 """
-MCP Agile Flow - Server Implementation
+MCP Agile Flow Server - Legacy Implementation
+
+DEPRECATED: This server implementation is deprecated and will be removed in a future version.
+Please migrate to the FastMCP implementation in fastmcp_server.py. See docs/server_migration.md
+for details on the migration process.
 
 This module implements the MCP server with tools for agile workflow.
 It uses the standard MCP protocol over stdin/stdout for use with Cursor.
@@ -14,6 +18,7 @@ import re
 import shutil
 import sys
 import traceback
+import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import mcp.types as types
@@ -46,6 +51,15 @@ __fastmcp__ = [
     migrate_mcp_config_fastmcp,
     initialize_ide_rules_fastmcp,
 ]
+
+# Show deprecation warning when this module is imported
+warnings.warn(
+    "The legacy server implementation (server.py) is deprecated and will be removed in a future version. "
+    "Please migrate to the FastMCP implementation in fastmcp_server.py. "
+    "See docs/server_migration.md for details.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 # Define stub functions for removed functionalities
 def search_nodes(*args, **kwargs):
@@ -278,6 +292,12 @@ async def handle_call_tool(
     Returns:
         A list of TextContent objects with the tool's response.
     """
+    warnings.warn(
+        f"The legacy tool handler for '{name}' is deprecated. Please migrate to the FastMCP implementation.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
     try:
         logger.info(f"Tool call received: {name} with arguments: {arguments}")
         print(f"DEBUG: Tool call received: {name} with arguments: {arguments}")
@@ -1240,7 +1260,18 @@ async def run_server():
 
 
 def run():
-    """Entry point for running the server."""
+    """
+    Entry point for running the server.
+    
+    DEPRECATED: This function is deprecated and will be removed in a future version.
+    Please migrate to the FastMCP implementation in fastmcp_server.py.
+    """
+    warnings.warn(
+        "The legacy server implementation is deprecated. Please migrate to the FastMCP implementation.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
     asyncio.run(run_server())
 
 

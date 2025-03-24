@@ -1,7 +1,7 @@
 ---
 description: Use when working with projects that have Makefiles for automating build, test, and deployment processes
-globs: Makefile, makefile, *.mk
-alwaysApply: false
+globs: Makefile, makefile, *.mk, pyproject.toml, package.json
+alwaysApply: true
 ---
 
 # Makefile Usage Standards
