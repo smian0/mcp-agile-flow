@@ -103,9 +103,9 @@ create_mcp_config() {
   "mcpServers": {
     "agile-flow": {
       "command": "$PYTHON_PATH",
-      "args": ["-m", "mcp_agile_flow.server"],
+      "args": ["-m", "mcp_agile_flow"],
       "disabled": false,
-      "autoApprove": ["initialize-ide-rules", "get-project-settings", "read_graph", "get_mermaid_diagram"],
+      "autoApprove": ["initialize-ide-rules", "get-project-settings"],
       "timeout": 30
     }
   }
@@ -117,9 +117,9 @@ EOF
   "mcpServers": {
     "agile-flow": {
       "command": "$UVX_PATH",
-      "args": ["--with-editable", ".", "python", "-m", "mcp_agile_flow.server"],
+      "args": ["--with-editable", ".", "python", "-m", "mcp_agile_flow"],
       "disabled": false,
-      "autoApprove": ["initialize-ide-rules", "get-project-settings", "read_graph", "get_mermaid_diagram"],
+      "autoApprove": ["initialize-ide-rules", "get-project-settings"],
       "timeout": 30
     }
   }

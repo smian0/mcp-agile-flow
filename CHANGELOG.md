@@ -9,6 +9,8 @@
 - Updated adapter to use FastMCP implementation only
 - Changed import paths to remove `src.` prefix
 - Deleted archived test files and legacy scripts
+- Removed deprecated mermaid graph functionality stubs and tests
+- Removed migration-related files and test scripts
 
 ### New Features
 
@@ -22,6 +24,7 @@
 - Updated tests to work with FastMCP implementation
 - Fixed import paths in all modules
 - Simplified server configuration
+- Updated installation script to use new module path and remove deprecated tools
 
 ### Other Changes
 
@@ -29,6 +32,7 @@
 - Created backup system for archived files
 - Updated documentation
 - Simplified project structure
+- Migrated memory graph functionality to a separate MCP server
 
 ## [Unreleased]
 
