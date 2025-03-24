@@ -7,38 +7,97 @@ in a structured way, storing thoughts and allowing reflection on previous thinki
 
 import json
 import datetime
+import os
+import tempfile
+import logging
+import mmap
+import threading
 from typing import Optional, Dict, List, Any
 
+logger = logging.getLogger(__name__)
+
 class ThoughtStorage:
-    """Singleton class to store thoughts."""
+    """Singleton class to store thoughts in memory with cross-process sharing."""
     _instance = None
+    _lock = threading.Lock()
     
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(ThoughtStorage, cls).__new__(cls)
-            cls._instance._thoughts = []
+            cls._instance._init_storage()
         return cls._instance
+    
+    def _init_storage(self):
+        """Initialize the cross-process shared storage."""
+        self._thoughts = []
+        # Create a temporary file for this session only
+        # This will be automatically deleted when the process exits
+        self._temp_fd, self._temp_path = tempfile.mkstemp(prefix="mcp_thoughts_", suffix=".tmp")
+        logger.debug(f"Initialized thought storage using temporary file: {self._temp_path}")
+        # Write empty array to initialize the file
+        os.write(self._temp_fd, json.dumps([]).encode('utf-8'))
+    
+    def _read_thoughts(self):
+        """Read thoughts from the shared memory file."""
+        try:
+            with self._lock:
+                # Seek to the beginning of the file
+                os.lseek(self._temp_fd, 0, os.SEEK_SET)
+                # Read the entire content
+                content = os.read(self._temp_fd, os.path.getsize(self._temp_path))
+                if content:
+                    return json.loads(content.decode('utf-8'))
+                return []
+        except Exception as e:
+            logger.error(f"Error reading thoughts: {e}")
+            return []
+    
+    def _write_thoughts(self, thoughts):
+        """Write thoughts to the shared memory file."""
+        try:
+            with self._lock:
+                # Convert to JSON and encode to bytes
+                content = json.dumps(thoughts).encode('utf-8')
+                # Truncate the file
+                os.ftruncate(self._temp_fd, 0)
+                # Seek to the beginning
+                os.lseek(self._temp_fd, 0, os.SEEK_SET)
+                # Write the new content
+                os.write(self._temp_fd, content)
+        except Exception as e:
+            logger.error(f"Error writing thoughts: {e}")
     
     def add_thought(self, thought: str) -> None:
         """Add a thought to storage with current timestamp."""
-        self._thoughts.append({
+        thoughts = self._read_thoughts()
+        thoughts.append({
             "timestamp": datetime.datetime.now().isoformat(),
             "thought": thought
         })
+        self._write_thoughts(thoughts)
     
     def get_thoughts(self) -> List[Dict[str, Any]]:
         """Get all thoughts."""
-        return self._thoughts
+        return self._read_thoughts()
     
     def clear_thoughts(self) -> int:
         """Clear all thoughts and return count of cleared thoughts."""
-        count = len(self._thoughts)
-        self._thoughts = []
+        thoughts = self._read_thoughts()
+        count = len(thoughts)
+        self._write_thoughts([])
         return count
     
     def get_thought_count(self) -> int:
         """Get the number of thoughts."""
-        return len(self._thoughts)
+        return len(self._read_thoughts())
+    
+    def __del__(self):
+        """Clean up when the instance is garbage collected."""
+        try:
+            os.close(self._temp_fd)
+            # The temp file will be automatically deleted
+        except (AttributeError, OSError):
+            pass
 
 # Create a single instance to be used throughout the module
 _storage = ThoughtStorage()
