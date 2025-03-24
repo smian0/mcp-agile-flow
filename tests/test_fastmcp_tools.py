@@ -187,3 +187,37 @@ def test_migrate_mcp_config_structure():
     # Check basic structure
     assert isinstance(data, dict)
     assert "success" in data  # All responses should have a success field 
+
+def test_fastmcp_vs_server_implementation_initialize_ide():
+    """Compare the FastMCP and server implementations for initialize_ide to ensure equivalent behavior."""
+    # Create a temporary directory to use as project path
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Get the results from both implementations
+        from mcp_agile_flow.fastmcp_tools import initialize_ide as initialize_ide_fastmcp
+        fastmcp_result = initialize_ide_fastmcp(ide="cursor", project_path=temp_dir)
+        fastmcp_data = json.loads(fastmcp_result)
+        
+        # Clean up the created files for a fair comparison
+        if os.path.exists(os.path.join(temp_dir, ".cursor")):
+            shutil.rmtree(os.path.join(temp_dir, ".cursor"))
+        if os.path.exists(os.path.join(temp_dir, ".ai-templates")):
+            shutil.rmtree(os.path.join(temp_dir, ".ai-templates"))
+        
+        # Import and call the server implementation
+        import asyncio
+        from src.mcp_agile_flow.server import handle_call_tool
+        server_result = asyncio.run(handle_call_tool(
+            "initialize-ide", 
+            {"ide": "cursor", "project_path": temp_dir}
+        ))
+        server_data = json.loads(server_result[0].text)
+        
+        # Check that both implementations return the same essential data
+        assert fastmcp_data["success"] == server_data["success"]
+        assert fastmcp_data["project_path"] == server_data["project_path"]
+        assert fastmcp_data["initialized_templates"] == server_data["initialized_templates"]
+        assert fastmcp_data["initialized_rules"] == server_data["initialized_rules"]
+        
+        # Both should create the same file structure
+        assert os.path.exists(os.path.join(temp_dir, ".cursor", "rules"))
+        assert os.path.exists(os.path.join(temp_dir, ".ai-templates")) 

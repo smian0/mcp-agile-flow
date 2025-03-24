@@ -161,6 +161,39 @@ results = json.loads(results_json)
 
 For more detailed information, see [README-FastMCP.md](README-FastMCP.md).
 
+## FastMCP Migration Status
+
+The codebase is currently being migrated from the legacy server implementation to the FastMCP-based implementation. This migration allows for better maintainability, performance, and compatibility with the MCP ecosystem.
+
+### Migrated Tools
+
+The following tools have been successfully migrated and tested with both implementations:
+
+- `initialize-ide` - Sets up the necessary directory structure for a specific IDE
+- `initialize-ide-rules` - Creates rules files for a specific IDE
+- `prime-context` - Analyzes project documentation to build contextual understanding
+- `migrate-mcp-config` - Migrates MCP configuration between different IDEs
+- `get-project-settings` - Returns project settings including paths and configuration
+- Environment variables handling (PROJECT_PATH) - Ensures consistent project path resolution
+
+### Migration Testing
+
+A test adapter has been created to facilitate testing of both implementations with the same test code. This allows us to ensure that the FastMCP implementation behaves identically to the legacy implementation.
+
+To run tests with both implementations and verify equivalence:
+
+```bash
+./scripts/migrate_server_tests.sh -f tests/test_<tool>_adapter.py -v
+```
+
+### Remaining Tools to Migrate
+
+The following tests still need to be migrated to use the adapter:
+
+- `test_fastmcp_tools.py`
+- `test_integration.py`
+- `tests/archive/path_tests/test_root_tool.py`
+
 ## Troubleshooting
 
 ### Common Issues

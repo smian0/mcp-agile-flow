@@ -18,6 +18,9 @@ load_dotenv(".env.test")
 # Add the project root to the Python path to ensure imports work correctly
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Set up pytest-asyncio
+pytest_plugins = ["pytest_asyncio"]
+
 
 # Configure logging for all tests
 @pytest.fixture(autouse=True)
