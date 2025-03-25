@@ -8,7 +8,7 @@ import argparse
 from typing import Optional, Dict, Any
 import json
 
-from fastmcp.server import FastMCP
+from mcp.server import FastMCP
 from .version import __version__
 from .utils import detect_mcp_command
 
@@ -61,7 +61,7 @@ def main(debug: bool = False, quiet: bool = True, verbose: bool = False) -> Opti
         logging.getLogger("mcp").setLevel(logging.CRITICAL)
     
     # Create and run the server
-    server = FastMCP(name="mcp-agile-flow")
+    server = FastMCP(name="mcp_agile_flow")
     
     # Import all tools directly and register them with the server
     from .fastmcp_tools import (
@@ -77,18 +77,18 @@ def main(debug: bool = False, quiet: bool = True, verbose: bool = False) -> Opti
     )
     
     # Register tools with the server
-    server.tool(name="get-project-settings")(get_project_settings)
-    server.tool(name="initialize-ide")(initialize_ide)
-    server.tool(name="initialize-ide-rules")(initialize_ide_rules)
-    server.tool(name="prime-context")(prime_context)
-    server.tool(name="migrate-mcp-config")(migrate_mcp_config)
+    server.tool(name="get_project_settings")(get_project_settings)
+    server.tool(name="initialize_ide")(initialize_ide)
+    server.tool(name="initialize_ide_rules")(initialize_ide_rules)
+    server.tool(name="prime_context")(prime_context)
+    server.tool(name="migrate_mcp_config")(migrate_mcp_config)
     server.tool(name="think")(think)
-    server.tool(name="get-thoughts")(get_thoughts)
-    server.tool(name="clear-thoughts")(clear_thoughts)
-    server.tool(name="get-thought-stats")(get_thought_stats)
+    server.tool(name="get_thoughts")(get_thoughts)
+    server.tool(name="clear_thoughts")(clear_thoughts)
+    server.tool(name="get_thought_stats")(get_thought_stats)
     
     # Add special natural language command processing endpoint
-    @server.tool(name="process-natural-language")
+    @server.tool(name="process_natural_language")
     def process_natural_language(query: str) -> str:
         """
         Process natural language command and route to appropriate tool.
@@ -113,23 +113,23 @@ def main(debug: bool = False, quiet: bool = True, verbose: bool = False) -> Opti
         
         # Call the appropriate tool
         try:
-            if tool_name == "get-project-settings":
+            if tool_name == "get_project_settings":
                 result = get_project_settings(**(arguments or {}))
-            elif tool_name == "initialize-ide":
+            elif tool_name == "initialize_ide":
                 result = initialize_ide(**(arguments or {}))
-            elif tool_name == "initialize-ide-rules":
+            elif tool_name == "initialize_ide_rules":
                 result = initialize_ide_rules(**(arguments or {}))
-            elif tool_name == "prime-context":
+            elif tool_name == "prime_context":
                 result = prime_context(**(arguments or {}))
-            elif tool_name == "migrate-mcp-config":
+            elif tool_name == "migrate_mcp_config":
                 result = migrate_mcp_config(**(arguments or {}))
             elif tool_name == "think":
                 result = think(**(arguments or {}))
-            elif tool_name == "get-thoughts":
+            elif tool_name == "get_thoughts":
                 result = get_thoughts()
-            elif tool_name == "clear-thoughts":
+            elif tool_name == "clear_thoughts":
                 result = clear_thoughts()
-            elif tool_name == "get-thought-stats":
+            elif tool_name == "get_thought_stats":
                 result = get_thought_stats()
             else:
                 response = {
@@ -177,6 +177,7 @@ def parse_args():
     parser.add_argument("--debug", action="store_true", help="Run in debug mode with verbose logging")
     parser.add_argument("--verbose", action="store_true", help="Enable logging output (less verbose than debug)")
     parser.add_argument("--version", "-v", action="store_true", help="Show version information and exit")
+    parser.add_argument("--server", action="store_true", help="Run as server")
     return parser.parse_args()
 
 
@@ -188,7 +189,23 @@ if __name__ == "__main__":
         print(f"MCP Agile Flow v{__version__}")
         sys.exit(0)
     
-    # Run the server and exit with the returned code if any
-    exit_code = main(debug=args.debug, quiet=not (args.debug or args.verbose), verbose=args.verbose)
-    if exit_code is not None:
-        sys.exit(exit_code)
+    if args.server:
+        # Run as server
+        from .server import start_server
+        start_server()
+    else:
+        # Run a command via FastMCP
+        from mcp.server import FastMCP
+        import asyncio
+        import os
+        
+        # Set up environment
+        os.environ["MCP_TOOL_DEBUG"] = "1" if args.debug else "0"
+        
+        # Create FastMCP instance
+        server = FastMCP(name="mcp_agile_flow")
+        
+        # Run the server and exit with the returned code if any
+        exit_code = main(debug=args.debug, quiet=not (args.debug or args.verbose), verbose=args.verbose)
+        if exit_code is not None:
+            sys.exit(exit_code)

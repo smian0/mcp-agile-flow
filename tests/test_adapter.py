@@ -11,7 +11,7 @@ from src.mcp_agile_flow import call_tool, call_tool_sync, SUPPORTED_TOOLS
 @pytest.mark.asyncio
 async def test_call_tool_for_supported_tool():
     """Test that calling a supported tool works correctly."""
-    tool_name = "get-project-settings"
+    tool_name = "get_project_settings"
     
     # Mock the get_project_settings function to avoid real implementation
     mock_result = {"success": True, "data": {"project_path": "/test/path"}}
@@ -26,7 +26,7 @@ async def test_call_tool_for_supported_tool():
 
 def test_call_tool_sync():
     """Test that the synchronous version works correctly."""
-    tool_name = "get-project-settings"
+    tool_name = "get_project_settings"
     
     # Mock the get_project_settings function to avoid real implementation
     mock_result = {"success": True, "data": {"project_path": "/test/path"}}
@@ -42,7 +42,7 @@ def test_call_tool_sync():
 @pytest.mark.asyncio
 async def test_call_tool_for_unsupported_tool():
     """Test that calling an unsupported tool returns an error."""
-    tool_name = "unsupported-tool"
+    tool_name = "unsupported_tool"
     
     result = await call_tool(tool_name)
     
@@ -55,7 +55,7 @@ async def test_call_tool_for_unsupported_tool():
 @pytest.mark.asyncio
 async def test_call_tool_handles_exceptions():
     """Test that exceptions in tool execution are properly handled."""
-    tool_name = "get-project-settings"
+    tool_name = "get_project_settings"
     
     # Mock the get_project_settings function to raise an exception
     with mock.patch('src.mcp_agile_flow.fastmcp_tools.get_project_settings', 

@@ -259,7 +259,7 @@ def detect_mcp_command(text: str) -> tuple[Optional[str], Optional[Dict[str, Any
             from_ide = validate_ide(from_ide)
             to_ide = validate_ide(to_ide)
             
-            return "migrate-mcp-config", {"from_ide": from_ide, "to_ide": to_ide}
+            return "migrate_mcp_config", {"from_ide": from_ide, "to_ide": to_ide}
     
     # Initialize IDE patterns
     init_patterns = [
@@ -274,7 +274,7 @@ def detect_mcp_command(text: str) -> tuple[Optional[str], Optional[Dict[str, Any
             ide = match.group(1)
             # Validate and correct IDE name
             ide = validate_ide(ide)
-            return "initialize-ide", {"ide": ide}
+            return "initialize_ide", {"ide": ide}
     
     # Project settings patterns
     settings_patterns = [
@@ -285,7 +285,7 @@ def detect_mcp_command(text: str) -> tuple[Optional[str], Optional[Dict[str, Any
     
     for pattern in settings_patterns:
         if re.search(pattern, normalized_text):
-            return "get-project-settings", {}
+            return "get_project_settings", {}
     
     # Prime context patterns
     context_patterns = [
@@ -296,7 +296,7 @@ def detect_mcp_command(text: str) -> tuple[Optional[str], Optional[Dict[str, Any
     
     for pattern in context_patterns:
         if re.search(pattern, normalized_text):
-            return "prime-context", {}
+            return "prime_context", {}
     
     # Think patterns
     if re.search(r'think\s+about', normalized_text):

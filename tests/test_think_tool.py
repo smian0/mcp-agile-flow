@@ -43,7 +43,7 @@ async def test_think():
 @pytest.mark.asyncio
 async def test_get_thoughts_empty():
     """Test getting thoughts when none are stored."""
-    result = await call_tool("get-thoughts")
+    result = await call_tool("get_thoughts")
     assert result["success"] is True
     assert "No thoughts have been recorded yet" in result["message"]
     assert result["thoughts"] == []
@@ -56,7 +56,7 @@ async def test_get_thoughts():
     await call_tool("think", {"thought": "Second thought"})
     
     # Get the thoughts
-    result = await call_tool("get-thoughts")
+    result = await call_tool("get_thoughts")
     assert result["success"] is True
     assert "Retrieved 2 thoughts" in result["message"]
     assert len(result["thoughts"]) == 2
@@ -76,7 +76,7 @@ async def test_clear_thoughts():
     assert _storage.get_thought_count() == 2
     
     # Clear the thoughts
-    result = await call_tool("clear-thoughts")
+    result = await call_tool("clear_thoughts")
     assert result["success"] is True
     assert "Cleared 2 recorded thoughts" in result["message"]
     
@@ -86,7 +86,7 @@ async def test_clear_thoughts():
 @pytest.mark.asyncio
 async def test_get_thought_stats_empty():
     """Test getting thought stats when none are stored."""
-    result = await call_tool("get-thought-stats")
+    result = await call_tool("get_thought_stats")
     assert result["success"] is True
     assert "No thoughts have been recorded yet" in result["message"]
     assert result["stats"]["total_thoughts"] == 0
@@ -100,7 +100,7 @@ async def test_get_thought_stats():
     await call_tool("think", {"thought": "Medium length thought"})
     
     # Get thought stats
-    result = await call_tool("get-thought-stats")
+    result = await call_tool("get_thought_stats")
     assert result["success"] is True
     assert "Retrieved statistics" in result["message"]
     assert result["stats"]["total_thoughts"] == 3
@@ -115,23 +115,23 @@ async def test_multiple_thoughts_session():
     await call_tool("think", {"thought": "Breaking down sub-problems"})
     
     # Get thoughts
-    result1 = await call_tool("get-thoughts")
+    result1 = await call_tool("get_thoughts")
     assert len(result1["thoughts"]) == 2
     
     # Add another thought
     await call_tool("think", {"thought": "Potential solution approach"})
     
     # Get updated thoughts
-    result2 = await call_tool("get-thoughts")
+    result2 = await call_tool("get_thoughts")
     assert len(result2["thoughts"]) == 3
     
     # Get stats
-    stats = await call_tool("get-thought-stats")
+    stats = await call_tool("get_thought_stats")
     assert stats["stats"]["total_thoughts"] == 3
     
     # Clear thoughts
-    await call_tool("clear-thoughts")
+    await call_tool("clear_thoughts")
     
     # Verify thoughts were cleared
-    result3 = await call_tool("get-thoughts")
+    result3 = await call_tool("get_thoughts")
     assert len(result3["thoughts"]) == 0 

@@ -5,11 +5,11 @@ This package provides tools for managing project structure, documentation, and I
 using the Model Context Protocol (MCP).
 
 Primary tools:
-- get-project-settings: Returns project settings including paths and configuration
-- initialize-ide: Initialize a project with rules for a specific IDE
-- initialize-ide-rules: Initialize a project with rules for a specific IDE (specialized)
-- migrate-mcp-config: Migrate MCP configuration between different IDEs
-- prime-context: Analyze project AI documentation to build context
+- get_project_settings: Returns project settings including paths and configuration
+- initialize_ide: Initialize a project with rules for a specific IDE
+- initialize_ide_rules: Initialize a project with rules for a specific IDE (specialized)
+- migrate_mcp_config: Migrate MCP configuration between different IDEs
+- prime_context: Analyze project AI documentation to build context
 
 The knowledge graph functionality has been migrated to a separate MCP server.
 """
@@ -23,15 +23,15 @@ from .utils import detect_mcp_command
 
 # List of supported tools
 SUPPORTED_TOOLS = [
-    "initialize-ide",
-    "initialize-ide-rules",
-    "get-project-settings",
-    "prime-context", 
-    "migrate-mcp-config",
+    "initialize_ide",
+    "initialize_ide_rules",
+    "get_project_settings",
+    "prime_context", 
+    "migrate_mcp_config",
     "think",
-    "get-thoughts",
-    "clear-thoughts",
-    "get-thought-stats"
+    "get_thoughts",
+    "clear_thoughts",
+    "get_thought_stats"
 ]
 
 async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -71,23 +71,23 @@ async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, An
         )
         
         # Call the appropriate function based on the tool name
-        if name == "initialize-ide":
+        if name == "initialize_ide":
             result = initialize_ide(**arguments)
-        elif name == "initialize-ide-rules":
+        elif name == "initialize_ide_rules":
             result = initialize_ide_rules(**arguments)
-        elif name == "get-project-settings":
+        elif name == "get_project_settings":
             result = get_project_settings(**arguments)
-        elif name == "prime-context":
+        elif name == "prime_context":
             result = prime_context(**arguments)
-        elif name == "migrate-mcp-config":
+        elif name == "migrate_mcp_config":
             result = migrate_mcp_config(**arguments)
         elif name == "think":
             result = think(**arguments)
-        elif name == "get-thoughts":
+        elif name == "get_thoughts":
             result = get_thoughts()
-        elif name == "clear-thoughts":
+        elif name == "clear_thoughts":
             result = clear_thoughts()
-        elif name == "get-thought-stats":
+        elif name == "get_thought_stats":
             result = get_thought_stats()
         else:
             raise ValueError(f"Unknown tool: {name}")

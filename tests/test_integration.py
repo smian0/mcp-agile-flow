@@ -29,17 +29,17 @@ from src.mcp_agile_flow import call_tool, call_tool_sync
 
 @pytest.mark.asyncio
 async def test_get_project_settings():
-    """Test the get-project-settings tool."""
-    result = await call_tool("get-project-settings", {})
+    """Test the get_project_settings tool."""
+    result = await call_tool("get_project_settings", {})
     assert "project_path" in result
     assert "current_directory" in result
     assert Path(result["project_path"]).exists()
     
 @pytest.mark.asyncio
 async def test_initialize_ide_rules():
-    """Test the initialize-ide-rules tool."""
+    """Test the initialize_ide_rules tool."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        result = await call_tool("initialize-ide-rules", {"ide": "cursor", "project_path": temp_dir})
+        result = await call_tool("initialize_ide_rules", {"ide": "cursor", "project_path": temp_dir})
         assert result["success"] is True
         
         # Check that the cursor rules directory exists
@@ -48,7 +48,7 @@ async def test_initialize_ide_rules():
         
 @pytest.mark.asyncio
 async def test_prime_context():
-    """Test the prime-context tool."""
+    """Test the prime_context tool."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a sample ai-docs directory
         ai_docs_dir = Path(temp_dir) / "ai-docs"
@@ -67,8 +67,8 @@ Planning
         with open(prd_file, "w") as f:
             f.write(prd_content)
         
-        # Call the prime-context tool
-        result = await call_tool("prime-context", {"project_path": temp_dir, "depth": "minimal"})
+        # Call the prime_context tool
+        result = await call_tool("prime_context", {"project_path": temp_dir, "depth": "minimal"})
         
         # Check the result
         assert "context" in result
@@ -77,7 +77,7 @@ Planning
         
 @pytest.mark.asyncio
 async def test_migrate_mcp_config():
-    """Test the migrate-mcp-config tool."""
+    """Test the migrate_mcp_config tool."""
     # This test may need to be updated or skipped as migrate-mcp-config might not be
     # fully implemented in FastMCP yet
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -108,7 +108,7 @@ async def test_migrate_mcp_config():
         
         try:
             # Call migrate-mcp-config
-            result = await call_tool("migrate-mcp-config", {
+            result = await call_tool("migrate_mcp_config", {
                 "from_ide": "cursor",
                 "to_ide": "windsurf",
                 "project_path": str(temp_dir)  # Convert Path to string to ensure compatibility
@@ -121,7 +121,7 @@ async def test_migrate_mcp_config():
                     # Legacy format with success flag
                     pass
                 else:
-                    pytest.skip("migrate-mcp-config not fully implemented in FastMCP or returned failure")
+                    pytest.skip("migrate_mcp_config not fully implemented in FastMCP or returned failure")
             elif "migration_info" in result or "config_migrated" in result:
                 # Alternative success indicators in FastMCP
                 pass
@@ -129,16 +129,16 @@ async def test_migrate_mcp_config():
                 # If we can't determine success, check for target directory as basic test
                 windsurf_dir = target_dir / ".windsurf"
                 if not (windsurf_dir.exists() or Path(temp_dir).joinpath(".windsurf").exists()):
-                    pytest.skip("migrate-mcp-config may not be fully implemented in FastMCP")
+                    pytest.skip("migrate_mcp_config may not be fully implemented in FastMCP")
         except Exception as e:
             # If the tool fails completely, skip the test
-            pytest.skip(f"migrate-mcp-config test failed with error: {str(e)}")
+            pytest.skip(f"migrate_mcp_config test failed with error: {str(e)}")
             
 @pytest.mark.asyncio
 async def test_get_project_settings_with_path():
-    """Test the get-project-settings tool with different paths."""
+    """Test the get_project_settings tool with different paths."""
     # Test the get-project-settings tool with the current directory
-    result = await call_tool("get-project-settings", {})
+    result = await call_tool("get_project_settings", {})
     
     # Check that the result contains a project path
     assert "project_path" in result
@@ -146,5 +146,5 @@ async def test_get_project_settings_with_path():
     
     # Test with a specific path
     with tempfile.TemporaryDirectory() as temp_dir:
-        result = await call_tool("get-project-settings", {"proposed_path": temp_dir})
+        result = await call_tool("get_project_settings", {"proposed_path": temp_dir})
         assert result["project_path"] == temp_dir

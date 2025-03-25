@@ -21,7 +21,7 @@ os.environ["PYTEST_ENV_VAR_TEST"] = "true"
 async def test_env_variables_in_get_project_settings():
     """Test that project settings are processed correctly."""
     # Call the tool
-    result = await call_tool("get-project-settings", {})
+    result = await call_tool("get_project_settings", {})
     result_dict = result
     
     # Verify that we have the expected structure
@@ -39,7 +39,7 @@ async def test_proposed_path_handling():
     # Create a temporary directory
     with tempfile.TemporaryDirectory() as tmp_dir:
         # Call the tool with the temporary directory as the proposed path
-        result = await call_tool("get-project-settings", {"proposed_path": tmp_dir})
+        result = await call_tool("get_project_settings", {"proposed_path": tmp_dir})
         result_dict = result
         
         # Verify that the proposed path was used

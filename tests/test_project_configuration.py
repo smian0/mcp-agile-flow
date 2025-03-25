@@ -69,11 +69,11 @@ def test_get_project_settings_with_project_path(temp_dir, env_cleanup):
     assert "environment variable" in settings["source"]
 
 def test_get_project_settings_tool():
-    """Test the get-project-settings tool functionality directly."""
+    """Test the get_project_settings tool functionality directly."""
     logger.info("Testing get-project-settings tool...")
     
     # Run the tool using the adapter
-    result = call_tool_sync("get-project-settings", {})
+    result = call_tool_sync("get_project_settings", {})
     
     # Check required fields
     assert "project_path" in result
@@ -101,13 +101,13 @@ def temp_dir_with_python_files():
         yield temp_dir
 
 def test_get_project_settings_tool_with_project_path(temp_dir, env_cleanup):
-    """Test that get-project-settings tool uses PROJECT_PATH when set."""
+    """Test that get_project_settings tool uses PROJECT_PATH when set."""
     # Set the environment variable
     os.environ["PROJECT_PATH"] = temp_dir
     logger.info(f"PROJECT_PATH set to: {os.environ['PROJECT_PATH']}")
     
     # Call the tool using the adapter
-    result = call_tool_sync("get-project-settings", {})
+    result = call_tool_sync("get_project_settings", {})
     
     # Check that PROJECT_PATH was used
     assert result["project_path"] == temp_dir
@@ -120,7 +120,7 @@ def test_get_project_settings_tool_with_project_path(temp_dir, env_cleanup):
     subfolder_path.mkdir(exist_ok=True)
     
     # Also check that we can provide a proposed path that overrides the environment
-    override_result = call_tool_sync("get-project-settings", {"proposed_path": str(subfolder_path)})
+    override_result = call_tool_sync("get_project_settings", {"proposed_path": str(subfolder_path)})
     
     # The FastMCP implementation may handle this differently by either using the proposed path
     # or falling back to another path if there are issues
@@ -132,7 +132,7 @@ def test_get_project_settings_tool_with_project_path(temp_dir, env_cleanup):
         assert "proposed" in override_result["source"] or "fallback" in override_result["source"]
 
 def test_get_project_settings_default_paths(env_cleanup):
-    """Test that the get-project-settings tool creates expected default paths."""
+    """Test that the get_project_settings tool creates expected default paths."""
     logger.info("Testing get-project-settings default paths...")
     
     # Remove PROJECT_PATH if it exists to test default behavior
@@ -140,7 +140,7 @@ def test_get_project_settings_default_paths(env_cleanup):
         del os.environ["PROJECT_PATH"]
     
     # Run the tool using the adapter
-    result = call_tool_sync("get-project-settings", {})
+    result = call_tool_sync("get_project_settings", {})
     
     # Basic checks
     assert "project_path" in result
@@ -157,13 +157,13 @@ def test_get_project_settings_default_paths(env_cleanup):
     assert ai_docs_dir.is_relative_to(project_path)
 
 def test_initialize_ide_rules_with_project_path(temp_dir, env_cleanup):
-    """Test that initialize-ide-rules works with PROJECT_PATH environment variable."""
+    """Test that initialize_ide_rules works with PROJECT_PATH environment variable."""
     # Set the environment variable
     os.environ["PROJECT_PATH"] = temp_dir
     logger.info(f"PROJECT_PATH set to: {os.environ['PROJECT_PATH']}")
     
     # Call the tool
-    result = call_tool_sync("initialize-ide-rules", {"ide": "cursor"})
+    result = call_tool_sync("initialize_ide_rules", {"ide": "cursor"})
     
     # Check that the rules were initialized
     assert result["success"] is True
@@ -183,13 +183,13 @@ def test_initialize_ide_rules_with_project_path(temp_dir, env_cleanup):
 async def test_project_path_handling():
     """Test the handling of project paths in various scenarios."""
     # Test with current directory
-    result1 = await call_tool("get-project-settings", {})
+    result1 = await call_tool("get_project_settings", {})
     assert "project_path" in result1
     assert Path(result1["project_path"]).exists()
     
     # Test with temporary directory
     with tempfile.TemporaryDirectory() as temp_dir:
-        result2 = await call_tool("get-project-settings", {"proposed_path": temp_dir})
+        result2 = await call_tool("get_project_settings", {"proposed_path": temp_dir})
         assert result2["project_path"] == temp_dir
         assert Path(result2["project_path"]).exists()
     
@@ -200,12 +200,12 @@ async def test_project_path_handling():
         import shutil
         shutil.rmtree(non_existent_path)
     
-    result3 = await call_tool("get-project-settings", {"proposed_path": non_existent_path})
+    result3 = await call_tool("get_project_settings", {"proposed_path": non_existent_path})
     # The FastMCP implementation may fall back to the current directory
     assert "fallback" in result3.get("source", "") or result3["project_path"] == non_existent_path
     
     # Test with root path (should be rejected)
-    result4 = await call_tool("get-project-settings", {"proposed_path": "/"})
+    result4 = await call_tool("get_project_settings", {"proposed_path": "/"})
     assert result4["project_path"] != "/"  # Should not use root
     
     # Check for indicators that root was rejected - different implementations may handle this differently
@@ -220,13 +220,13 @@ async def test_project_type_detection():
     # Create a temporary directory with different project structures
     with tempfile.TemporaryDirectory() as temp_dir:
         # First test default/empty project
-        result1 = await call_tool("get-project-settings", {"proposed_path": temp_dir})
+        result1 = await call_tool("get_project_settings", {"proposed_path": temp_dir})
         assert "project_type" in result1
         assert result1["project_type"] == "generic"
         
         # Create a Python project
         (Path(temp_dir) / "pyproject.toml").touch()
-        result2 = await call_tool("get-project-settings", {"proposed_path": temp_dir})
+        result2 = await call_tool("get_project_settings", {"proposed_path": temp_dir})
         
         # FastMCP may not implement project type detection yet, so make this test more flexible
         if "project_type" in result2 and result2.get("project_type") != "generic":
@@ -234,7 +234,7 @@ async def test_project_type_detection():
         
         # Create a Node.js project
         (Path(temp_dir) / "package.json").touch()
-        result3 = await call_tool("get-project-settings", {"proposed_path": temp_dir})
+        result3 = await call_tool("get_project_settings", {"proposed_path": temp_dir})
         
         # Again, make this test more flexible
         if "project_type" in result3 and result3.get("project_type") != "generic":
@@ -246,7 +246,7 @@ async def test_special_directories():
     # Test with a temporary directory
     with tempfile.TemporaryDirectory() as temp_dir:
         # First get project settings
-        result = await call_tool("get-project-settings", {"proposed_path": temp_dir})
+        result = await call_tool("get_project_settings", {"proposed_path": temp_dir})
         
         # Check that ai_docs_directory was created
         assert "ai_docs_directory" in result
@@ -256,5 +256,5 @@ async def test_special_directories():
         assert ai_docs_dir.name == "ai-docs"
 
         # Make a second call and verify the same directory is used
-        result2 = await call_tool("get-project-settings", {"proposed_path": temp_dir})
+        result2 = await call_tool("get_project_settings", {"proposed_path": temp_dir})
         assert result2["ai_docs_directory"] == result["ai_docs_directory"]

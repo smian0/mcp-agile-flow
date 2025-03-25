@@ -18,8 +18,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "pydantic>=2.0.0",
-    "fastmcp>=0.0.10",
+    "mcp",
+    "pydantic>=2.10.6",
     "aiofiles",
     "python-dateutil",
     "typing-extensions",
@@ -27,24 +27,24 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.25.0",
-    "pytest-cov>=4.1.0",
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.0.0",
 ]
 dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.25.0",
-    "pytest-cov>=4.1.0",
-    "black>=23.7.0",
-    "isort>=5.12.0",
-    "mypy>=1.5.1",
-    "pre-commit>=3.3.3",
-    "coverage-badge>=1.1.0",
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.0.0",
+    "black>=25.1.0",
+    "isort>=6.0.1",
+    "mypy>=1.15.0",
+    "pre-commit>=4.2.0",
+    "coverage-badge>=1.1.2",
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/yourusername/mcp-agile-flow"
-"Bug Tracker" = "https://github.com/yourusername/mcp-agile-flow/issues"
+"Homepage" = "https://github.com/smian0/mcp-agile-flow"
+"Bug Tracker" = "https://github.com/smian0/mcp-agile-flow/issues"
 
 [project.scripts]
 mcp-agile-flow = "mcp_agile_flow.__main__:main"
