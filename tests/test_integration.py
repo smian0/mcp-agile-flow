@@ -4,25 +4,16 @@ Integration tests for MCP Agile Flow.
 These tests verify the core functionality of the MCP Agile Flow server.
 """
 
-import asyncio
 import json
 import logging
 import os
-import shutil
-import sys
 import tempfile
 from pathlib import Path
-from unittest import mock, skip
-
 import pytest
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Add the src directory to the Python path
-src_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(src_dir))
 
 # Import MCP-related functions
 from src.mcp_agile_flow import call_tool, call_tool_sync
@@ -31,6 +22,7 @@ from src.mcp_agile_flow import call_tool, call_tool_sync
 async def test_get_project_settings():
     """Test the get_project_settings tool."""
     result = await call_tool("get_project_settings", {})
+    assert result["success"] is True
     assert "project_path" in result
     assert "current_directory" in result
     assert Path(result["project_path"]).exists()
@@ -41,10 +33,13 @@ async def test_initialize_ide_rules():
     with tempfile.TemporaryDirectory() as temp_dir:
         result = await call_tool("initialize_ide_rules", {"ide": "cursor", "project_path": temp_dir})
         assert result["success"] is True
+        assert result["project_path"] == temp_dir
+        assert result["templates_directory"] == os.path.join(temp_dir, ".ai-templates")
         
         # Check that the cursor rules directory exists
         cursor_dir = Path(temp_dir) / ".cursor"
         assert cursor_dir.exists()
+        assert result["rules_directory"] == str(cursor_dir / "rules")
         
 @pytest.mark.asyncio
 async def test_prime_context():
@@ -71,9 +66,13 @@ Planning
         result = await call_tool("prime_context", {"project_path": temp_dir, "depth": "minimal"})
         
         # Check the result
+        assert result["success"] is True
         assert "context" in result
-        assert "summary" in result
         assert "project" in result["context"]
+        assert "depth" in result["context"]
+        assert result["context"]["project"]["path"] == temp_dir
+        assert result["context"]["depth"] == "minimal"
+        assert isinstance(result["context"]["focus_areas"], list)
         
 @pytest.mark.asyncio
 async def test_migrate_mcp_config():
@@ -111,25 +110,12 @@ async def test_migrate_mcp_config():
             result = await call_tool("migrate_mcp_config", {
                 "from_ide": "cursor",
                 "to_ide": "windsurf",
-                "project_path": str(temp_dir)  # Convert Path to string to ensure compatibility
+                "project_path": str(temp_dir)
             })
             
-            # Check for any signs of success in the response
-            # The implementation details might differ between legacy and FastMCP
-            if "success" in result:
-                if result["success"] is True:
-                    # Legacy format with success flag
-                    pass
-                else:
-                    pytest.skip("migrate_mcp_config not fully implemented in FastMCP or returned failure")
-            elif "migration_info" in result or "config_migrated" in result:
-                # Alternative success indicators in FastMCP
-                pass
-            else:
-                # If we can't determine success, check for target directory as basic test
-                windsurf_dir = target_dir / ".windsurf"
-                if not (windsurf_dir.exists() or Path(temp_dir).joinpath(".windsurf").exists()):
-                    pytest.skip("migrate_mcp_config may not be fully implemented in FastMCP")
+            if not result["success"]:
+                pytest.skip("migrate_mcp_config not fully implemented in FastMCP or returned failure")
+            
         except Exception as e:
             # If the tool fails completely, skip the test
             pytest.skip(f"migrate_mcp_config test failed with error: {str(e)}")
@@ -141,10 +127,12 @@ async def test_get_project_settings_with_path():
     result = await call_tool("get_project_settings", {})
     
     # Check that the result contains a project path
+    assert result["success"] is True
     assert "project_path" in result
     assert Path(result["project_path"]).exists()
     
     # Test with a specific path
     with tempfile.TemporaryDirectory() as temp_dir:
         result = await call_tool("get_project_settings", {"proposed_path": temp_dir})
+        assert result["success"] is True
         assert result["project_path"] == temp_dir

@@ -31,7 +31,8 @@ SUPPORTED_TOOLS = [
     "think",
     "get_thoughts",
     "clear_thoughts",
-    "get_thought_stats"
+    "get_thought_stats",
+    "process_natural_language"
 ]
 
 async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -54,6 +55,22 @@ async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, An
             "success": False,
             "error": f"Tool '{name}' is not supported. Supported tools: {', '.join(SUPPORTED_TOOLS)}"
         }
+    
+    # Map between underscore and hyphen formats if needed
+    tool_name_mapping = {
+        "get_project_settings": "get-project-settings",
+        "initialize_ide": "initialize-ide",
+        "initialize_ide_rules": "initialize-ide-rules",
+        "prime_context": "prime-context",
+        "migrate_mcp_config": "migrate-mcp-config",
+        "think": "think",
+        "get_thoughts": "get-thoughts",
+        "clear_thoughts": "clear-thoughts",
+        "get_thought_stats": "get-thought-stats"
+    }
+    
+    # Convert to hyphen format for FastMCP tools
+    fastmcp_tool_name = tool_name_mapping.get(name, name)
         
     # Call the appropriate function from fastmcp_tools
     try:
@@ -71,29 +88,36 @@ async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, An
         )
         
         # Call the appropriate function based on the tool name
-        if name == "initialize_ide":
-            result = initialize_ide(**arguments)
-        elif name == "initialize_ide_rules":
-            result = initialize_ide_rules(**arguments)
-        elif name == "get_project_settings":
+        if fastmcp_tool_name == "get-project-settings":
             result = get_project_settings(**arguments)
-        elif name == "prime_context":
+        elif fastmcp_tool_name == "initialize-ide":
+            result = initialize_ide(**arguments)
+        elif fastmcp_tool_name == "initialize-ide-rules":
+            result = initialize_ide_rules(**arguments)
+        elif fastmcp_tool_name == "prime-context":
             result = prime_context(**arguments)
-        elif name == "migrate_mcp_config":
+        elif fastmcp_tool_name == "migrate-mcp-config":
             result = migrate_mcp_config(**arguments)
-        elif name == "think":
+        elif fastmcp_tool_name == "think":
             result = think(**arguments)
-        elif name == "get_thoughts":
+        elif fastmcp_tool_name == "get-thoughts":
             result = get_thoughts()
-        elif name == "clear_thoughts":
+        elif fastmcp_tool_name == "clear-thoughts":
             result = clear_thoughts()
-        elif name == "get_thought_stats":
+        elif fastmcp_tool_name == "get-thought-stats":
             result = get_thought_stats()
         else:
             raise ValueError(f"Unknown tool: {name}")
             
-        # Parse the JSON result
-        return json.loads(result)
+        if asyncio.iscoroutine(result):
+            result = await result
+        # Convert string result to dict if needed
+        if isinstance(result, str):
+            try:
+                result = json.loads(result)
+            except Exception:
+                pass
+        return result
     except Exception as e:
         # Return an error response in the same format as the server would
         return {

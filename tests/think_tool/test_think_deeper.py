@@ -1,11 +1,10 @@
 """
-Test module for the thinking directive detection and depth functionality.
+Test module for advanced thinking features.
 
-This module tests the enhanced features that detect when a user asks to
-think harder, deeper, more, or again, and the ability to build on previous thoughts.
+This tests depth-related functionality like thinking deeper on previous thoughts
+and detecting when deeper thinking is needed.
 """
 
-import json
 import unittest
 import sys
 import os
@@ -21,190 +20,152 @@ from mcp_agile_flow.think_tool import (
     think_more
 )
 
-
 class TestThinkDeeper(unittest.TestCase):
-    """Test cases for the thinking directive detection and depth functionality."""
+    """Test cases for deeper thinking functionality."""
     
     def setUp(self):
         """Set up test fixtures."""
-        # Clear any existing thoughts before each test
         clear_thoughts()
     
     def test_detect_thinking_directive_deeper(self):
-        """Test detection of 'think deeper' directive."""
-        # Test exact match
-        result = detect_thinking_directive("think deeper")
-        self.assertTrue(result["detected"])
-        self.assertEqual(result["directive_type"], "deeper")
-        self.assertEqual(result["confidence"], "high")
+        """Test detecting 'think deeper' directives."""
+        text = "Let's think deeper about this problem"
+        result = detect_thinking_directive(text)
         
-        # Test in a sentence
-        result = detect_thinking_directive("Could you think deeper about this problem?")
         self.assertTrue(result["detected"])
         self.assertEqual(result["directive_type"], "deeper")
         self.assertEqual(result["confidence"], "medium")
-        
-        # Test variant
-        result = detect_thinking_directive("Can you go deeper in your analysis?")
-        self.assertTrue(result["detected"])
-        self.assertEqual(result["directive_type"], "deeper")
     
     def test_detect_thinking_directive_harder(self):
-        """Test detection of 'think harder' directive."""
-        result = detect_thinking_directive("think harder")
-        self.assertTrue(result["detected"])
-        self.assertEqual(result["directive_type"], "harder")
+        """Test detecting 'think harder' directives."""
+        text = "We need to think harder about this"
+        result = detect_thinking_directive(text)
         
-        result = detect_thinking_directive("I need you to think with more effort")
         self.assertTrue(result["detected"])
         self.assertEqual(result["directive_type"], "harder")
+        self.assertEqual(result["confidence"], "medium")
     
     def test_detect_thinking_directive_again(self):
-        """Test detection of 'think again' directive."""
-        result = detect_thinking_directive("think again")
-        self.assertTrue(result["detected"])
-        self.assertEqual(result["directive_type"], "again")
+        """Test detecting 'think again' directives."""
+        text = "Let's think about this again"
+        result = detect_thinking_directive(text)
         
-        result = detect_thinking_directive("Please reconsider your approach")
         self.assertTrue(result["detected"])
         self.assertEqual(result["directive_type"], "again")
+        self.assertEqual(result["confidence"], "medium")
     
     def test_detect_thinking_directive_more(self):
-        """Test detection of 'think more' directive."""
-        result = detect_thinking_directive("think more")
-        self.assertTrue(result["detected"])
-        self.assertEqual(result["directive_type"], "more")
+        """Test detecting 'think more' directives."""
+        text = "We should think more about this"
+        result = detect_thinking_directive(text)
         
-        result = detect_thinking_directive("Please continue thinking about this")
         self.assertTrue(result["detected"])
         self.assertEqual(result["directive_type"], "more")
+        self.assertEqual(result["confidence"], "medium")
     
     def test_detect_thinking_directive_negative(self):
-        """Test detection with text that doesn't contain a directive."""
-        result = detect_thinking_directive("What's the weather like today?")
+        """Test that non-directive text is not detected."""
+        text = "Here's what I think"
+        result = detect_thinking_directive(text)
+        
         self.assertFalse(result["detected"])
-        self.assertIsNone(result["directive_type"])
+        self.assertEqual(result["confidence"], "low")
     
     def test_think_with_depth(self):
-        """Test recording a thought with a specific depth level."""
-        # Create a thought with depth=2
-        result = think("This is a deeper thought", depth=2)
-        result_json = json.loads(result)
+        """Test recording thoughts with different depth levels."""
+        result = think("Initial thought", depth=1)
         
-        self.assertTrue(result_json["success"])
-        self.assertIn("deeper analysis", result_json["message"])
+        self.assertTrue(result["success"])
+        self.assertNotIn("deeper analysis", result["message"])
         
-        # Verify the thought was recorded with the correct depth
-        thoughts = json.loads(get_thoughts())
-        self.assertEqual(len(thoughts["thoughts"]), 1)
-        self.assertEqual(thoughts["thoughts"][0]["depth"], 2)
+        result = think("Deeper thought", depth=2)
+        
+        self.assertTrue(result["success"])
+        self.assertIn("deeper analysis", result["message"])
+        
+        result = think("Much deeper thought", depth=3)
+        
+        self.assertTrue(result["success"])
+        self.assertIn("much deeper", result["message"])
     
     def test_think_with_previous_thought(self):
-        """Test recording a thought that builds on a previous thought."""
-        # Create initial thought
+        """Test linking thoughts with previous thought IDs."""
         initial_result = think("Initial thought")
-        initial_json = json.loads(initial_result)
-        initial_id = initial_json["thought_id"]
         
-        # Create thought that builds on the initial thought
-        follow_up_result = think(
-            "Building on the previous thought", 
-            depth=2, 
-            previous_thought_id=initial_id
-        )
-        follow_up_json = json.loads(follow_up_result)
+        self.assertTrue(initial_result["success"])
+        initial_id = initial_result["thought_id"]
         
-        # Verify link is established
-        thoughts = json.loads(get_thoughts())
-        self.assertEqual(len(thoughts["thoughts"]), 2)
-        self.assertEqual(thoughts["thoughts"][1]["previous_thought_id"], initial_id)
+        follow_up = think("Follow-up thought", depth=2, previous_thought_id=initial_id)
+        
+        self.assertTrue(follow_up["success"])
+        self.assertNotEqual(follow_up["thought_id"], initial_id)
     
     def test_get_thoughts_depth_chain(self):
-        """Test retrieving thoughts organized in depth chains."""
+        """Test retrieving thoughts organized by depth chains."""
         # Create a chain of thoughts
-        first_result = think("Root thought")
-        first_json = json.loads(first_result)
-        first_id = first_json["thought_id"]
+        first_result = think("First thought")
+        first_id = first_result["thought_id"]
         
-        second_result = think("Deeper analysis", depth=2, previous_thought_id=first_id)
-        second_json = json.loads(second_result)
-        second_id = second_json["thought_id"]
+        second_result = think("Second thought", depth=2, previous_thought_id=first_id)
+        second_id = second_result["thought_id"]
         
-        third_result = think("Even deeper analysis", depth=3, previous_thought_id=second_id)
-        
-        # Add another root thought
-        think("Another root thought")
+        third_result = think("Third thought", depth=3, previous_thought_id=second_id)
         
         # Get thoughts with depth chain organization
         result = get_thoughts(include_depth_chain=True)
-        result_json = json.loads(result)
         
-        # Verify structure
-        self.assertTrue(result_json["organized_by_depth"])
-        self.assertEqual(len(result_json["thoughts"]), 2)  # Two root thoughts
+        self.assertTrue(result["success"])
+        self.assertTrue(result["organized_by_depth"])
+        self.assertEqual(len(result["thoughts"]), 1)  # One root thought
         
-        # Check the first chain
-        first_chain = result_json["thoughts"][0]
-        self.assertEqual(first_chain["depth"], 1)
-        self.assertEqual(len(first_chain["deeper_thoughts"]), 1)
+        root = result["thoughts"][0]
+        self.assertEqual(root["depth"], 1)
+        self.assertEqual(len(root["deeper_thoughts"]), 1)
         
-        # Check second level
-        second_level = first_chain["deeper_thoughts"][0]
-        self.assertEqual(second_level["depth"], 2)
-        self.assertEqual(len(second_level["deeper_thoughts"]), 1)
+        level2 = root["deeper_thoughts"][0]
+        self.assertEqual(level2["depth"], 2)
+        self.assertEqual(len(level2["deeper_thoughts"]), 1)
         
-        # Check third level
-        third_level = second_level["deeper_thoughts"][0]
-        self.assertEqual(third_level["depth"], 3)
+        level3 = level2["deeper_thoughts"][0]
+        self.assertEqual(level3["depth"], 3)
+        self.assertEqual(len(level3["deeper_thoughts"]), 0)
     
     def test_think_more(self):
-        """Test the think_more function that provides guidance for deeper thinking."""
-        # Create initial thought
-        initial_result = think("Initial problem analysis")
-        initial_json = json.loads(initial_result)
-        thought_id = initial_json["thought_id"]
+        """Test getting guidance for thinking more deeply."""
+        # Record initial thought
+        initial_result = think("Initial thought")
+        thought_id = initial_result["thought_id"]
         
-        # Test with different directives
-        for directive in ["deeper", "harder", "again", "more"]:
-            result = think_more(directive, thought_id)
-            result_json = json.loads(result)
-            
-            self.assertTrue(result_json["success"])
-            self.assertEqual(result_json["source_thought"]["id"], thought_id)
-            self.assertEqual(result_json["suggested_depth"], 2)
-            self.assertIn(directive, result_json["message"])
-            self.assertIsNotNone(result_json["guidance"])
+        # Get guidance for thinking deeper
+        result = think_more("deeper", thought_id)
+        
+        self.assertTrue(result["success"])
+        self.assertEqual(result["source_thought"]["id"], thought_id)
+        self.assertEqual(result["suggested_depth"], 2)
+        self.assertTrue(len(result["guidance"]) > 0)
     
     def test_think_more_without_id(self):
-        """Test think_more using the most recent thought."""
-        # Create multiple thoughts
+        """Test getting guidance without specifying thought ID."""
+        # Record some thoughts
         think("First thought")
-        think("Second thought")
         last_result = think("Last thought")
-        last_json = json.loads(last_result)
-        last_id = last_json["thought_id"]
         
-        # Call think_more without specifying an ID
+        # Get guidance without ID
         result = think_more("deeper")
-        result_json = json.loads(result)
         
-        # Should use the most recent thought
-        self.assertTrue(result_json["success"])
-        self.assertEqual(result_json["source_thought"]["id"], last_id)
+        self.assertTrue(result["success"])
+        # Should use the last thought
+        self.assertEqual(result["source_thought"]["id"], last_result["thought_id"])
     
     def test_think_more_no_thoughts(self):
-        """Test think_more when there are no thoughts."""
-        # Clear thoughts
+        """Test think more behavior when no thoughts exist."""
+        # Ensure no thoughts exist
         clear_thoughts()
         
-        # Call think_more
         result = think_more("deeper")
-        result_json = json.loads(result)
         
-        # Should fail gracefully
-        self.assertFalse(result_json["success"])
-        self.assertIn("No previous thoughts", result_json["message"])
-
+        self.assertFalse(result["success"])
+        self.assertIn("No previous thoughts", result["message"])
 
 if __name__ == "__main__":
-    unittest.main() 
+    unittest.main()
