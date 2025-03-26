@@ -76,8 +76,8 @@ def get_project_settings(
             return json.dumps({
                 "success": False,
                 "error": "Root path is not allowed for safety reasons",
-                "message": "Using root path is not allowed for safety reasons",
-                "project_path": os.getcwd(),  # Return current directory instead
+                "message": "Please provide a valid project path. You can look up project path and try again.",
+                "project_path": None,
                 "source": "fallback from rejected root path",
                 "is_root": True
             }, indent=2)
@@ -104,8 +104,8 @@ def get_project_settings(
         return json.dumps({
             "success": False,
             "error": str(e),
-            "message": "Error getting project settings",
-            "project_path": os.getcwd(),  # Return current directory as fallback
+            "message": "Please provide a valid project path. You can look up project path and try again.",
+            "project_path": None,
             "source": "error fallback"
         }, indent=2)
 
@@ -281,10 +281,10 @@ def initialize_ide(
     if not settings["success"]:
         return json.dumps({
             "success": False,
-            "project_path": settings["project_path"],
+            "project_path": None,
             "templates_directory": "",
             "error": settings["error"] if "error" in settings else "Invalid project path",
-            "message": f"Please lookup the current working directory for the project path."
+            "message": "Please provide a valid project path. You can look up project path and try again."
         }, indent=2)
     
     # Use the validated project path from settings
@@ -359,7 +359,7 @@ def initialize_ide(
             "project_path": project_path,
             "templates_directory": "",
             "error": str(e),
-            "message": f"Error initializing {project_type} project: {str(e)}"
+            "message": "Please provide a valid project path. You can look up project path and try again."
         }, indent=2)
 
 @mcp.tool()
@@ -394,15 +394,31 @@ def initialize_ide_rules(
     if hasattr(ide, "default"):
         ide = ide.default
     
-    settings = get_project_settings(proposed_path=project_path)
+    # Get project settings and parse the JSON response
+    settings_json = get_project_settings(proposed_path=project_path)
+    settings = json.loads(settings_json)
+    
+    if not settings["success"]:
+        return json.dumps({
+            "success": False,
+            "error": settings.get("error", "Failed to get project settings"),
+            "message": "Please provide a valid project path. You can look up project path and try again.",
+            "project_path": None
+        }, indent=2)
+    
     actual_project_path = settings["project_path"]
     
-    # Import the implementation from the module
-    from mcp_agile_flow.initialize_ide_rules import initialize_ide_rules as initialize_ide_rules_impl
-    
-    # Call the specialized implementation and format the result
-    result = initialize_ide_rules_impl(ide=ide, project_path=actual_project_path)
-    return json.dumps(result, indent=2)
+    try:
+        # Call the specialized implementation and format the result
+        result = initialize_ide_rules_impl(ide=ide, project_path=actual_project_path)
+        return json.dumps(result, indent=2)
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "message": "Please provide a valid project path. You can look up project path and try again.",
+            "project_path": None
+        }, indent=2)
 
 @mcp.tool()
 def prime_context(
