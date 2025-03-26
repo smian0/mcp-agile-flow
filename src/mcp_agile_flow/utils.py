@@ -255,17 +255,20 @@ def detect_mcp_command(query: str) -> Tuple[Optional[str], Optional[Dict[str, An
     
     # Detect initialization commands
     init_patterns = [
-        r"initialize(?: (.+))?",
-        r"setup(?: (.+))?",
-        r"create (?:basic|initial) (?:structure|project)(?: (.+))?",
-        r"set up(?: (.+))?"
+        r"initialize(?: ide)?(?: for)? (?:the |)(?:ide |)(\w+)(?: for)?(?: (.+))?",
+        r"setup(?: ide)?(?: for)? (?:the |)(?:ide |)(\w+)(?: for)?(?: (.+))?",
+        r"create (?:basic|initial) (?:structure|project)(?: for)? (?:the |)(?:ide |)(\w+)(?: for)?(?: (.+))?",
+        r"set up(?: ide)?(?: for)? (?:the |)(?:ide |)(\w+)(?: for)?(?: (.+))?"
     ]
     
     for pattern in init_patterns:
         match = re.search(pattern, query, re.IGNORECASE)
         if match:
-            project_path = match.group(1) if match.groups() and match.group(1) else None
+            ide_type = match.group(1) if match.groups() and match.group(1) else None
+            project_path = match.group(2) if len(match.groups()) > 1 and match.group(2) else None
             args = {}
+            if ide_type:
+                args["ide_type"] = ide_type.lower()
             if project_path:
                 args["project_path"] = project_path
             return "initialize_ide", args

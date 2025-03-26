@@ -16,6 +16,12 @@ import shutil
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
+# Import IDE paths from migration tool
+from .migration_tool import IDE_PATHS
+
+# Constants for IDE types and validation
+VALID_IDES = IDE_PATHS
+
 # Import models and utilities
 from .models import ProjectSettingsResponse, InitializeIDEResponse
 from .utils import (
@@ -43,49 +49,67 @@ from .initialize_ide_rules import initialize_ide_rules as initialize_ide_rules_i
 mcp = FastMCP("mcp_agile_flow")
 
 # Tool implementations
-@mcp.tool(name="get-project-settings")
+@mcp.tool()
 def get_project_settings(
     proposed_path: Optional[str] = Field(
-        description="Optional path to the project directory", 
+        description="Optional path to the project directory. If omitted, invalid, or not a string, the current working directory will be used", 
         default=None
     ),
-) -> Dict[str, Any]:
-    """Get the project settings for the current working directory or a proposed path."""
-    # Extract actual value if it's a Field object
-    if hasattr(proposed_path, "default"):
-        proposed_path = proposed_path.default
-        
-    # Handle potentially unsafe paths
-    if proposed_path == "/":
-        return {
-            "success": False,
-            "error": "Root path is not allowed for safety reasons",
-            "message": "Using root path is not allowed for safety reasons",
-            "project_path": os.getcwd(),  # Return current directory instead
-            "source": "fallback from rejected root path",
-            "is_root": True
-        }
-        
-    # Get project path and settings
-    project_settings = get_settings_util(proposed_path)
+) -> str:
+    """
+    Get the project settings for the current working directory or a proposed path.
     
-    # Return with success flag
-    return {
-        "success": True,
-        "project_path": project_settings["project_path"],
-        "current_directory": project_settings["current_directory"],
-        "is_project_path_manually_set": project_settings["is_project_path_manually_set"],
-        "ai_docs_directory": project_settings["ai_docs_directory"],
-        "source": project_settings["source"],
-        "is_root": project_settings["is_root"],
-        "is_writable": project_settings["is_writable"],
-        "exists": project_settings["exists"],
-        "project_type": project_settings["project_type"],
-        "rules": project_settings["rules"],
-        "project_metadata": {},  # Add empty project_metadata as expected by tests
-    }
+    Returns configuration settings including project path, type, and metadata.
+    If proposed_path is not provided or invalid, uses the current directory.
+    """
+    try:
+        # Extract actual value if it's a Field object
+        if hasattr(proposed_path, "default"):
+            proposed_path = proposed_path.default
+        
+        # Handle potentially invalid paths (incorrect types, etc.)
+        if proposed_path is not None and not isinstance(proposed_path, str):
+            proposed_path = None  # This will trigger using the current directory
+            
+        # Handle potentially unsafe paths
+        if proposed_path == "/":
+            return json.dumps({
+                "success": False,
+                "error": "Root path is not allowed for safety reasons",
+                "message": "Using root path is not allowed for safety reasons",
+                "project_path": os.getcwd(),  # Return current directory instead
+                "source": "fallback from rejected root path",
+                "is_root": True
+            }, indent=2)
+            
+        # Get project path and settings
+        project_settings = get_settings_util(proposed_path)
+        
+        # Return with success flag
+        return json.dumps({
+            "success": True,
+            "project_path": project_settings["project_path"],
+            "current_directory": project_settings["current_directory"],
+            "is_project_path_manually_set": project_settings["is_project_path_manually_set"],
+            "ai_docs_directory": project_settings["ai_docs_directory"],
+            "source": project_settings["source"],
+            "is_root": project_settings["is_root"],
+            "is_writable": project_settings["is_writable"],
+            "exists": project_settings["exists"],
+            "project_type": project_settings["project_type"],
+            "rules": project_settings["rules"],
+            "project_metadata": {},  # Add empty project_metadata as expected by tests
+        }, indent=2)
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "message": "Error getting project settings",
+            "project_path": os.getcwd(),  # Return current directory as fallback
+            "source": "error fallback"
+        }, indent=2)
 
-@mcp.tool(name="think")
+@mcp.tool()
 def think(
     thought: str = Field(description="The content of the thought to record"),
     category: str = Field(description="Category for organizing thoughts", default="default"),
@@ -93,7 +117,7 @@ def think(
     timestamp: Optional[int] = Field(description="Optional timestamp for the thought", default=None),
     references: Optional[List[str]] = Field(description="Optional list of references for the thought", default=None),
     metadata: Optional[Dict[str, Any]] = Field(description="Optional metadata for the thought", default=None),
-) -> Dict[str, Any]:
+) -> str:
     """
     Record a thought for later reference and analysis.
     
@@ -116,14 +140,14 @@ def think(
         metadata = metadata.default
         
     result = think_impl(thought, category, depth, None)
-    # Already returns a dict
-    return result
+    # Convert dict to formatted JSON string
+    return json.dumps(result, indent=2)
 
-@mcp.tool(name="get-thoughts")
+@mcp.tool()
 def get_thoughts(
     category: Optional[str] = Field(description="Filter to get thoughts from a specific category", default=None),
     organize_by_depth: bool = Field(description="Whether to organize thoughts by depth relationships", default=False),
-) -> Dict[str, Any]:
+) -> str:
     """
     Retrieve recorded thoughts.
     
@@ -136,12 +160,13 @@ def get_thoughts(
     if hasattr(organize_by_depth, "default"):
         organize_by_depth = organize_by_depth.default
         
-    return get_thoughts_impl(category, organize_by_depth)
+    result = get_thoughts_impl(category, organize_by_depth)
+    return json.dumps(result, indent=2)
 
-@mcp.tool(name="clear-thoughts")
+@mcp.tool()
 def clear_thoughts(
     category: Optional[str] = Field(description="Filter to clear thoughts from a specific category only", default=None),
-) -> Dict[str, Any]:
+) -> str:
     """
     Clear recorded thoughts.
     
@@ -152,12 +177,13 @@ def clear_thoughts(
     if hasattr(category, "default"):
         category = category.default
         
-    return clear_thoughts_impl(category)
+    result = clear_thoughts_impl(category)
+    return json.dumps(result, indent=2)
 
-@mcp.tool(name="get-thought-stats")
+@mcp.tool()
 def get_thought_stats(
     category: Optional[str] = Field(description="Filter to get stats for a specific category", default=None),
-) -> Dict[str, Any]:
+) -> str:
     """
     Get statistics about recorded thoughts.
     
@@ -168,12 +194,13 @@ def get_thought_stats(
     if hasattr(category, "default"):
         category = category.default
         
-    return get_thought_stats_impl(category)
+    result = get_thought_stats_impl(category)
+    return json.dumps(result, indent=2)
 
-@mcp.tool(name="detect-thinking-directive")
+@mcp.tool()
 def detect_thinking_directive(
     text: str = Field(description="The text to analyze for thinking directives")
-) -> Dict[str, Any]:
+) -> str:
     """
     Detect thinking directives.
     
@@ -184,12 +211,13 @@ def detect_thinking_directive(
     if hasattr(text, "default"):
         text = text.default
         
-    return detect_thinking_directive_impl(text)
+    result = detect_thinking_directive_impl(text)
+    return json.dumps(result, indent=2)
 
-@mcp.tool(name="should-think")
+@mcp.tool()
 def should_think(
     query: str = Field(description="The query to assess for deep thinking requirements")
-) -> Dict[str, Any]:
+) -> str:
     """
     Assess whether deeper thinking is needed for a query.
     
@@ -200,12 +228,13 @@ def should_think(
     if hasattr(query, "default"):
         query = query.default
         
-    return should_think_impl(query)
+    result = should_think_impl(query)
+    return json.dumps(result, indent=2)
 
-@mcp.tool(name="think-more")
+@mcp.tool()
 def think_more(
     query: str = Field(description="The query to think more deeply about")
-) -> Dict[str, Any]:
+) -> str:
     """
     Get guidance for thinking more deeply.
     
@@ -216,104 +245,151 @@ def think_more(
     if hasattr(query, "default"):
         query = query.default
         
-    return think_more_impl(query, None)
+    result = think_more_impl(query, None)
+    return json.dumps(result, indent=2)
 
-@mcp.tool(name="initialize-ide")
+@mcp.tool()
 def initialize_ide(
     project_path: Optional[str] = Field(
-        description="Path to the project. If not provided, uses project settings", 
+        description="Path to the project. If not provided, invalid, or directory doesn't exist, the current working directory will be used automatically", 
         default=None
     ),
-) -> Dict[str, Any]:
+    ide_type: str = Field(
+        description=f"The type of IDE to initialize ({', '.join(VALID_IDES.keys())})",
+        default="cursor"
+    )
+) -> str:
     """
     Initialize IDE project structure with appropriate directories and config files.
     
     This tool sets up the necessary directories and configuration files for IDE 
     integration, including .ai-templates directory and IDE-specific rules.
+    
+    Note: If project_path is omitted, not a string, invalid, or the directory doesn't exist,
+    the current working directory will be used automatically.
     """
-    # Extract actual value if it's a Field object
+    # Extract actual values if they're Field objects
     if hasattr(project_path, "default"):
         project_path = project_path.default
+    if hasattr(ide_type, "default"):
+        ide_type = ide_type.default
         
-    settings = get_project_settings(proposed_path=project_path)
+    # Get project settings first to ensure we have a valid path
+    settings_json = get_project_settings(proposed_path=project_path)
+    settings = json.loads(settings_json)
+    
+    if not settings["success"]:
+        return json.dumps({
+            "success": False,
+            "project_path": settings["project_path"],
+            "templates_directory": "",
+            "error": settings["error"] if "error" in settings else "Invalid project path",
+            "message": f"Please lookup the current working directory for the project path."
+        }, indent=2)
+    
+    # Use the validated project path from settings
     project_path = settings["project_path"]
     
-    if settings["project_type"] not in ["cursor", "windsurf", "cline", "copilot"]:
-        return {
+    # Override project type with explicitly provided IDE type if given
+    project_type = ide_type.lower() if ide_type else settings["project_type"]
+    
+    if project_type not in VALID_IDES:
+        return json.dumps({
             "success": False,
-            "project_path": "",
+            "project_path": project_path,
             "templates_directory": "",
-            "error": f"Unknown project type: {settings['project_type']}",
-            "message": "Supported project types are: cursor, windsurf, cline, copilot"
-        }
+            "error": f"Unknown IDE type: {project_type}",
+            "message": f"Supported IDE types are: {', '.join(VALID_IDES.keys())}"
+        }, indent=2)
     
-    # Create .ai-templates directory
-    templates_dir = os.path.join(project_path, ".ai-templates")
-    os.makedirs(templates_dir, exist_ok=True)
-    
-    # Create IDE-specific rules file/directory
-    if settings["project_type"] == "cursor":
-        rules_dir = os.path.join(project_path, ".cursor", "rules")
-        os.makedirs(rules_dir, exist_ok=True)
+    try:
+        # Create .ai-templates directory
+        templates_dir = os.path.join(project_path, ".ai-templates")
+        os.makedirs(templates_dir, exist_ok=True)
         
-        # Create default markdown files
-        default_files = {
-            "001-project-basics.md": "# Project Structure\n\n- Follow the existing project structure\n- Document new components\n- Keep related files together",
-            "002-code-guidelines.md": "# Coding Standards\n\n- Follow PEP 8 for Python code\n- Write tests for all new features\n- Document public functions and classes",
-            "003-best-practices.md": "# Best Practices\n\n- Review code before submitting\n- Handle errors gracefully\n- Use meaningful variable and function names"
-        }
+        # Create IDE-specific rules file/directory
+        if project_type == "cursor":
+            rules_dir = os.path.join(project_path, ".cursor", "rules")
+            os.makedirs(rules_dir, exist_ok=True)
+            
+            # Create default markdown files
+            default_files = {
+                "001-project-basics.md": "# Project Structure\n\n- Follow the existing project structure\n- Document new components\n- Keep related files together",
+                "002-code-guidelines.md": "# Coding Standards\n\n- Follow PEP 8 for Python code\n- Write tests for all new features\n- Document public functions and classes",
+                "003-best-practices.md": "# Best Practices\n\n- Review code before submitting\n- Handle errors gracefully\n- Use meaningful variable and function names"
+            }
+            
+            for filename, content in default_files.items():
+                file_path = os.path.join(rules_dir, filename)
+                if not os.path.exists(file_path):
+                    with open(file_path, "w") as f:
+                        f.write(content)
+            
+            rules_location = rules_dir
+        else:
+            # Handle other IDE types
+            rules_file = os.path.join(
+                project_path,
+                ".windsurfrules" if project_type.startswith("windsurf") else
+                ".clinerules" if project_type in ["cline", "roo"] else
+                os.path.join(".github", "copilot-instructions.md") if project_type == "copilot" else
+                ".claude-desktop-rules"
+            )
+            
+            # Create parent directory if needed (e.g., for .github)
+            if project_type == "copilot":
+                os.makedirs(os.path.dirname(rules_file), exist_ok=True)
+                
+            with open(rules_file, "w") as f:
+                f.write(f"# {project_type.title()} Rules\n")
+            rules_location = rules_file
         
-        for filename, content in default_files.items():
-            file_path = os.path.join(rules_dir, filename)
-            if not os.path.exists(file_path):
-                with open(file_path, "w") as f:
-                    f.write(content)
-        
-        rules_location = rules_dir
-    else:
-        rules_file = os.path.join(
-            project_path,
-            ".windsurfrules" if settings["project_type"] == "windsurf" else
-            ".clinerules" if settings["project_type"] == "cline" else
-            os.path.join(".github", "copilot-instructions.md")
-        )
-        if settings["project_type"] == "copilot":
-            os.makedirs(os.path.dirname(rules_file), exist_ok=True)
-        with open(rules_file, "w") as f:
-            f.write(f"# {settings['project_type'].title()} Rules\n")
-        rules_location = rules_file
-    
-    return {
-        "success": True,
-        "project_path": project_path,
-        "templates_directory": os.path.join(project_path, ".ai-templates"),
-        "rules_directory": rules_location if settings["project_type"] == "cursor" else None,
-        "rules_file": rules_location if settings["project_type"] != "cursor" else None,
-        "message": f"Initialized {settings['project_type']} project in {project_path}",
-        "initialized_rules": True
-    }
+        return json.dumps({
+            "success": True,
+            "project_path": project_path,
+            "templates_directory": os.path.join(project_path, ".ai-templates"),
+            "rules_directory": rules_location if project_type == "cursor" else None,
+            "rules_file": rules_location if project_type != "cursor" else None,
+            "message": f"Initialized {project_type} project in {project_path}",
+            "initialized_rules": True
+        }, indent=2)
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "project_path": project_path,
+            "templates_directory": "",
+            "error": str(e),
+            "message": f"Error initializing {project_type} project: {str(e)}"
+        }, indent=2)
 
-@mcp.tool(name="initialize-ide-rules")
+@mcp.tool()
 def initialize_ide_rules(
     ide: str = Field(
         description="The IDE to initialize rules for (cursor, windsurf, cline, copilot)",
         default="cursor"
     ),
     project_path: Optional[str] = Field(
-        description="Path to the project. If not provided, uses project settings",
+        description="Path to the project. If not provided or invalid, the current working directory will be used automatically",
         default=None
     ),
-) -> Dict[str, Any]:
+) -> str:
     """
     Initialize IDE rules for a project.
     
     This tool sets up IDE-specific rules for a project, creating the necessary 
     files and directories for AI assistants to understand project conventions.
+    
+    Note: If project_path is omitted, not a string, or invalid, the current working
+    directory will be used automatically.
     """
     # Extract the actual value from the project_path if it's a Field
     if hasattr(project_path, "default"):
         project_path = project_path.default
     
+    # Handle potentially invalid paths (empty strings, incorrect types, etc.)
+    if project_path is not None and not isinstance(project_path, str):
+        project_path = None  # This will trigger using the current directory
+        
     # Extract the actual value from ide if it's a Field  
     if hasattr(ide, "default"):
         ide = ide.default
@@ -324,31 +400,39 @@ def initialize_ide_rules(
     # Import the implementation from the module
     from mcp_agile_flow.initialize_ide_rules import initialize_ide_rules as initialize_ide_rules_impl
     
-    # Call the specialized implementation
-    return initialize_ide_rules_impl(ide=ide, project_path=actual_project_path)
+    # Call the specialized implementation and format the result
+    result = initialize_ide_rules_impl(ide=ide, project_path=actual_project_path)
+    return json.dumps(result, indent=2)
 
-@mcp.tool(name="prime-context")
+@mcp.tool()
 def prime_context(
     project_path: Optional[str] = Field(
-        description="Path to the project. If not provided, uses project settings", 
+        description="Path to the project. If not provided or invalid, the current working directory will be used automatically", 
         default=None
     ),
     depth: str = Field(
         description="Depth of analysis (minimal, standard, deep)",
         default="standard"
     )
-) -> Dict[str, Any]:
+) -> str:
     """
     Prime project context by analyzing documentation and structure.
     
     This tool analyzes the project structure and documentation to provide
     context information for AI assistants working with the project.
+    
+    Note: If project_path is omitted, not a string, or invalid, the current working
+    directory will be used automatically.
     """
     # Extract the actual values if they're Field objects
     if hasattr(project_path, "default"):
         project_path = project_path.default
     if hasattr(depth, "default"):
         depth = depth.default
+        
+    # Handle potentially invalid paths (incorrect types, etc.)
+    if project_path is not None and not isinstance(project_path, str):
+        project_path = None  # This will trigger using the current directory
         
     settings = get_project_settings(proposed_path=project_path)
     actual_project_path = settings["project_path"]
@@ -385,42 +469,107 @@ def prime_context(
         
         context["focus_areas"] = focus_areas
     
-    return {
+    return json.dumps({
         "success": True,
         "message": "Context primed for project analysis",
         "context": context
-    }
+    }, indent=2)
 
-@mcp.tool(name="migrate-mcp-config")
+@mcp.tool()
 def migrate_mcp_config(
-    project_path: Optional[str] = Field(
-        description="Path to the project. If not provided, uses project settings", 
-        default=None
+    from_ide: str = Field(
+        description=f"Source IDE to migrate from. Valid options: {', '.join(IDE_PATHS.keys())}",
+        default="cursor"
     ),
-) -> Dict[str, Any]:
+    to_ide: Optional[str] = Field(
+        description=f"Target IDE to migrate to. Valid options: {', '.join(IDE_PATHS.keys())}",
+        default=None
+    )
+) -> str:
     """
     Migrate MCP configuration between different IDEs.
     
     This tool helps migrate configuration and rules between different IDEs,
     ensuring consistent AI assistance across different environments.
     """
-    # Extract the actual value from the project_path if it's a Field
-    if hasattr(project_path, "default"):
-        project_path = project_path.default
-        
-    settings = get_project_settings(proposed_path=project_path)
-    project_path = settings["project_path"]
+    # Extract actual values if they're Field objects
+    if hasattr(from_ide, "default"):
+        from_ide = from_ide.default
+    if hasattr(to_ide, "default"):
+        to_ide = to_ide.default
     
-    return {
+    # Validate IDE types
+    from_ide = from_ide.lower() if from_ide else "cursor"
+    to_ide = to_ide.lower() if to_ide else None
+    
+    if from_ide not in IDE_PATHS:
+        return json.dumps({
+            "success": False,
+            "error": f"Unknown source IDE: {from_ide}",
+            "message": f"Supported IDE types are: {', '.join(IDE_PATHS.keys())}",
+            "source_path": None,
+            "target_path": None
+        }, indent=2)
+        
+    if not to_ide:
+        return json.dumps({
+            "success": False,
+            "message": "Please specify the target IDE to migrate to",
+            "source_path": get_ide_path(from_ide),
+            "target_path": None
+        }, indent=2)
+        
+    if to_ide not in IDE_PATHS:
+        return json.dumps({
+            "success": False,
+            "error": f"Unknown target IDE: {to_ide}",
+            "message": f"Supported IDE types are: {', '.join(IDE_PATHS.keys())}",
+            "source_path": get_ide_path(from_ide),
+            "target_path": None
+        }, indent=2)
+        
+    if from_ide == to_ide:
+        return json.dumps({
+            "success": False,
+            "error": "Source and target IDEs are the same",
+            "message": "Cannot migrate configuration to the same IDE",
+            "source_path": get_ide_path(from_ide),
+            "target_path": get_ide_path(to_ide)
+        }, indent=2)
+    
+    # Get the actual paths for both IDEs
+    source_path = get_ide_path(from_ide)
+    target_path = get_ide_path(to_ide)
+    
+    # Perform the migration
+    success, error_message, conflicts, conflict_details = migrate_config(
+        from_ide=from_ide,
+        to_ide=to_ide,
+        backup=True
+    )
+    
+    if not success:
+        return json.dumps({
+            "success": False,
+            "error": error_message,
+            "message": f"Failed to migrate configuration from {from_ide} to {to_ide}",
+            "source_path": source_path,
+            "target_path": target_path
+        }, indent=2)
+    
+    return json.dumps({
         "success": True,
-        "project_path": str(project_path),
-        "from_ide": "cursor",
-        "to_ide": "windsurf",
+        "from_ide": from_ide,
+        "to_ide": to_ide,
+        "source_path": source_path,
+        "target_path": target_path,
         "migrated_rules": True,
-        "message": "Migrated configuration from cursor to windsurf"
-    }
+        "conflicts": conflicts if conflicts else [],
+        "conflict_details": conflict_details if conflict_details else {},
+        "message": f"Migrated configuration from {from_ide} ({source_path}) to {to_ide} ({target_path})"
+    }, indent=2)
 
-@mcp.tool(name="process_natural_language")
+@mcp.tool()
 def process_natural_language(
     query: str = Field(description="The natural language query to process into a tool call")
 ) -> str:
@@ -446,57 +595,52 @@ def process_natural_language(
         }
         return json.dumps(response, indent=2)
     
-    # Map underscored tool names to hyphenated tool names for FastMCP
-    tool_name_mapping = {
-        "get_project_settings": "get-project-settings",
-        "initialize_ide": "initialize-ide",
-        "initialize_ide_rules": "initialize-ide-rules",
-        "prime_context": "prime-context",
-        "migrate_mcp_config": "migrate-mcp-config",
-        "think": "think",
-        "get_thoughts": "get-thoughts",
-        "clear_thoughts": "clear-thoughts",
-        "get_thought_stats": "get-thought-stats"
-    }
-    
-    # Convert from underscore to hyphen format if needed
-    mcp_tool_name = tool_name_mapping.get(tool_name, tool_name)
+    # List of supported tools
+    supported_tools = [
+        "get_project_settings",
+        "initialize_ide",
+        "initialize_ide_rules",
+        "prime_context",
+        "migrate_mcp_config",
+        "think",
+        "get_thoughts",
+        "clear_thoughts",
+        "get_thought_stats"
+    ]
         
     # Check if tool is supported
-    if mcp_tool_name not in ["get-project-settings", "initialize-ide", "initialize-ide-rules", 
-                        "prime-context", "migrate-mcp-config", "think", "get-thoughts", 
-                        "clear-thoughts", "get-thought-stats"]:
+    if tool_name not in supported_tools:
         response = {
             "success": False,
-            "error": f"Unsupported tool: {mcp_tool_name}",
-            "message": f"The action '{mcp_tool_name}' isn't supported."
+            "error": f"Unsupported tool: {tool_name}",
+            "message": f"The action '{tool_name}' isn't supported."
         }
         return json.dumps(response, indent=2)
     
     # Call the appropriate tool
     try:
-        if mcp_tool_name == "get-project-settings":
+        if tool_name == "get_project_settings":
             result = get_project_settings(**(arguments or {}))
-        elif mcp_tool_name == "initialize-ide":
+        elif tool_name == "initialize_ide":
             result = initialize_ide(**(arguments or {}))
-        elif mcp_tool_name == "initialize-ide-rules":
+        elif tool_name == "initialize_ide_rules":
             result = initialize_ide_rules(**(arguments or {}))
-        elif mcp_tool_name == "prime-context":
+        elif tool_name == "prime_context":
             result = prime_context(**(arguments or {}))
-        elif mcp_tool_name == "migrate-mcp-config":
+        elif tool_name == "migrate_mcp_config":
             result = migrate_mcp_config(**(arguments or {}))
-        elif mcp_tool_name == "think":
+        elif tool_name == "think":
             result = think(**(arguments or {}))
-        elif mcp_tool_name == "get-thoughts":
+        elif tool_name == "get_thoughts":
             result = get_thoughts()
-        elif mcp_tool_name == "clear-thoughts":
+        elif tool_name == "clear_thoughts":
             result = clear_thoughts()
-        elif mcp_tool_name == "get-thought-stats":
+        elif tool_name == "get_thought_stats":
             result = get_thought_stats()
         else:
             response = {
                 "success": False,
-                "error": f"Unknown tool: {mcp_tool_name}",
+                "error": f"Unknown tool: {tool_name}",
                 "message": "The detected command could not be routed to a known tool"
             }
             return json.dumps(response, indent=2)
