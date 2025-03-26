@@ -22,6 +22,19 @@ from .migration_tool import IDE_PATHS
 # Constants for IDE types and validation
 VALID_IDES = IDE_PATHS
 
+# Define IDE types for rules and MCP migration separately
+MCP_IDE_PATHS = IDE_PATHS  # Use the existing IDE_PATHS for MCP migration
+
+# Define valid IDE types for rules initialization
+VALID_IDE_RULES = {
+    "cursor": ".cursor/rules",
+    "windsurf-next": ".windsurfrules",
+    "windsurf": ".windsurfrules",
+    "cline": ".clinerules",
+    "roo": ".clinerules",
+    "copilot": ".github/copilot-instructions.md",
+}
+
 # Import models and utilities
 from .models import ProjectSettingsResponse, InitializeIDEResponse
 from .utils import (
@@ -255,7 +268,7 @@ def initialize_ide(
         default=None
     ),
     ide_type: str = Field(
-        description=f"The type of IDE to initialize ({', '.join(VALID_IDES.keys())})",
+        description=f"The type of IDE to initialize ({', '.join(VALID_IDE_RULES.keys())})",
         default="cursor"
     )
 ) -> str:
@@ -293,13 +306,13 @@ def initialize_ide(
     # Override project type with explicitly provided IDE type if given
     project_type = ide_type.lower() if ide_type else settings["project_type"]
     
-    if project_type not in VALID_IDES:
+    if project_type not in VALID_IDE_RULES:
         return json.dumps({
             "success": False,
             "project_path": project_path,
             "templates_directory": "",
             "error": f"Unknown IDE type: {project_type}",
-            "message": f"Supported IDE types are: {', '.join(VALID_IDES.keys())}"
+            "message": f"Supported IDE types are: {', '.join(VALID_IDE_RULES.keys())}"
         }, indent=2)
     
     try:
@@ -327,18 +340,12 @@ def initialize_ide(
             
             rules_location = rules_dir
         else:
-            # Handle other IDE types
-            rules_file = os.path.join(
-                project_path,
-                ".windsurfrules" if project_type.startswith("windsurf") else
-                ".clinerules" if project_type in ["cline", "roo"] else
-                os.path.join(".github", "copilot-instructions.md") if project_type == "copilot" else
-                ".claude-desktop-rules"
-            )
+            # Handle other IDE types using the VALID_IDE_RULES paths
+            rules_file = os.path.join(project_path, VALID_IDE_RULES[project_type])
             
             # Create parent directory if needed (e.g., for .github)
-            if project_type == "copilot":
-                os.makedirs(os.path.dirname(rules_file), exist_ok=True)
+            if "/" in VALID_IDE_RULES[project_type]:
+                os.makedirs(os.path.dirname(os.path.join(project_path, VALID_IDE_RULES[project_type])), exist_ok=True)
                 
             with open(rules_file, "w") as f:
                 f.write(f"# {project_type.title()} Rules\n")
@@ -365,7 +372,7 @@ def initialize_ide(
 @mcp.tool()
 def initialize_ide_rules(
     ide: str = Field(
-        description="The IDE to initialize rules for (cursor, windsurf, cline, copilot)",
+        description=f"The IDE to initialize rules for ({', '.join(VALID_IDE_RULES.keys())})",
         default="cursor"
     ),
     project_path: Optional[str] = Field(
@@ -393,6 +400,15 @@ def initialize_ide_rules(
     # Extract the actual value from ide if it's a Field  
     if hasattr(ide, "default"):
         ide = ide.default
+        
+    # Validate IDE type
+    if ide not in VALID_IDE_RULES:
+        return json.dumps({
+            "success": False,
+            "error": f"Unknown IDE type: {ide}",
+            "message": f"Supported IDE types for rules are: {', '.join(VALID_IDE_RULES.keys())}",
+            "project_path": None
+        }, indent=2)
     
     # Get project settings and parse the JSON response
     settings_json = get_project_settings(proposed_path=project_path)
@@ -493,97 +509,136 @@ def prime_context(
 
 @mcp.tool()
 def migrate_mcp_config(
+    project_path: Optional[str] = Field(
+        description="Path to the project. If not provided or invalid, the current working directory will be used", 
+        default=None
+    ),
     from_ide: str = Field(
-        description=f"Source IDE to migrate from. Valid options: {', '.join(IDE_PATHS.keys())}",
+        description=f"Source IDE to migrate from. Valid options: {', '.join(MCP_IDE_PATHS.keys())}",
         default="cursor"
     ),
-    to_ide: Optional[str] = Field(
-        description=f"Target IDE to migrate to. Valid options: {', '.join(IDE_PATHS.keys())}",
+    to_ide: str = Field(
+        description=f"Target IDE to migrate to. Valid options: {', '.join(MCP_IDE_PATHS.keys())}",
         default=None
-    )
+    ),
 ) -> str:
     """
     Migrate MCP configuration between different IDEs.
     
     This tool helps migrate configuration and rules between different IDEs,
     ensuring consistent AI assistance across different environments.
+    
+    Note: If project_path is omitted, not a string, or invalid, the current working
+    directory will be used automatically.
     """
     # Extract actual values if they're Field objects
+    if hasattr(project_path, "default"):
+        project_path = project_path.default
     if hasattr(from_ide, "default"):
         from_ide = from_ide.default
     if hasattr(to_ide, "default"):
         to_ide = to_ide.default
     
-    # Validate IDE types
-    from_ide = from_ide.lower() if from_ide else "cursor"
-    to_ide = to_ide.lower() if to_ide else None
+    # Check if we have a target IDE
+    if to_ide is None:
+        return json.dumps({
+            "success": False,
+            "error": "No target IDE specified",
+            "message": "Please specify a target IDE to migrate to",
+            "project_path": project_path,
+            "from_ide": from_ide,
+            "to_ide": None
+        }, indent=2)
     
-    if from_ide not in IDE_PATHS:
+    # Check if source IDE is valid
+    if from_ide not in MCP_IDE_PATHS:
         return json.dumps({
             "success": False,
             "error": f"Unknown source IDE: {from_ide}",
-            "message": f"Supported IDE types are: {', '.join(IDE_PATHS.keys())}",
-            "source_path": None,
-            "target_path": None
+            "message": f"Supported IDE types for MCP migration are: {', '.join(MCP_IDE_PATHS.keys())}",
+            "project_path": project_path,
+            "from_ide": from_ide,
+            "to_ide": to_ide
         }, indent=2)
-        
-    if not to_ide:
-        return json.dumps({
-            "success": False,
-            "message": "Please specify the target IDE to migrate to",
-            "source_path": get_ide_path(from_ide),
-            "target_path": None
-        }, indent=2)
-        
-    if to_ide not in IDE_PATHS:
+    
+    # Check if target IDE is valid
+    if to_ide not in MCP_IDE_PATHS:
         return json.dumps({
             "success": False,
             "error": f"Unknown target IDE: {to_ide}",
-            "message": f"Supported IDE types are: {', '.join(IDE_PATHS.keys())}",
-            "source_path": get_ide_path(from_ide),
-            "target_path": None
+            "message": f"Supported IDE types for MCP migration are: {', '.join(MCP_IDE_PATHS.keys())}",
+            "project_path": project_path,
+            "from_ide": from_ide,
+            "to_ide": to_ide
         }, indent=2)
-        
+    
+    # Check if source and target are the same
     if from_ide == to_ide:
         return json.dumps({
             "success": False,
             "error": "Source and target IDEs are the same",
-            "message": "Cannot migrate configuration to the same IDE",
-            "source_path": get_ide_path(from_ide),
-            "target_path": get_ide_path(to_ide)
+            "message": "Source and target IDEs must be different",
+            "project_path": project_path,
+            "from_ide": from_ide,
+            "to_ide": to_ide
         }, indent=2)
     
-    # Get the actual paths for both IDEs
-    source_path = get_ide_path(from_ide)
-    target_path = get_ide_path(to_ide)
+    # Get project settings
+    settings_json = get_project_settings(proposed_path=project_path)
+    settings = json.loads(settings_json)
     
-    # Perform the migration
-    success, error_message, conflicts, conflict_details = migrate_config(
-        from_ide=from_ide,
-        to_ide=to_ide,
-        backup=True
-    )
-    
-    if not success:
+    if not settings["success"]:
         return json.dumps({
             "success": False,
-            "error": error_message,
-            "message": f"Failed to migrate configuration from {from_ide} to {to_ide}",
-            "source_path": source_path,
-            "target_path": target_path
+            "error": settings.get("error", "Failed to get project settings"),
+            "message": "Please provide a valid project path. You can look up project path and try again.",
+            "project_path": project_path,
+            "from_ide": from_ide,
+            "to_ide": to_ide
         }, indent=2)
     
-    return json.dumps({
-        "success": True,
-        "from_ide": from_ide,
-        "to_ide": to_ide,
-        "source_path": source_path,
-        "target_path": target_path,
-        "migrated_rules": True,
-        "conflicts": conflicts if conflicts else [],
-        "conflict_details": conflict_details if conflict_details else {},
-        "message": f"Migrated configuration from {from_ide} ({source_path}) to {to_ide} ({target_path})"
-    }, indent=2)
+    actual_project_path = settings["project_path"]
+    
+    # Import the migration tool module
+    from .migration_tool import migrate_config
+    
+    try:
+        # Perform the migration
+        success, error_message, conflicts, conflict_details = migrate_config(
+            from_ide=from_ide, to_ide=to_ide
+        )
+        
+        if not success:
+            return json.dumps({
+                "success": False,
+                "error": error_message,
+                "message": f"Failed to migrate configuration: {error_message}",
+                "project_path": actual_project_path,
+                "from_ide": from_ide,
+                "to_ide": to_ide
+            }, indent=2)
+        
+        # Return success response
+        return json.dumps({
+            "success": True,
+            "project_path": actual_project_path,
+            "from_ide": from_ide,
+            "to_ide": to_ide,
+            "migrated_rules": True,
+            "conflicts": conflicts,
+            "conflict_details": conflict_details,
+            "message": f"Migrated configuration from {from_ide} to {to_ide}"
+        }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "message": f"An error occurred during migration: {str(e)}",
+            "project_path": actual_project_path,
+            "from_ide": from_ide,
+            "to_ide": to_ide
+        }, indent=2)
 
 @mcp.tool()
 def process_natural_language(

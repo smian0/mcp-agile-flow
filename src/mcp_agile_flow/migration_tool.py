@@ -41,7 +41,7 @@ IDE_PATHS = {
         "darwin": "~/Library/Application Support/Claude/claude_desktop_config.json",
         "linux": "~/.config/Claude/claude_desktop_config.json",
         "windows": "%APPDATA%\\Claude\\claude_desktop_config.json",
-    },
+    }
 }
 
 
