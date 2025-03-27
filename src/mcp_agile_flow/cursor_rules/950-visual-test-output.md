@@ -33,7 +33,7 @@ alwaysApply: false
 
 ## Test Environment Setup
 ```python
-# requirements.txt or pyproject.toml dependency section
+# pyproject.toml dependency section
 pytest>=7.0.0
 pytest-xdist  # For parallel test execution
 rich>=12.0.0  # For visual output formatting
@@ -615,3 +615,432 @@ Overall Test Results Summary by Category
 - Format test identifiers in a consistent path:line::Class.test_name format
 - Use grep or similar tools to extract test line numbers reliably
 - Support both class-based and module-level test functions 
+
+## STDIO and API Integration Test Visualization
+
+When testing MCP servers, especially those using STDIO mode or integrating with external APIs, the following additional visualization techniques are essential:
+
+### Real API Response Visualization
+
+```python
+def test_api_call_with_visualization(client):
+    """Test API call with enhanced visualization."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.syntax import Syntax
+    
+    console = Console()
+    
+    # Display test parameters
+    params = {"symbol": "AAPL", "metric": "marketCap"}
+    console.print(Panel(
+        Syntax(json.dumps(params, indent=2), "json"),
+        title="📤 Request Parameters",
+        border_style="blue"
+    ))
+    
+    # Make the actual API call
+    response = client.call_tool("get_stock_metric", params)
+    
+    # First check if we have a valid response structure
+    if "result" not in response or "content" not in response["result"]:
+        console.print(Panel(
+            Syntax(json.dumps(response, indent=2), "json"),
+            title="⚠️ Unexpected Response Structure",
+            border_style="yellow"
+        ))
+        pytest.fail("Invalid response structure")
+        return
+    
+    # Check for errors
+    if response["result"]["isError"]:
+        console.print(Panel(
+            Syntax(json.dumps(response["result"], indent=2), "json"),
+            title="❌ Error Response",
+            border_style="red"
+        ))
+        pytest.fail(f"API call failed: {response['result']['content'][0]['text']}")
+        return
+    
+    # Display successful response
+    content = response["result"]["content"]
+    if content and "text" in content[0]:
+        try:
+            # Try to parse as JSON
+            data = json.loads(content[0]["text"])
+            console.print(Panel(
+                Syntax(json.dumps(data, indent=2), "json"),
+                title="📥 API Response",
+                border_style="green"
+            ))
+        except json.JSONDecodeError:
+            # Handle non-JSON responses
+            console.print(Panel(
+                content[0]["text"],
+                title="📥 API Response (Text)",
+                border_style="green"
+            ))
+    
+    # Continue with assertions
+    assert not response["result"]["isError"]
+    # Additional assertions...
+```
+
+### Retry Logic Visualization
+
+```python
+def test_with_retry_visualization():
+    """Test with visualization of retry attempts."""
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    import time
+    
+    console = Console()
+    console.print(Panel("Starting test with retry logic", title="Test Setup"))
+    
+    # Initialize tracking for retry attempts
+    attempts = []
+    max_retries = 3
+    start_time = time.time()
+    
+    # Simulate function with retry logic
+    for attempt in range(1, max_retries + 1):
+        attempt_start = time.time()
+        success = False
+        error_msg = None
+        
+        try:
+            # Simulate API call that might fail
+            console.print(f"Attempt {attempt}/{max_retries}: Making API call...")
+            
+            if attempt < max_retries:  # Simulate failure for first attempts
+                raise ConnectionError("Simulated network error")
+            
+            # Last attempt succeeds
+            result = {"data": "success"}
+            success = True
+        except Exception as e:
+            error_msg = str(e)
+            console.print(f"[red]Attempt {attempt} failed: {error_msg}[/red]")
+        
+        # Record attempt details
+        attempts.append({
+            "attempt": attempt,
+            "success": success,
+            "error": error_msg,
+            "duration": time.time() - attempt_start
+        })
+        
+        if success:
+            break
+        
+        # Wait before retry (just for demo)
+        if attempt < max_retries:
+            console.print(f"Waiting before retry {attempt+1}...")
+            time.sleep(0.1)
+    
+    # Display retry summary table
+    table = Table(title="Retry Attempts Summary")
+    table.add_column("Attempt", style="cyan")
+    table.add_column("Result", style="bold")
+    table.add_column("Error", style="red")
+    table.add_column("Duration (s)", style="blue")
+    
+    for attempt in attempts:
+        result = "[green]SUCCESS" if attempt["success"] else "[red]FAILED"
+        table.add_row(
+            str(attempt["attempt"]),
+            result,
+            attempt["error"] or "",
+            f"{attempt['duration']:.4f}"
+        )
+    
+    console.print(table)
+    
+    # Display overall execution time
+    total_time = time.time() - start_time
+    console.print(Panel(
+        f"Total execution time: {total_time:.4f}s\n"
+        f"Total attempts: {len(attempts)}\n"
+        f"Final result: {'Success' if attempts[-1]['success'] else 'Failure'}",
+        title="Test Summary",
+        border_style="green" if attempts[-1]["success"] else "red"
+    ))
+    
+    # Assertions
+    assert attempts[-1]["success"], "Final retry attempt should succeed"
+```
+
+### Skipped Test Visualization
+
+```python
+def test_that_might_be_skipped():
+    """Example of a test that might be skipped with visual indication."""
+    from rich.console import Console
+    from rich.panel import Panel
+    import pytest
+    
+    console = Console()
+    
+    # Check if we should skip
+    should_skip = check_if_test_should_be_skipped()
+    if should_skip:
+        reason = "Test skipped: Needs further investigation"
+        console.print(Panel(
+            f"[yellow]{reason}[/yellow]",
+            title="⏭️ TEST SKIPPED",
+            border_style="yellow"
+        ))
+        pytest.skip(reason)
+    
+    # Continue with normal test if not skipped
+    console.print(Panel("Test running normally", border_style="green"))
+    assert True
+```
+
+### Enhanced Error Reporting
+
+```python
+def test_with_enhanced_error_reporting():
+    """Test with better visualization of errors."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.syntax import Syntax
+    import traceback
+    
+    console = Console()
+    
+    try:
+        # Test code that might fail
+        result = call_api_function()
+        assert result["status"] == "success"
+    except KeyError as e:
+        # Visualize the specific error with context
+        error_traceback = traceback.format_exc()
+        console.print(Panel(error_traceback, title="❌ KeyError Exception", border_style="red"))
+        
+        console.print(Panel(
+            Syntax(json.dumps(result, indent=2), "json"),
+            title="🔍 Actual Response Structure",
+            border_style="yellow"
+        ))
+        
+        console.print(Panel(
+            "Expected 'status' key in response, found keys: " + 
+            ", ".join([f"'{k}'" for k in result.keys()]),
+            title="✏️ Debug Information",
+            border_style="blue"
+        ))
+        
+        # Re-raise to fail the test
+        raise
+    except json.JSONDecodeError as e:
+        # Special handling for JSON parsing errors
+        console.print(Panel(
+            f"Error parsing JSON: {str(e)}\n\nRaw content: {result[:100]}...",
+            title="❌ Invalid JSON Response",
+            border_style="red"
+        ))
+        raise
+```
+
+### Automatic Test Discovery and Reporting
+
+For Makefile targets that automatically discover and report tests:
+
+```makefile
+# Set up script paths and test directories
+SCRIPTS_DIR = scripts
+FORMAT_TEST_OUTPUT = $(SCRIPTS_DIR)/format_test_output.py
+TEST_DIR = tests
+
+# Function to discover test files automatically
+define discover_tests
+	@$(PYTHON) -c "import glob, os; \
+		files = sorted(glob.glob('$(TEST_DIR)/$(1)')[:$(2)]); \
+		print(' '.join(files))"
+endef
+
+# Function to extract test names from a file
+define extract_test_names
+	@$(PYTHON) -c "import re, sys; \
+		with open('$(1)', 'r') as f: \
+			content = f.read(); \
+		matches = re.findall(r'def (test_\w+)', content); \
+		print(' '.join([m.replace('test_', '') for m in matches]))"
+endef
+
+# Dynamic test target that handles any test file pattern
+test-%:
+	@echo "🧪 Running $(subst test-,,$@) tests with visual output..."
+	$(eval TEST_PATTERN := test_$(subst test-,,$@).py)
+	$(eval TEST_FILES := $(shell $(call discover_tests,$(TEST_PATTERN),10)))
+	$(PYTHON) -m pytest -v $(TEST_FILES)
+	@for file in $(TEST_FILES); do \
+		CATEGORY="$(shell echo $${file} | sed 's/.*test_\(.*\)\.py/\1/' | sed 's/_/ /g' | sed 's/\b\(.\)/\u\1/g')"; \
+		TEST_NAMES="$(shell $(call extract_test_names,$${file}))"; \
+		if [ ! -z "$$TEST_NAMES" ]; then \
+			$(PYTHON) $(FORMAT_TEST_OUTPUT) $${file} "$$CATEGORY" $$TEST_NAMES; \
+		fi; \
+	done
+
+# Run all tests with automatic discovery
+test-all:
+	@echo "🧪 Running all tests with automatic discovery..."
+	$(eval TEST_FILES := $(shell $(call discover_tests,test_*.py,100)))
+	$(PYTHON) -m pytest -v $(TEST_FILES)
+	@echo "\n🎯 Test Summary"
+	@for file in $(TEST_FILES); do \
+		CATEGORY="$(shell echo $${file} | sed 's/.*test_\(.*\)\.py/\1/' | sed 's/_/ /g' | sed 's/\b\(.\)/\u\1/g')"; \
+		echo "✅ $$CATEGORY Tests: $$file"; \
+	done
+```
+
+### Format Test Output Script with Line Highlighting
+
+Enhance the format_test_output.py script to highlight differences when assertions fail:
+
+```python
+def highlight_differences(expected, actual):
+    """Highlight differences between expected and actual values."""
+    from rich.console import Console
+    from rich.table import Table
+    from rich.text import Text
+    from difflib import ndiff
+    
+    console = Console()
+    
+    # For simple scalar values
+    if isinstance(expected, (int, float, str, bool)) and isinstance(actual, (int, float, str, bool)):
+        table = Table(title="Value Comparison")
+        table.add_column("Expected", style="green")
+        table.add_column("Actual", style="red")
+        table.add_row(str(expected), str(actual))
+        console.print(table)
+        return
+    
+    # For dictionaries
+    if isinstance(expected, dict) and isinstance(actual, dict):
+        table = Table(title="Dictionary Differences")
+        table.add_column("Key", style="blue")
+        table.add_column("Expected", style="green")
+        table.add_column("Actual", style="red")
+        
+        # Find all keys from both dictionaries
+        all_keys = set(expected.keys()) | set(actual.keys())
+        
+        for key in sorted(all_keys):
+            exp_val = expected.get(key, "<missing>")
+            act_val = actual.get(key, "<missing>")
+            
+            if exp_val == act_val:
+                row_style = "dim"
+            else:
+                row_style = "bold"
+                
+            table.add_row(
+                str(key),
+                str(exp_val),
+                str(act_val),
+                style=row_style
+            )
+        
+        console.print(table)
+        return
+    
+    # For lists or other sequences
+    if isinstance(expected, (list, tuple)) and isinstance(actual, (list, tuple)):
+        table = Table(title="Sequence Differences")
+        table.add_column("Index", style="blue")
+        table.add_column("Expected", style="green")
+        table.add_column("Actual", style="red")
+        
+        max_len = max(len(expected), len(actual))
+        
+        for i in range(max_len):
+            exp_val = expected[i] if i < len(expected) else "<missing>"
+            act_val = actual[i] if i < len(actual) else "<missing>"
+            
+            if exp_val == act_val:
+                row_style = "dim"
+            else:
+                row_style = "bold"
+                
+            table.add_row(
+                str(i),
+                str(exp_val),
+                str(act_val),
+                style=row_style
+            )
+        
+        console.print(table)
+        return
+    
+    # For strings with multiline diff
+    if isinstance(expected, str) and isinstance(actual, str):
+        console.print("[bold]Difference:[/bold]")
+        
+        diff = ndiff(expected.splitlines(), actual.splitlines())
+        for line in diff:
+            if line.startswith('+ '):
+                console.print(Text(line, style="red"))
+            elif line.startswith('- '):
+                console.print(Text(line, style="green"))
+            elif line.startswith('? '):
+                console.print(Text(line, style="blue"))
+            else:
+                console.print(Text(line, style="dim"))
+```
+
+## Test Runtime Visualization
+
+Add real-time progress bars and timing information to visualize long-running tests:
+
+```python
+def test_with_progress_visualization():
+    """Test with real-time progress visualization."""
+    from rich.console import Console
+    from rich.progress import Progress, TimeElapsedColumn, BarColumn, TextColumn
+    import time
+    
+    console = Console()
+    
+    total_items = 5
+    
+    with Progress(
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        console=console
+    ) as progress:
+        task = progress.add_task("[cyan]Processing items...", total=total_items)
+        
+        for i in range(total_items):
+            # Simulate processing work
+            time.sleep(0.5)
+            
+            # Update progress
+            progress.update(task, advance=1, 
+                            description=f"[cyan]Processing item {i+1}/{total_items}")
+    
+    console.print("[green]Test completed successfully![/green]")
+    assert True
+```
+
+## Critical Rules for Visual Testing
+  - Use rich console output for all test steps and results
+  - Visualize both success and failure paths clearly
+  - Use color coding consistently (green for success, red for errors, yellow for warnings)
+  - Display detailed context when tests fail
+  - Group related tests visually with clear section headers
+  - Highlight differences between expected and actual values
+  - Include test timing information for performance analysis
+  - Show line numbers for quick navigation in IDE
+  - Visualize retry attempts and background processes
+  - Use progress bars for long-running operations
+  - Include clean success/failure summaries at the end of test runs
+  - Format JSON and structured data for easy reading
+  - Implement automatic discovery of new tests
+  - Visualize skipped tests with clear reasons 
