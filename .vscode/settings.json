@@ -12,5 +12,8 @@
     "workbench.editorAssociations": {
         "*.mdc": "default"
     },
-    "files.autoSave": "onFocusChange"
+    "files.autoSave": "onFocusChange",
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    }
 }
