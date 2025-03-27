@@ -309,6 +309,9 @@ import logging
 import os
 import tempfile
 from pathlib import Path
+import subprocess
+import sys
+from typing import Dict, Any, Optional, List
 
 import pytest
 
@@ -357,297 +360,623 @@ def env_cleanup():
             del os.environ[key]
 ```
 
-### Tool Chain Testing Pattern
+### STDIO Mode Integration Testing
+
+STDIO mode integration testing is crucial for validating MCP servers intended to be used as AI assistant tools. This testing approach uses real subprocess communication to closely match how AI assistants will interact with your server.
+
+#### FastMCPClient for STDIO Testing
 
 ```python
-@pytest.mark.asyncio
-async def test_tool_chain_integration():
-    """Test a full chain of tool interactions together."""
-    with tempfile.TemporaryDirectory() as project_dir:
-        # 1. Initialize project structure
-        init_result = await call_tool("initialize-ide", {
-            "ide": "cursor", 
-            "project_path": project_dir
+class FastMCPClient:
+    """A client for interacting with a FastMCP server over STDIO."""
+    
+    def __init__(self, debug: bool = False):
+        """Initialize the client with debugging options.
+        
+        Args:
+            debug: Whether to print debug information
+        """
+        self.debug = debug
+        self.request_id = 0
+        self.process = None
+        self.initialized = False
+    
+    def start_server(self, server_module: str) -> None:
+        """Start the server as a subprocess.
+        
+        Args:
+            server_module: Python module path to the server
+        """
+        if self.debug:
+            print(f"Starting server using module: {server_module}")
+        
+        self.process = subprocess.Popen(
+            [sys.executable, "-m", server_module, "--mode", "stdio"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+        
+        if self.debug:
+            print(f"Server started with PID: {self.process.pid}")
+    
+    def initialize(self) -> Dict[str, Any]:
+        """Initialize the server with standard parameters."""
+        if self.debug:
+            print("Initializing server...")
+        
+        init_response = self.send_request("initialize", {
+            "rootUri": "file:///tmp/test",
+            "capabilities": {},
+            "clientInfo": {
+                "name": "Test Client",
+                "version": "1.0.0"
+            },
+            "locale": "en-US"
         })
-        assert init_result["success"] is True
         
-        # 2. Create test content
-        story_content = "# Test Story\n\nThis is a test story."
-        story_file = Path(project_dir) / "ai-docs" / "story-test.md"
-        story_file.parent.mkdir(exist_ok=True)
-        with open(story_file, "w") as f:
-            f.write(story_content)
+        # Send initialized notification
+        self.send_notification("notifications/initialized", {})
         
-        # 3. Call subsequent tool
-        prime_result = await call_tool("prime-context", {
-            "project_path": project_dir,
-            "depth": "minimal"
+        self.initialized = True
+        return init_response
+    
+    def send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Send a request to the server.
+        
+        Args:
+            method: The method name
+            params: The parameters to pass
+            
+        Returns:
+            The server's response
+        """
+        if not self.process:
+            raise RuntimeError("Server not started")
+        
+        self.request_id += 1
+        request = {
+            "jsonrpc": "2.0",
+            "id": self.request_id,
+            "method": method,
+            "params": params
+        }
+        
+        if self.debug:
+            print(f"Sending request: {json.dumps(request, indent=2)}")
+        
+        self.process.stdin.write(json.dumps(request) + "\n")
+        self.process.stdin.flush()
+        
+        response_text = self.process.stdout.readline().strip()
+        
+        if not response_text:
+            raise RuntimeError("No response received from server")
+        
+        try:
+            response = json.loads(response_text)
+            if self.debug:
+                print(f"Received response: {json.dumps(response, indent=2)}")
+            return response
+        except json.JSONDecodeError:
+            raise RuntimeError(f"Failed to parse response: {response_text}")
+    
+    def send_notification(self, method: str, params: Dict[str, Any]) -> None:
+        """Send a notification to the server (no response expected).
+        
+        Args:
+            method: The notification method name
+            params: The parameters to pass
+        """
+        if not self.process:
+            raise RuntimeError("Server not started")
+        
+        notification = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params
+        }
+        
+        if self.debug:
+            print(f"Sending notification: {json.dumps(notification, indent=2)}")
+        
+        self.process.stdin.write(json.dumps(notification) + "\n")
+        self.process.stdin.flush()
+    
+    def list_tools(self) -> Dict[str, Any]:
+        """List available tools."""
+        if not self.initialized:
+            raise RuntimeError("Server not initialized")
+        
+        return self.send_request("tools/list", {})
+    
+    def call_tool(self, tool_name: str, parameters: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Call a tool with the given parameters.
+        
+        Args:
+            tool_name: The name of the tool to call
+            parameters: The parameters to pass to the tool
+            
+        Returns:
+            The tool's response
+        """
+        if not self.initialized:
+            raise RuntimeError("Server not initialized")
+        
+        if parameters is None:
+            parameters = {}
+        
+        return self.send_request("tools/call", {
+            "name": tool_name,
+            "parameters": parameters
         })
+    
+    def list_resources(self) -> Dict[str, Any]:
+        """List available resources."""
+        if not self.initialized:
+            raise RuntimeError("Server not initialized")
         
-        # 4. Verify results
-        assert prime_result["success"] is True
-        assert "Test Story" in str(prime_result["context"])
+        return self.send_request("resources/list", {})
+    
+    def read_resource(self, uri: str) -> Dict[str, Any]:
+        """Read a resource by URI.
+        
+        Args:
+            uri: The URI of the resource to read
+            
+        Returns:
+            The resource content
+        """
+        if not self.initialized:
+            raise RuntimeError("Server not initialized")
+        
+        return self.send_request("resources/read", {
+            "uri": uri
+        })
+    
+    def shutdown(self) -> None:
+        """Shutdown the server gracefully."""
+        if not self.process:
+            return
+        
+        try:
+            if self.initialized:
+                self.send_request("shutdown", {})
+            self.process.stdin.close()
+            self.process.wait(timeout=5)
+        except Exception as e:
+            if self.debug:
+                print(f"Error during shutdown: {e}")
+            self.process.kill()
+        
+        if self.debug:
+            print("Server shut down")
+        
+        self.process = None
+        self.initialized = False
+    
+    def __del__(self):
+        """Clean up resources when the object is garbage collected."""
+        self.shutdown()
+```
+
+#### STDIO Test Fixtures
+
+```python
+@pytest.fixture
+def fastmcp_client():
+    """Fixture that provides a FastMCPClient."""
+    client = FastMCPClient(debug=False)
+    yield client
+    client.shutdown()
+
+@pytest.fixture
+def initialized_client(fastmcp_client):
+    """Fixture that provides an initialized FastMCPClient."""
+    server_module = "your_package.server"  # Adjust to your module path
+    fastmcp_client.start_server(server_module)
+    fastmcp_client.initialize()
+    yield fastmcp_client
+```
+
+#### STDIO Mode Test Patterns
+
+Below are essential patterns for testing MCP servers in STDIO mode:
+
+```python
+def test_list_resources(initialized_client):
+    """Test that resources can be listed."""
+    response = initialized_client.list_resources()
+    
+    # Validate response structure
+    assert "id" in response
+    assert "jsonrpc" in response
+    assert response["jsonrpc"] == "2.0"
+    assert "result" in response
+    assert "resources" in response["result"]
+    
+    # Validate that there's at least one resource
+    resources = response["result"]["resources"]
+    assert isinstance(resources, list)
+    assert len(resources) > 0
+
+def test_list_tools(initialized_client):
+    """Test that tools can be listed."""
+    response = initialized_client.list_tools()
+    
+    # Validate response structure
+    assert "id" in response
+    assert "jsonrpc" in response
+    assert response["jsonrpc"] == "2.0"
+    assert "result" in response
+    assert "tools" in response["result"]
+    
+    # Validate that there's at least one tool
+    tools = response["result"]["tools"]
+    assert isinstance(tools, list)
+    assert len(tools) > 0
+    
+    # Validate tool structure
+    for tool in tools:
+        assert "name" in tool
+        assert "description" in tool
+        assert "inputSchema" in tool
+
+def test_call_health_check(initialized_client):
+    """Test the health check tool."""
+    response = initialized_client.call_tool("health_check")
+    
+    # Validate response structure
+    assert "id" in response
+    assert "jsonrpc" in response
+    assert response["jsonrpc"] == "2.0"
+    assert "result" in response
+    assert "content" in response["result"]
+    assert "isError" in response["result"]
+    
+    # Validate content and error status
+    assert not response["result"]["isError"]
+    assert len(response["result"]["content"]) > 0
+    
+    # Parse the content as JSON
+    content_text = response["result"]["content"][0]["text"]
+    content_json = json.loads(content_text)
+    
+    # Validate the content
+    assert "status" in content_json
+    assert content_json["status"] == "ok"
+
+def test_call_specific_tool(initialized_client):
+    """Test a tool with specific parameters."""
+    response = initialized_client.call_tool("your_tool_name", {
+        "param1": "value1",
+        "param2": 42
+    })
+    
+    # Validate response structure
+    assert "id" in response
+    assert "jsonrpc" in response
+    assert response["jsonrpc"] == "2.0"
+    assert "result" in response
+    
+    # Check for successful result (not an error)
+    assert "isError" in response["result"]
+    assert not response["result"]["isError"]
+    
+    # Validate tool-specific response content
+    assert "content" in response["result"]
+    content = response["result"]["content"]
+    
+    # You can add more specific validation based on your tool's expected output
+```
+
+#### Error Handling in STDIO Tests
+
+```python
+def test_call_nonexistent_tool(initialized_client):
+    """Test calling a tool that doesn't exist."""
+    response = initialized_client.call_tool("nonexistent_tool")
+    
+    # Validate error response
+    assert "id" in response
+    assert "jsonrpc" in response
+    assert response["jsonrpc"] == "2.0"
+    
+    # Check for error result
+    assert "result" in response
+    assert "isError" in response["result"]
+    assert response["result"]["isError"]
+    
+    # Validate error content
+    assert "content" in response["result"]
+    content = response["result"]["content"]
+    assert len(content) > 0
+    assert "text" in content[0]
+    assert "error" in content[0]["text"].lower()
+
+def test_call_tool_with_invalid_parameters(initialized_client):
+    """Test calling a tool with invalid parameters."""
+    response = initialized_client.call_tool("valid_tool_name", {
+        "invalid_param": "value"
+    })
+    
+    # Validate response structure for parameter validation errors
+    assert "id" in response
+    assert "jsonrpc" in response
+    assert response["jsonrpc"] == "2.0"
+    
+    # Expect an error result for invalid parameters
+    assert "result" in response
+    assert "isError" in response["result"]
+    assert response["result"]["isError"]
+```
+
+#### Integration with Real External Services
+
+For comprehensive testing, it's important to test your MCP server with real external services rather than mocks:
+
+```python
+def test_integration_with_external_service(initialized_client):
+    """Test integration with a real external service."""
+    # Use a well-known stable test case
+    response = initialized_client.call_tool("get_data_from_service", {
+        "query": "test_query",
+        "limit": 5
+    })
+    
+    # Validate successful response
+    assert "id" in response
+    assert "jsonrpc" in response
+    assert "result" in response
+    assert not response["result"]["isError"]
+    
+    # Validate real data from the service
+    content = response["result"]["content"]
+    assert len(content) > 0
+    
+    # Parse the content and validate service-specific data
+    data = json.loads(content[0]["text"])
+    assert "results" in data
+    assert len(data["results"]) <= 5  # Respects the limit
+```
+
+#### Testing Common Failure Modes
+
+```python
+def test_handle_service_timeout(initialized_client):
+    """Test handling of service timeouts."""
+    # Use a parameter known to trigger slow response
+    response = initialized_client.call_tool("get_data_with_timeout", {
+        "simulate_timeout": True
+    })
+    
+    # Validate timeout handling
+    assert "result" in response
+    assert "isError" in response["result"]
+    assert response["result"]["isError"]
+    
+    # Check for timeout error message
+    content = response["result"]["content"]
+    error_text = content[0]["text"]
+    assert "timeout" in error_text.lower() or "timed out" in error_text.lower()
+
+def test_handle_rate_limiting(initialized_client):
+    """Test handling of rate limiting from external services."""
+    # Make multiple rapid requests to trigger rate limiting
+    for _ in range(5):
+        initialized_client.call_tool("rate_limited_tool")
+    
+    # The final request should detect and handle rate limiting
+    response = initialized_client.call_tool("rate_limited_tool")
+    
+    # Validate rate limit handling
+    content = response["result"]["content"]
+    data = json.loads(content[0]["text"])
+    
+    assert "rate_limited" in data or "retry_after" in data
+```
+
+### STDIO Tool Chain Testing Pattern
+
+```python
+def test_tool_chain_in_stdio_mode(initialized_client):
+    """Test a sequence of tool calls in STDIO mode."""
+    # Step 1: Initialize or set up test data
+    setup_response = initialized_client.call_tool("setup_test_data", {
+        "test_id": "chain_test"
+    })
+    assert not setup_response["result"]["isError"]
+    
+    # Extract a value from the response for use in the next step
+    setup_data = json.loads(setup_response["result"]["content"][0]["text"])
+    test_resource_id = setup_data["resource_id"]
+    
+    # Step 2: Process the resource
+    process_response = initialized_client.call_tool("process_resource", {
+        "resource_id": test_resource_id,
+        "action": "transform"
+    })
+    assert not process_response["result"]["isError"]
+    
+    # Extract results for verification
+    process_data = json.loads(process_response["result"]["content"][0]["text"])
+    assert process_data["status"] == "transformed"
+    
+    # Step 3: Verify the final state
+    verify_response = initialized_client.call_tool("verify_resource_state", {
+        "resource_id": test_resource_id,
+        "expected_state": "transformed"
+    })
+    assert not verify_response["result"]["isError"]
+    
+    # Final verification
+    verification = json.loads(verify_response["result"]["content"][0]["text"])
+    assert verification["verified"] is True
 ```
 
 ## Examples
 
 <example>
-# Tool Implementation Pattern
+# STDIO Integration Test Example
 
 ```python
 import json
-import logging
-import os
-from typing import Dict, Any, Optional
-from mcp import Context
+import pytest
+from my_project.tests.common import FastMCPClient
 
-logger = logging.getLogger(__name__)
+@pytest.fixture
+def client():
+    """Provide an initialized FastMCP client."""
+    client = FastMCPClient(debug=True)
+    client.start_server("my_package.server")
+    client.initialize()
+    yield client
+    client.shutdown()
 
-@mcp.tool(name="get-project-settings")
-def get_project_settings(project_path: Optional[str] = None, ctx: Context = None) -> Dict[str, Any]:
-    """
-    Returns project settings and configuration details.
+def test_get_stock_info(client):
+    """Test getting stock information through STDIO mode."""
+    # Call the tool to get stock information
+    response = client.call_tool("get_stock_metric", {
+        "symbol": "AAPL",
+        "metric": "marketCap"
+    })
     
-    Args:
-        project_path: Optional path to the project. If not provided,
-                     uses current working directory.
-        ctx: MCP context for logging
+    # Validate response structure
+    assert "id" in response
+    assert "jsonrpc" in response
+    assert "result" in response
+    assert "content" in response["result"]
+    assert not response["result"]["isError"]
     
-    Returns:
-        Dictionary containing project settings
-    """
-    try:
-        if ctx:
-            ctx.info(f"Getting project settings for path: {project_path}")
-        else:
-            logger.info(f"Getting project settings for path: {project_path}")
-        
-        # Determine project path
-        actual_path = project_path or os.getcwd()
-        
-        # Validate path exists
-        if not os.path.exists(actual_path):
-            return {
-                "success": False,
-                "error": f"Project path does not exist: {actual_path}",
-                "message": "Please provide a valid project path"
-            }
-        
-        # Collect project settings
-        settings = {
-            "success": True,
-            "project_path": actual_path,
-            "project_name": os.path.basename(actual_path),
-            "ai_docs_path": os.path.join(actual_path, "ai-docs"),
-            "templates_path": os.path.join(actual_path, ".ai-templates"),
-            "has_makefile": os.path.exists(os.path.join(actual_path, "Makefile")),
-        }
-        
-        return settings
-    except Exception as e:
-        if ctx:
-            ctx.error(f"Error getting project settings: {str(e)}")
-        else:
-            logger.error(f"Error getting project settings: {str(e)}")
-        
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "An error occurred while fetching project settings"
-        }
+    # Validate content
+    content = response["result"]["content"]
+    assert len(content) > 0
+    assert "text" in content[0]
+    
+    # Parse the text content as JSON
+    data = json.loads(content[0]["text"])
+    
+    # Validate the data
+    assert "symbol" in data
+    assert data["symbol"] == "AAPL"
+    assert "metric" in data
+    assert data["metric"] == "marketCap"
+    assert "value" in data
+    assert isinstance(data["value"], (int, float))
+    assert data["value"] > 0  # Market cap should be positive
 ```
 
-# Resource Implementation
+# Tool Chain Integration Test Example
 
 ```python
-import os
-from typing import Dict, Any
-from pathlib import Path
-from mcp import Context
-
-@mcp.resource("file://{file_path}")
-async def get_file_content(file_path: str, ctx: Context = None) -> str:
-    """
-    Get the content of a file.
+def test_data_processing_workflow(client):
+    """Test a complete data processing workflow."""
+    # Step 1: Fetch historical data
+    history_response = client.call_tool("get_historical_data", {
+        "symbol": "MSFT",
+        "period": "1mo"
+    })
+    assert not history_response["result"]["isError"]
     
-    Args:
-        file_path: Path to the file to read
-        ctx: MCP context for logging
+    # Parse history data
+    history_data = json.loads(history_response["result"]["content"][0]["text"])
+    assert "symbol" in history_data
+    assert "data" in history_data
+    assert len(history_data["data"]) > 0
     
-    Returns:
-        String containing the file content
-    """
-    if ctx:
-        ctx.info(f"Reading file: {file_path}")
+    # Step 2: Calculate a moving average
+    ma_response = client.call_tool("calculate_moving_average", {
+        "symbol": "MSFT",
+        "period": "20d",
+        "data_source": "cached"  # Use data we just cached
+    })
+    assert not ma_response["result"]["isError"]
     
-    path = Path(file_path)
+    # Parse MA data
+    ma_data = json.loads(ma_response["result"]["content"][0]["text"])
+    assert "symbol" in ma_data
+    assert "moving_average" in ma_data
+    assert isinstance(ma_data["moving_average"], (int, float))
     
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
+    # Step 3: Get recommendation based on MA
+    rec_response = client.call_tool("get_recommendation", {
+        "symbol": "MSFT",
+        "metric": "moving_average",
+        "current_value": ma_data["moving_average"]
+    })
+    assert not rec_response["result"]["isError"]
     
-    if not path.is_file():
-        raise ValueError(f"Path is not a file: {file_path}")
-    
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
-```
-
-# Lifespan Management
-
-```python
-from contextlib import asynccontextmanager
-import sqlite3
-from mcp import FastMCP
-
-@asynccontextmanager
-async def app_lifespan():
-    """Set up and tear down database connection for our app."""
-    # Setup: Create database connection
-    db = sqlite3.connect("app.db")
-    
-    try:
-        # Initialize the database if needed
-        cursor = db.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)")
-        db.commit()
-        
-        # Yield resources to be available during app lifetime
-        yield {"db": db}
-    finally:
-        # Cleanup: Close database connection
-        db.close()
-
-# Create MCP server with lifespan
-mcp = FastMCP("DatabaseApp", lifespan=app_lifespan)
-
-@mcp.tool()
-def add_user(name: str, ctx: Context) -> Dict[str, Any]:
-    """Add a user to the database."""
-    try:
-        # Access the database from context
-        db = ctx.resources["db"]
-        
-        cursor = db.cursor()
-        cursor.execute("INSERT INTO users (name) VALUES (?)", (name,))
-        db.commit()
-        
-        return {
-            "success": True,
-            "user_id": cursor.lastrowid,
-            "message": f"User {name} added successfully"
-        }
-    except Exception as e:
-        ctx.error(f"Error adding user: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to add user to database"
-        }
-```
-
-# Integration Test
-
-```python
-@pytest.mark.asyncio
-async def test_complete_workflow():
-    """Test a complete workflow from project initialization to tool usage."""
-    with tempfile.TemporaryDirectory() as test_project:
-        # Step 1: Initialize project
-        init_result = await call_tool("initialize-ide", {
-            "ide": "cursor", 
-            "project_path": test_project
-        })
-        assert init_result["success"] is True
-        
-        # Step 2: Get project settings
-        settings_result = await call_tool("get-project-settings", {
-            "proposed_path": test_project
-        })
-        assert settings_result["success"] is True
-        assert settings_result["project_path"] == test_project
-        
-        # Step 3: Create sample content
-        ai_docs_dir = Path(test_project) / "ai-docs"
-        prd_file = ai_docs_dir / "prd.md"
-        with open(prd_file, "w") as f:
-            f.write("# Product Requirements Document\n\nTest PRD content.")
-        
-        # Step 4: Prime context to read content
-        prime_result = await call_tool("prime-context", {
-            "project_path": test_project,
-            "depth": "standard"
-        })
-        assert prime_result["success"] is True
-        assert "Product Requirements Document" in str(prime_result["context"])
+    # Validate recommendation
+    rec_data = json.loads(rec_response["result"]["content"][0]["text"])
+    assert "symbol" in rec_data
+    assert "recommendation" in rec_data
+    assert rec_data["recommendation"] in ["buy", "sell", "hold"]
 ```
 </example>
 
 <example type="invalid">
-# Missing Type Hints
+# Skipping STDIO Testing
 
 ```python
-@mcp.tool()
-def my_tool(data):  # Missing type hints
-    # Process the data
-    result = process_data(data)
-    return result  # No clear return type
+# Only testing HTTP mode and not STDIO mode
+def test_http_only():
+    """Test only HTTP mode, ignoring STDIO mode."""
+    client = HttpClient("http://localhost:8000")
+    response = client.get("/tools")
+    assert response.status_code == 200
 ```
 
-# Missing Error Handling
+# Using Mocks Instead of Real Processes
 
 ```python
-@mcp.tool()
-def unsafe_file_read(path: str) -> str:
-    # No error handling for file not found or permission issues
-    with open(path, "r") as f:
-        return f.read()  # Will raise exceptions to the client
-```
-
-# Inconsistent Response Format
-
-```python
-@mcp.tool()
-def inconsistent_tool(query: str) -> Dict[str, Any]:
-    if query == "special":
-        # Missing success flag
-        return {"data": process_special(query)}
-    
-    # Has success flag
-    return {
-        "success": True,
-        "data": process_normal(query)
-    }
-```
-
-# Using Mocks in Integration Tests
-
-```python
-@pytest.mark.asyncio
-async def test_with_mocks():
+def test_with_mocks():
     """Using mocks defeats the purpose of integration testing."""
-    with mock.patch("src.mcp_agile_flow.call_tool") as mock_call:
-        mock_call.return_value = {"success": True, "data": "mocked"}
-        result = await call_tool("get-project-settings", {})
-        assert result["success"] is True
+    with mock.patch("subprocess.Popen") as mock_popen:
+        mock_process = mock.MagicMock()
+        mock_process.stdout.readline.return_value = json.dumps({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {"success": True}
+        })
+        mock_popen.return_value = mock_process
+        
+        client = FastMCPClient()
+        client.start_server("my_package.server")
+        # Rest of test with mocked responses
 ```
 
-# Not Using Context Parameter
+# Not Properly Shutting Down
 
 ```python
-@mcp.tool()
-def tool_without_context(file_paths: list[str]) -> Dict[str, Any]:
-    """
-    Process files without using Context for progress tracking
-    or proper logging.
-    """
-    results = []
-    for file_path in file_paths:
-        # No progress reporting to client
-        # No structured logging
-        result = process_file(file_path)
-        results.append(result)
+def test_without_cleanup():
+    """Not properly cleaning up the subprocess."""
+    client = FastMCPClient()
+    client.start_server("my_package.server")
+    client.initialize()
     
-    return {"success": True, "results": results}
+    response = client.list_tools()
+    assert "result" in response
+    
+    # No shutdown, leaving process running
+```
+
+# Not Validating Response Structure
+
+```python
+def test_minimal_validation():
+    """Only checking for success without validating structure."""
+    client = FastMCPClient()
+    client.start_server("my_package.server")
+    client.initialize()
+    
+    response = client.call_tool("get_data")
+    
+    # Only checking basic success, not validating structure
+    assert "result" in response
+    assert not response["result"]["isError"]
+    # Missing validation of content structure and data
 ```
 </example>
 
@@ -678,4 +1007,21 @@ def tool_without_context(file_paths: list[str]) -> Dict[str, Any]:
 - Implement tests for complete workflows that use multiple tools in sequence
 - Test idempotence for all tools that modify state
 - Validate the complete response structure for all tool calls
-- Test error handling by providing invalid inputs 
+- Test error handling by providing invalid inputs
+
+### STDIO Mode Testing Rules
+- Always use a reusable client class for STDIO communication
+- Test with real subprocess for authentic behavior
+- Always properly initialize and shutdown the server
+- Validate the complete JSON-RPC response structure
+- Test the full lifecycle: initialization, tool listing, tool calls, shutdown
+- Include tests for error scenarios like invalid parameters and nonexistent tools
+- Test tool chains that involve multiple sequential calls
+- Prefer real external service calls over mocks when possible
+- Validate response content structure and data correctness
+- Ensure proper cleanup of subprocesses
+- Include tests for common failure modes like timeouts and rate limiting
+- Set up clear test fixtures for STDIO testing
+- Include testing for both resources and tools
+- Use proper debugging options for troubleshooting test failures
+- Test all supported transport modes (HTTP and STDIO)
