@@ -9,7 +9,7 @@
 
 ## Status
 
-Draft
+Completed
 
 ## Context
 
@@ -21,30 +21,30 @@ Story Points: 1
 
 ## Tasks
 
-1. - [ ] Remove dedicated memory graph test files
-   1. - [ ] Remove `test_memory_graph.py`
-   2. - [ ] Archive a copy for reference if needed
+1. - [x] Remove dedicated memory graph test files
+   1. - [x] Remove `test_memory_graph.py`
+   2. - [x] Archive a copy for reference if needed
 
-2. - [ ] Update integration tests
-   1. - [ ] Identify memory graph references in `test_integration.py`
-   2. - [ ] Remove or modify tests that depend on memory graph
+2. - [x] Update integration tests
+   1. - [x] Identify memory graph references in `test_integration.py`
+   2. - [x] Remove or modify tests that depend on memory graph
 
-3. - [ ] Update mock server tests
-   1. - [ ] Identify memory graph references in `test_json_validation.py`
-   2. - [ ] Update the setup code to remove memory graph references
-   3. - [ ] Remove memory graph-specific test cases
+3. - [x] Update mock server tests
+   1. - [x] Identify memory graph references in `test_json_validation.py`
+   2. - [x] Update the setup code to remove memory graph references
+   3. - [x] Remove memory graph-specific test cases
 
-4. - [ ] Update API tests
-   1. - [ ] Check `test_mcp_via_agno_agent.py` for memory graph usage
-   2. - [ ] Remove or update relevant tests
+4. - [x] Update API tests
+   1. - [x] Check `test_mcp_via_agno_agent.py` for memory graph usage
+   2. - [x] Remove or update relevant tests
 
-5. - [ ] Update test utilities and fixtures
-   1. - [ ] Check for memory graph-related fixtures
-   2. - [ ] Update any helper functions that use memory graph
+5. - [x] Update test utilities and fixtures
+   1. - [x] Check for memory graph-related fixtures
+   2. - [x] Update any helper functions that use memory graph
 
-6. - [ ] Run the updated test suite
-   1. - [ ] Verify all tests pass without memory graph
-   2. - [ ] Fix any regressions caused by the removal
+6. - [x] Run the updated test suite
+   1. - [x] Verify all tests pass without memory graph
+   2. - [x] Fix any regressions caused by the removal
 
 ## Constraints
 
@@ -78,9 +78,11 @@ def setup_memory_manager(self):
     server.memory_manager = manager
 ```
 
-This setup code will need to be removed or modified.
+This setup code has been removed or modified as part of this story.
 
 ## Chat Command Log
 
 - User: Create a new epic to remove the memory graph from the MCP server
-- AI: Created Epic-7-memory-graph-removal with story-3 for removing tests 
+- AI: Created Epic-7-memory-graph-removal with story-3 for removing tests
+- User: Update test suite to remove memory graph references
+- AI: Removed memory graph tests and updated test fixtures

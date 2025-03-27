@@ -111,13 +111,28 @@ async def call_tool(name: str, arguments: Dict[str, Any] = None) -> Dict[str, An
             
         if asyncio.iscoroutine(result):
             result = await result
-        # Convert string result to dict if needed
-        if isinstance(result, str):
+            
+        # Handle different response types
+        if isinstance(result, dict):
+            # Already a dict, return as-is
+            return result
+        elif isinstance(result, str):
+            # Try to parse JSON string
             try:
-                result = json.loads(result)
-            except Exception:
-                pass
-        return result
+                return json.loads(result)
+            except json.JSONDecodeError as e:
+                return {
+                    "success": False,
+                    "error": f"Invalid JSON response from tool: {str(e)}",
+                    "message": "The tool returned malformed JSON"
+                }
+        else:
+            # Unknown response type
+            return {
+                "success": False,
+                "error": f"Unexpected response type from tool: {type(result)}",
+                "message": "The tool returned an unexpected response format"
+            }
     except Exception as e:
         # Return an error response in the same format as the server would
         return {
