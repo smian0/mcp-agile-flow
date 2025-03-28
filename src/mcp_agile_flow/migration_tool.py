@@ -41,7 +41,7 @@ IDE_PATHS = {
         "darwin": "~/Library/Application Support/Claude/claude_desktop_config.json",
         "linux": "~/.config/Claude/claude_desktop_config.json",
         "windows": "%APPDATA%\\Claude\\claude_desktop_config.json",
-    }
+    },
 }
 
 
@@ -98,9 +98,7 @@ def detect_conflicts(source_config: Dict, target_config: Dict) -> List[str]:
     return conflicts
 
 
-def get_conflict_details(
-    source_config: Dict, target_config: Dict, conflicts: List[str]
-) -> Dict:
+def get_conflict_details(source_config: Dict, target_config: Dict, conflicts: List[str]) -> Dict:
     """
     Generate detailed information about each conflict.
 
@@ -153,10 +151,7 @@ def merge_configurations(
     if "mcpServers" in source_config:
         for server_name, server_config in source_config["mcpServers"].items():
             # If server exists in target and we have a conflict resolution
-            if (
-                server_name in merged["mcpServers"]
-                and server_name in conflict_resolutions
-            ):
+            if server_name in merged["mcpServers"] and server_name in conflict_resolutions:
                 if conflict_resolutions[server_name]:
                     # Use source configuration
                     merged["mcpServers"][server_name] = server_config
@@ -227,9 +222,7 @@ def migrate_config(
         # Generate conflict details if there are conflicts
         conflict_details = {}
         if conflicts:
-            conflict_details = get_conflict_details(
-                source_config, target_config, conflicts
-            )
+            conflict_details = get_conflict_details(source_config, target_config, conflicts)
 
         # Create backup of target if it exists and backup is requested
         if backup and os.path.exists(target_path):
