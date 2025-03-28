@@ -1,6 +1,6 @@
 ---
 description: Standards for MCP server development and testing with FastMCP
-globs: "**/*.py"
+globs: **/*.py, **/pyproject.toml
 alwaysApply: false
 ---
 # MCP Server Development and Integration Testing
@@ -12,6 +12,7 @@ alwaysApply: false
 - When debugging or optimizing MCP server performance
 - When validating tool interactions with the filesystem and environment
 - When implementing new tools with MCP's built-in annotations
+- When integrating MCP servers with other Python applications
 
 ## Requirements
 - Follow FastMCP conventions for tool registration and implementation
@@ -23,6 +24,7 @@ alwaysApply: false
 - Implement tool chain tests to validate workflows
 - Ensure proper test cleanup for filesystem and environment changes
 - Use MCP's built-in annotations as the standard approach for all tool implementations
+- Provide proper integration patterns for external applications
 
 ## Server Implementation
 
@@ -297,6 +299,253 @@ async def process_files(file_paths: list[str], ctx: Context) -> Dict[str, Any]:
             "message": "An error occurred while processing files"
         }
 ```
+
+### External Client Integration Strategies
+
+When integrating an MCP server with external Python applications, there are two primary approaches, each with specific benefits and use cases:
+
+#### 1. Official MCP Client API (Recommended)
+
+The official `mcp` package provides a high-level client API that can programmatically start and interact with MCP servers:
+
+```python
+import asyncio
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+async def run_client():
+    # Configure server parameters
+    server_params = StdioServerParameters(
+        command="uv",  # Use UV for Python execution
+        args=["run", "-m", "your_server_module", "--mode", "stdio"],
+        env=None  # Optional environment variables
+    )
+    
+    # Start server and create session
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(read, write) as session:
+            # Initialize connection
+            await session.initialize()
+            
+            # List available tools
+            tools = await session.list_tools()
+            
+            # Call a tool
+            result = await session.call_tool("tool-name", {"param": "value"})
+            
+            # Read a resource
+            content, mime_type = await session.read_resource("resource://uri")
+```
+
+**Benefits:**
+- Clean async interface
+- Proper protocol handling 
+- Automatic server lifecycle management
+- Standardized error handling
+- Resilience against protocol changes
+
+#### 2. Custom STDIO Client
+
+For specialized needs, a custom STDIO client provides more control:
+
+```python
+class CustomMCPClient:
+    def __init__(self, server_script="server.py", mode="stdio"):
+        self.server_script = server_script
+        self.mode = mode
+        self.process = subprocess.Popen(
+            [sys.executable, self.server_script, "--mode", self.mode],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=0,  # Unbuffered
+        )
+        self.request_id = 0
+        self.initialize()
+    
+    def initialize(self):
+        # Initialize the server with JSON-RPC protocol
+        initialize_request = {
+            "jsonrpc": "2.0",
+            "id": self.request_id,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "1.0",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "custom-client",
+                    "version": "1.0.0"
+                }
+            }
+        }
+        self.request_id += 1
+        response = self.send_request(initialize_request)
+        
+        # Send initialized notification
+        self.send_notification({
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized",
+            "params": {}
+        })
+        
+        return response
+    
+    def send_request(self, request):
+        # Implementation details here
+        pass
+        
+    def call_tool(self, tool_name, params=None):
+        # Implementation details here
+        pass
+```
+
+#### 3. Package Dependency Approach
+
+For tight coupling, directly integrating the MCP server as a Python package:
+
+```python
+# In pyproject.toml of the client application
+[project]
+dependencies = [
+    "your-mcp-server @ git+https://github.com/org/your-mcp-server.git",
+]
+
+# In client code
+from your_mcp_server import get_data_function
+
+# Direct function call without MCP protocol
+result = get_data_function(param1, param2)
+```
+
+#### 4. Integrating with MCP Servers from Another Application
+
+For integrating with any MCP server from another Python program, use the official MCP client API approach for best results. Here's a generic pattern followed by a specific example:
+
+**Generic Pattern:**
+```python
+import asyncio
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+async def run_mcp_client(module_name, tool_calls):
+    """
+    Generic function to run any MCP server and make tool calls
+    
+    Args:
+        module_name: The Python module name of the MCP server
+        tool_calls: List of (tool_name, params) tuples to execute
+    """
+    # Create server parameters for stdio connection
+    server_params = StdioServerParameters(
+        command="uv",  # Best practice: Use UV for Python execution
+        args=["run", "-m", module_name, "--mode", "stdio"],
+        env=None  # Optional environment variables
+    )
+    
+    # Start server and create client session
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(read, write) as session:
+            # Initialize the connection
+            await session.initialize()
+            
+            # Execute each tool call
+            results = []
+            for tool_name, params in tool_calls:
+                result = await session.call_tool(tool_name, params)
+                results.append(result)
+            
+            return results
+
+if __name__ == "__main__":
+    # Example usage with any MCP server
+    tool_calls = [
+        ("example_tool", {"param1": "value1"}),
+        ("another_tool", {"param2": 42})
+    ]
+    asyncio.run(run_mcp_client("your_mcp_module", tool_calls))
+```
+
+**Real-World Example with MCP Stock Data:**
+```python
+import asyncio
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+async def run_stock_data_client():
+    """Example using the MCP Stock Data server"""
+    # Create server parameters for stdio connection
+    server_params = StdioServerParameters(
+        command="uv",  # Using UV as recommended
+        args=["run", "-m", "fastmcp_server", "--mode", "stdio"],
+        env=None  # Optional environment variables
+    )
+    
+    # Start server and create client session
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(read, write) as session:
+            # Initialize the connection
+            await session.initialize()
+            
+            # List available tools
+            tools = await session.list_tools()
+            print(f"Available tools: {tools}")
+            
+            # Get a stock metric (e.g., Apple's current price)
+            result = await session.call_tool("get_stock_metric", 
+                                           {"symbol": "AAPL", "metric": "shortName"})
+            print(f"Apple name: {result}")
+            
+            # Get historical stock data
+            history = await session.call_tool("get_historical_data", 
+                                            {"symbol": "MSFT", "period": "1mo"})
+            print(f"Microsoft history: {history}")
+            
+            # Get latest news for a stock
+            news = await session.call_tool("get_stock_news", 
+                                         {"symbol": "TSLA", "limit": 3})
+            print(f"Tesla news: {news}")
+
+if __name__ == "__main__":
+    asyncio.run(run_stock_data_client())
+```
+
+Make sure to install both the specific MCP server package and the MCP client library:
+
+```bash
+# Install the MCP server package (example with Stock Data)
+uv pip install git+https://github.com/owner/mcp-server-repo.git
+
+# Install the MCP client library
+uv pip install mcp
+```
+
+### Integration Best Practices
+
+1. **Dependency Management**:
+   - Ensure all package modules are included in pyproject.toml:
+   ```toml
+   [tool.setuptools]
+   py-modules = [
+       "server",
+       "fastmcp_server",
+       "models"  # Include ALL modules
+   ]
+   ```
+
+2. **Error Handling**: 
+   - Implement robust error handling in clients
+   - Handle connection failures gracefully
+   - Provide meaningful error messages
+
+3. **Documentation**:
+   - Document integration patterns in README
+   - Include example code for different integration approaches
+   - Specify required dependencies
+
+4. **Testing**:
+   - Create integration tests that validate client-server interactions
+   - Test in both development and production environments
+   - Validate handling of edge cases
 
 ## Testing Approach
 
@@ -1025,3 +1274,12 @@ def test_minimal_validation():
 - Include testing for both resources and tools
 - Use proper debugging options for troubleshooting test failures
 - Test all supported transport modes (HTTP and STDIO)
+
+### External Client Integration Strategies
+- Always implement proper error reporting with complete error details and suggested fixes
+- Use type hints consistently throughout all code
+- Verify all MCP servers work in both HTTP and STDIO modes
+- Document all tools with clear descriptions and parameter information
+- Provide integration guidance for external applications in documentation
+- Include all modules in pyproject.toml to prevent import errors
+- Prefer the official MCP client API for external Python integrations
