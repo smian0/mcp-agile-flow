@@ -1,0 +1,37 @@
+===========================================================
+DEAD CODE ANALYSIS REPORT - 2025-03-30 22:10:11
+===========================================================
+
+Total findings: 18
+
+CONFIDENCE LEVEL: 60%
+--------------------------------------------------
+Found 18 potential issues
+
+File: src/mcp_agile_flow/fastmcp_tools.py
+  - Line 35: unused variable 'VALID_IDES'
+
+File: src/mcp_agile_flow/models.py
+  - Line 9: unused class 'ProjectSettingsResponse'
+  - Line 15: unused variable 'current_directory'
+  - Line 16: unused variable 'is_project_path_manually_set'
+  - Line 17: unused variable 'ai_docs_directory'
+  - Line 19: unused variable 'is_root'
+  - Line 20: unused variable 'is_writable'
+  - Line 23: unused variable 'project_metadata'
+  - Line 28: unused class 'InitializeIDEResponse'
+  - Line 34: unused variable 'templates_directory'
+  - Line 35: unused variable 'rules_directory'
+  - Line 37: unused variable 'initialized_rules'
+  - Line 38: unused variable 'initialized_templates'
+  - Line 39: unused variable 'initialized_windsurf'
+
+File: src/mcp_agile_flow/think_tool.py
+  - Line 330: unused function 'get_thought_template'
+
+File: src/mcp_agile_flow/utils.py
+  - Line 111: unused function 'detect_project_type'
+  - Line 141: unused function 'is_project_root'
+  - Line 199: unused function 'get_cursor_rules'
+
+

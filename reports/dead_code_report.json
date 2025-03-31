@@ -1,0 +1,149 @@
+{
+  "generated_at": "2025-03-30T22:10:11.116824",
+  "total_findings": 18,
+  "confidence_levels": {
+    "60": {
+      "count": 18,
+      "findings": [
+        {
+          "file_path": "src/mcp_agile_flow/fastmcp_tools.py",
+          "line_number": 35,
+          "item_type": "variable",
+          "item_name": "VALID_IDES",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 9,
+          "item_type": "class",
+          "item_name": "ProjectSettingsResponse",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 15,
+          "item_type": "variable",
+          "item_name": "current_directory",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 16,
+          "item_type": "variable",
+          "item_name": "is_project_path_manually_set",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 17,
+          "item_type": "variable",
+          "item_name": "ai_docs_directory",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 19,
+          "item_type": "variable",
+          "item_name": "is_root",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 20,
+          "item_type": "variable",
+          "item_name": "is_writable",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 23,
+          "item_type": "variable",
+          "item_name": "project_metadata",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 28,
+          "item_type": "class",
+          "item_name": "InitializeIDEResponse",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 34,
+          "item_type": "variable",
+          "item_name": "templates_directory",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 35,
+          "item_type": "variable",
+          "item_name": "rules_directory",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 37,
+          "item_type": "variable",
+          "item_name": "initialized_rules",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 38,
+          "item_type": "variable",
+          "item_name": "initialized_templates",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/models.py",
+          "line_number": 39,
+          "item_type": "variable",
+          "item_name": "initialized_windsurf",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/think_tool.py",
+          "line_number": 330,
+          "item_type": "function",
+          "item_name": "get_thought_template",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/utils.py",
+          "line_number": 111,
+          "item_type": "function",
+          "item_name": "detect_project_type",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/utils.py",
+          "line_number": 141,
+          "item_type": "function",
+          "item_name": "is_project_root",
+          "confidence": 60
+        },
+        {
+          "file_path": "src/mcp_agile_flow/utils.py",
+          "line_number": 199,
+          "item_type": "function",
+          "item_name": "get_cursor_rules",
+          "confidence": 60
+        }
+      ]
+    },
+    "75": {
+      "count": 0,
+      "findings": []
+    },
+    "90": {
+      "count": 0,
+      "findings": []
+    },
+    "100": {
+      "count": 0,
+      "findings": []
+    }
+  }
+}

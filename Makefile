@@ -41,6 +41,7 @@ help:
 	@echo "clean-all:        Remove build artifacts, cache files, and virtual environment"
 	@echo "clean-archived:   Remove archived files (creates backup first)"
 	@echo "quality:          Run all code quality checks (formatting, linting, type checking)"
+	@echo "dead-code:        Run dead code analysis and generate reports"
 	@echo "format:           Run code formatting with Black"
 	@echo "lint:             Run code linting with Ruff and Flake8"
 	@echo "type-check:       Run type checking with MyPy"
@@ -153,6 +154,7 @@ clean:
 	rm -rf htmlcov/
 	rm -rf .mypy_cache/
 	rm -rf .ruff_cache/
+	rm -rf dead_code_report*
 
 # Remove everything including the virtual environment
 clean-all: clean
@@ -165,45 +167,20 @@ clean-archived:
 
 # Code quality
 # ------------
-# Individual quality commands
-format: venv
-	@echo "Installing development dependencies..."
-	$(UV) pip install -e ".[test]"
-	@echo "Running code formatting with Black..."
-	$(UV) run black $(SOURCE_DIR) $(TESTS_DIR)
-
-lint: venv
-	@echo "Installing development dependencies..."
-	$(UV) pip install -e ".[test]"
-	@echo "Installing Ruff explicitly if not included..."
-	$(UV) pip install ruff==0.3.0
-	@echo "Running code linting with Ruff..."
-	$(UV) run ruff check $(SOURCE_DIR) $(TESTS_DIR)
-	@echo "Running code linting with Flake8..."
-	$(UV) run flake8 $(SOURCE_DIR) $(TESTS_DIR)
-
-fix-lint: venv
-	@echo "Installing development dependencies..."
-	$(UV) pip install -e ".[test]"
-	@echo "Installing Ruff explicitly if not included..."
-	$(UV) pip install ruff==0.3.0
-	@echo "Automatically fixing linting issues with Ruff..."
-	$(UV) run ruff check --fix --unsafe-fixes $(SOURCE_DIR) $(TESTS_DIR)
-	@echo "Automatically fixing comparison issues with Ruff..."
-	$(UV) run ruff check --fix --select=E712 $(SOURCE_DIR) $(TESTS_DIR)
-
-type-check: venv
-	@echo "Installing development dependencies..."
-	$(UV) pip install -e ".[test]"
-	@echo "Running type checking with MyPy..."
-	$(UV) run mypy $(SOURCE_DIR)
+# Dead code analysis
+dead-code: venv
+	@echo "Installing dead code analyzer dependencies..."
+	$(UV) pip install vulture>=2.14
+	@echo "Running dead code analysis with Vulture..."
+	$(UV) run python scripts/quality/analyze_dead_code.py --src $(SOURCE_DIR) --output reports/dead_code_report --html --json
+	@echo "Dead code reports generated in reports/ directory"
 
 # Combined quality command that runs all checks in one go
 quality: venv
 	@echo "Installing development dependencies..."
 	$(UV) pip install -e ".[test]"
 	@echo "Installing quality tools explicitly..."
-	$(UV) pip install black==24.3.0 flake8==7.0.0 mypy==1.9.0 ruff==0.3.0
+	$(UV) pip install black==24.3.0 flake8==7.0.0 mypy==1.9.0 ruff==0.3.0 vulture>=2.14
 	@echo "Running code formatting with Black..."
 	$(UV) run black $(SOURCE_DIR) $(TESTS_DIR)
 	@echo "Running code linting with Ruff..."
@@ -212,6 +189,9 @@ quality: venv
 	$(UV) run flake8 $(SOURCE_DIR)
 	@echo "Running type checking with MyPy..."
 	$(UV) run mypy $(SOURCE_DIR)
+	@echo "Running dead code analysis with Vulture..."
+	mkdir -p reports
+	$(UV) run python scripts/quality/analyze_dead_code.py --src $(SOURCE_DIR) --output reports/dead_code_report --html --json
 
 # Default target
 # --------------

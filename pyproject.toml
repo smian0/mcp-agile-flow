@@ -40,6 +40,7 @@ dev = [
     "mypy>=1.15.0",
     "pre-commit>=4.2.0",
     "coverage-badge>=1.1.2",
+    "vulture>=2.14",
 ]
 
 [project.urls]
@@ -83,3 +84,9 @@ exclude_lines = [
     "pass",
     "raise ImportError",
 ]
+
+[tool.vulture]
+min_confidence = 80
+exclude = ["tests/", "*/__pycache__/", "*.pyc"]
+ignore_names = ["args", "kwargs", "request", "cls", "self"]
+ignore_decorators = ["@app.route", "@require", "@abstractmethod"]

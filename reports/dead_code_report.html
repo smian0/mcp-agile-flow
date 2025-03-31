@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dead Code Analysis Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 5px; }
+        h2 { color: #555; margin-top: 20px; }
+        .summary { background-color: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .confidence-section { margin: 20px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .confidence-100 { background-color: #fdd; }
+        .confidence-90 { background-color: #fed; }
+        .confidence-75 { background-color: #ffe; }
+        .confidence-60 { background-color: #eff; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+        th { background-color: #f2f2f2; }
+        .file-section { margin: 15px 0; }
+        .file-header { background-color: #f2f2f2; padding: 5px; border-left: 3px solid #333; }
+    </style>
+</head>
+<body>
+        <h1>Dead Code Analysis Report</h1><p>Generated on: 2025-03-30 22:10:11</p><div class='summary'><h2>Summary</h2><p>Total findings: 18</p><table><tr><th>Confidence Level</th><th>Number of Findings</th></tr><tr><td>60%</td><td>18</td></tr></table></div><div class='confidence-section confidence-60'><h2>Confidence Level: 60%</h2><p>Found 18 potential issues</p><div class='file-section'><div class='file-header'><strong>File:</strong> src/mcp_agile_flow/fastmcp_tools.py</div><table><tr><th>Line</th><th>Type</th><th>Name</th></tr><tr><td>35</td><td>variable</td><td>VALID_IDES</td></tr></table></div><div class='file-section'><div class='file-header'><strong>File:</strong> src/mcp_agile_flow/models.py</div><table><tr><th>Line</th><th>Type</th><th>Name</th></tr><tr><td>9</td><td>class</td><td>ProjectSettingsResponse</td></tr><tr><td>15</td><td>variable</td><td>current_directory</td></tr><tr><td>16</td><td>variable</td><td>is_project_path_manually_set</td></tr><tr><td>17</td><td>variable</td><td>ai_docs_directory</td></tr><tr><td>19</td><td>variable</td><td>is_root</td></tr><tr><td>20</td><td>variable</td><td>is_writable</td></tr><tr><td>23</td><td>variable</td><td>project_metadata</td></tr><tr><td>28</td><td>class</td><td>InitializeIDEResponse</td></tr><tr><td>34</td><td>variable</td><td>templates_directory</td></tr><tr><td>35</td><td>variable</td><td>rules_directory</td></tr><tr><td>37</td><td>variable</td><td>initialized_rules</td></tr><tr><td>38</td><td>variable</td><td>initialized_templates</td></tr><tr><td>39</td><td>variable</td><td>initialized_windsurf</td></tr></table></div><div class='file-section'><div class='file-header'><strong>File:</strong> src/mcp_agile_flow/think_tool.py</div><table><tr><th>Line</th><th>Type</th><th>Name</th></tr><tr><td>330</td><td>function</td><td>get_thought_template</td></tr></table></div><div class='file-section'><div class='file-header'><strong>File:</strong> src/mcp_agile_flow/utils.py</div><table><tr><th>Line</th><th>Type</th><th>Name</th></tr><tr><td>111</td><td>function</td><td>detect_project_type</td></tr><tr><td>141</td><td>function</td><td>is_project_root</td></tr><tr><td>199</td><td>function</td><td>get_cursor_rules</td></tr></table></div></div>
+</body>
+</html>
+        
