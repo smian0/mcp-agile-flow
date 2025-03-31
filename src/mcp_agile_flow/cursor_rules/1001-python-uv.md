@@ -1,5 +1,5 @@
 ---
-description: Use UV for all Python project operations to ensure fast, consistent dependency management
+description: Use UV for all Python project operations to ensure fast, consistent dependency management and always maintain pyproject.toml as the source of truth
 globs: **/*.py, **/pyproject.toml, **/requirements.txt
 alwaysApply: false
 ---
@@ -11,9 +11,11 @@ alwaysApply: false
 - When setting up environments, installing dependencies, or running Python scripts
 - When project requires consistent, reproducible environments
 - Applied to any Python codebase that benefits from modern, fast package management
+- When discovering missing dependencies during development or testing
 
 ## Requirements
 - Use pyproject.toml as the primary dependency definition file
+- IMMEDIATELY update pyproject.toml when any new dependency is discovered
 - Use UV for all virtual environment creation
 - Use UV for all package installation operations 
 - Use UV for executing Python scripts
@@ -33,7 +35,18 @@ uv run -m my_module
 uv run script.py
 
 # Installing a package and updating pyproject.toml
-uv pip install package-name
+uv pip install package-name --update-pyproject
+
+# When discovering a missing dependency, immediately add it to pyproject.toml
+# First, add to pyproject.toml:
+[project]
+dependencies = [
+    # ...existing dependencies...
+    "newly-discovered-package>=1.0.0",
+]
+
+# Then install with:
+uv pip install -e .
 
 # Using a lockfile for deterministic builds
 uv pip compile pyproject.toml -o uv.lock
@@ -71,6 +84,12 @@ python script.py
 # Don't use pip for dependency resolution
 pip install package-name
 
+# Don't install packages without updating pyproject.toml
+uv pip install package-name  # Missing --update-pyproject flag
+
+# Don't use packages without adding them to pyproject.toml first
+import new_package  # Package not declared in pyproject.toml
+
 # Don't use setup.py or requirements.txt as primary dependency files
 setup(
     name="my-project",
@@ -80,10 +99,15 @@ setup(
 
 ## Critical Rules
 - ALWAYS use pyproject.toml as the primary dependency definition file
+- ALWAYS IMMEDIATELY update pyproject.toml when discovering any missing dependency
+- NEVER import or use a package that isn't declared in pyproject.toml
+- When discovering a missing dependency during development, add it to pyproject.toml FIRST, then install
+- Use `uv pip install --update-pyproject` when adding new dependencies to automatically update pyproject.toml
 - ALWAYS use `uv venv` for virtual environment creation instead of `python -m venv`
 - ALWAYS use `uv pip` instead of `pip` for package management
 - ALWAYS use `uv run` instead of direct `python` invocation
 - Document UV installation requirements in project README
 - Include UV in CI/CD pipelines for testing and deployment
 - Prefer `uv.lock` for deterministic dependency resolution
-- Avoid using requirements.txt except for compatibility or when generating from pyproject.toml 
+- Avoid using requirements.txt except for compatibility or when generating from pyproject.toml
+- After implementing code that requires new dependencies, VERIFY that all dependencies are properly documented in pyproject.toml
