@@ -1,6 +1,6 @@
 ---
 description: Use UV for all Python project operations to ensure fast, consistent dependency management and always maintain pyproject.toml as the source of truth
-globs: **/*.py, **/pyproject.toml, **/requirements.txt
+globs:
 alwaysApply: false
 ---
 
