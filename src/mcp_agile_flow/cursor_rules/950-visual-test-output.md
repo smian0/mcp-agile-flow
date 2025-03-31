@@ -1,9 +1,3 @@
----
-description: Use visual output formatting when writing or running tests to improve readability and debugging
-globs: "**/*test*.py"
-alwaysApply: false
----
-
 # Visual Test Output Guidelines
 
 ## Context
@@ -19,12 +13,15 @@ alwaysApply: false
 - Use color coding when available to distinguish between different types of data
 - Include visual indicators for success/failure states
 - Employ tables, formatted JSON, and other visual structures to improve readability
-- Add clear visual separation between test cases
+- Add clear visual separation between test cases using panels with descriptive titles
 - Implement rich diff displays for failed assertions
 - Group tests logically by category or functionality
 - Provide category-based summaries at the end of test runs
 - Include line numbers in test output for easier navigation in the IDE
 - Use file:line::Class.test_name format for test identifiers
+- Include both test descriptions and test outputs within the same panel for improved clarity
+- Display actual outputs directly below expected outputs for easier comparison
+- Use check marks (✅) or X marks (❌) as visual indicators for pass/fail status
 - Install necessary visualization libraries in project dependencies:
   - `rich`: For colored, formatted console output with tables and panels
   - `tabulate`: For simple ASCII tables when rich is not available
@@ -46,6 +43,91 @@ tabulate  # For simple table output
 
 # Alternative with uv
 # uv pip install pytest rich pytest-clarity pytest-sugar tabulate
+```
+
+## Standard Test Case Panel Template
+
+Create consistent test description panels for improved readability, using this pattern:
+
+```python
+# In your run_tests.py or similar file
+def print_test_descriptions(test_category):
+    """Print detailed descriptions of test scenarios in a category."""
+    # Example for a single test case panel
+    console.print(Panel(
+        "[bold]Test: {Test Name}[/bold]\n\n"
+        "{Descriptive paragraph explaining what this test verifies and why it's important.}\n\n"
+        "[dim]Expected outcomes:[/dim]\n"
+        "• {Expected outcome 1}\n"
+        "• {Expected outcome 2}\n"
+        "• {Expected outcome 3}\n\n"
+        "[dim cyan]Test Output:[/dim cyan]\n"
+        "{Include actual test output here with relevant details}\n"
+        "→ {Specific test output line 1} ✅\n"
+        "→ {Specific test output line 2} ✅\n"
+        "→ {Specific test output line 3} ✅",
+        title="Test Case {Number}",
+        border_style="blue",  # Use different colors for different test categories
+        padding=(1, 2)
+    ))
+```
+
+## Practical Test Case Panel Examples
+
+### Example: API Test Panel
+```python
+console.print(Panel(
+    "[bold]Test: API Authentication Flow[/bold]\n\n"
+    "This test verifies that the API authentication process correctly validates credentials "
+    "and returns appropriate tokens for valid users while rejecting invalid credentials.\n\n"
+    "[dim]Expected outcomes:[/dim]\n"
+    "• Valid credentials receive a 200 response with auth token\n"
+    "• Invalid credentials receive a 401 response\n"
+    "• Malformed requests receive a 400 response\n\n"
+    "[dim cyan]Test Output:[/dim cyan]\n"
+    "Valid Credentials Test:\n"
+    "→ Request: POST /auth {username: 'valid_user', password: '********'}\n"
+    "→ Response: 200 {token: 'eyJhbGc...', expires_in: 3600} ✅\n\n"
+    "Invalid Credentials Test:\n"
+    "→ Request: POST /auth {username: 'invalid_user', password: '********'}\n"
+    "→ Response: 401 {error: 'Invalid credentials'} ✅\n\n"
+    "Malformed Request Test:\n"
+    "→ Request: POST /auth {bad_field: 'value'}\n"
+    "→ Response: 400 {error: 'Missing required fields'} ✅",
+    title="Test Case 1",
+    border_style="green",
+    padding=(1, 2)
+))
+```
+
+### Example: Data Processing Test Panel
+```python
+console.print(Panel(
+    "[bold]Test: CSV Data Transformation[/bold]\n\n"
+    "This test verifies that the data transformation pipeline correctly processes CSV data, "
+    "applying all required transformations and generating the expected output format.\n\n"
+    "[dim]Expected outcomes:[/dim]\n"
+    "• Headers are properly normalized\n"
+    "• Date columns are converted to ISO format\n"
+    "• Numerical values are properly formatted\n"
+    "• Empty cells are handled appropriately\n\n"
+    "[dim cyan]Test Output:[/dim cyan]\n"
+    "Header Normalization:\n"
+    "→ Input: ['First Name', 'Last Name', 'DOB']\n"
+    "→ Output: ['first_name', 'last_name', 'dob'] ✅\n\n"
+    "Date Conversion:\n"
+    "→ Input: '12/31/2023'\n"
+    "→ Output: '2023-12-31' ✅\n\n"
+    "Numerical Formatting:\n"
+    "→ Input: '1,234.56'\n"
+    "→ Output: 1234.56 ✅\n\n"
+    "Empty Cell Handling:\n"
+    "→ Input: ['', None, 'N/A']\n"
+    "→ Output: [None, None, None] ✅",
+    title="Test Case 2",
+    border_style="blue",
+    padding=(1, 2)
+))
 ```
 
 ## Test Grouping Setup
@@ -203,6 +285,45 @@ def print_test_group(group_name):
     console.print()
     console.print(Panel(f"[bold blue]{group_name}[/bold blue]", 
                        border_style="blue", expand=False))
+
+# Helper to display test input data
+def display_input(title, data):
+    """Display input data in a visually distinct format."""
+    console.print(Panel(
+        f"{data}",
+        title=f"📥 {title}",
+        border_style="cyan",
+        padding=(1, 1)
+    ))
+
+# Helper to display test output with expected values
+def display_output(title, actual, expected=None):
+    """Display output data with comparison to expected values."""
+    panel_content = f"{actual}"
+    if expected is not None:
+        panel_content += f"\n\n[bold]Expected:[/bold]\n{expected}"
+        # Add visual match indicator
+        matches = actual == expected
+        indicator = "✅ MATCH" if matches else "❌ MISMATCH"
+        style = "green" if matches else "red"
+        panel_content += f"\n\n[{style}]{indicator}[/{style}]"
+    
+    console.print(Panel(
+        panel_content,
+        title=f"📤 {title}",
+        border_style="green",
+        padding=(1, 1)
+    ))
+
+# Helper to display test summary with results
+def display_test_summary(test_name, results):
+    """Display a summary of the test case with results."""
+    console.print(Panel(
+        results,
+        title=f"📋 {test_name} Summary",
+        border_style="blue",
+        padding=(1, 1)
+    ))
 ```
 
 ## Line Number Display for Tests
@@ -350,30 +471,6 @@ if __name__ == "__main__":
     main()
 ```
 
-Update your Makefile to use the line number script:
-
-```makefile
-# Set up script paths
-SCRIPTS_DIR = scripts
-FORMAT_TEST_OUTPUT = $(SCRIPTS_DIR)/format_test_output.py
-
-# Run category-specific tests with line numbers
-test-api:
-	@echo "🧪 Running API tests with visual output..."
-	$(PYTHON) -m pytest -v tests/test_api.py
-	@$(PYTHON) $(FORMAT_TEST_OUTPUT) tests/test_api.py "API" api_test1 api_test2
-
-test-cache:
-	@echo "🧪 Running cache tests with visual output..."
-	$(PYTHON) -m pytest -v tests/test_cache.py
-	@$(PYTHON) $(FORMAT_TEST_OUTPUT) tests/test_cache.py "Cache" cache_test1 cache_test2
-
-test-integration:
-	@echo "🧪 Running integration tests with visual output..."
-	$(PYTHON) -m pytest -v tests/test_integration.py
-	@$(PYTHON) $(FORMAT_TEST_OUTPUT) tests/test_integration.py "Integration" integration_test1 integration_test2
-```
-
 ## Makefile Targets for Test Categories
 
 Include these targets in your Makefile:
@@ -405,17 +502,48 @@ test-all: test-api test-cache test-integration
 test-detailed:
 	@echo "🧪 Running tests with detailed visual output..."
 	$(PYTHON) -m pytest $(TEST_FLAGS) -p no:sugar --capture=no --no-header tests/
+
+# Run tests with descriptions and results in panels
+test-with-descriptions:
+	@echo "🧪 Running tests with detailed descriptions and results..."
+	$(PYTHON) -m pytest $(TEST_FLAGS) --with-descriptions both
 ```
 
 ## Examples
 <example>
-✅ Standard pytest with verbose output:
+✅ Test description panel with embedded output:
+```python
+def print_test_descriptions(test_category):
+    console.print(Panel(
+        "[bold]Test: Extract Screen Info from Filename[/bold]\n\n"
+        "This test verifies that the system can correctly parse P123 screen filenames "
+        "to extract the screen ID and date components. The filename format is expected "
+        "to be 'P123_Screen_NNNNNN_YYYYMMDD.csv' where NNNNNN is the screen ID and "
+        "YYYYMMDD is the date.\n\n"
+        "[dim]Expected outcomes:[/dim]\n"
+        "• Successfully extract screen ID and date from valid filenames\n"
+        "• Handle typical screen filename formats properly\n"
+        "• Return None values for invalid filename formats\n\n"
+        "[dim cyan]Test Output:[/dim cyan]\n"
+        "Test Case 1: 'P123_Screen_100000_20220101.csv'\n"
+        "→ Extracted: screen_id='100000', date='2022-01-01' ✅\n\n"
+        "Test Case 2: 'P123_Screen_987654_20221231.csv'\n"
+        "→ Extracted: screen_id='987654', date='2022-12-31' ✅\n\n"
+        "Test Case 3: 'invalid_filename.csv'\n"
+        "→ Extracted: screen_id=None, date=None ✅",
+        title="Test Case 1",
+        border_style="blue",
+        padding=(1, 2)
+    ))
+```
+
+✅ Standard pytest with verbose output and embedded results:
 ```python
 @pytest.mark.parametrize("input_value, expected", [
     ({"symbol": "AAPL", "metric": "price"}, 150.25),
     ({"symbol": "GOOG", "metric": "price"}, 2100.50),
 ])
-def test_get_stock_metric(input_value, expected, mock_service):
+def test_get_stock_metric(input_value, expected, mock_service, display_test_summary):
     """Test fetching stock metrics."""
     # ARRANGE - Display test inputs
     print(f"\n📥 Input: {json.dumps(input_value, indent=2)}")
@@ -435,14 +563,23 @@ def test_get_stock_metric(input_value, expected, mock_service):
         print(f"  Diff:     {expected - result if isinstance(result, (int, float)) else 'complex diff'}")
     else:
         print("✅ MATCH")
+    
+    # Add summarized results for the output panel
+    test_output = (
+        f"Input: {input_value['symbol']}, {input_value['metric']}\n"
+        f"→ Expected: {expected}\n"
+        f"→ Actual: {result}\n"
+        f"→ Result: {'✅ MATCH' if result == expected else '❌ MISMATCH'}"
+    )
+    display_test_summary("Stock Metric Test", test_output)
         
     assert result == expected
 ```
 
-✅ Using Rich for advanced formatting with test grouping:
+✅ Using Rich for advanced formatting with test grouping and embedded results:
 ```python
 @pytest.mark.api
-def test_with_grouped_output():
+def test_with_grouped_output(display_test_summary):
     """Test with rich visual output and logical grouping."""
     from rich.console import Console
     from rich.table import Table
@@ -482,16 +619,13 @@ def test_with_grouped_output():
     console.print(table)
     
     # Test Summary Panel
-    console.print(Panel.fit(
-        f"[bold green]TEST COMPLETED: test_with_grouped_output[/bold green]\n"
-        f"✅ Successfully validated API response\n"
-        f"- Verified response format\n"
-        f"- Confirmed calculation correctness\n"
-        f"- Validated expected output",
-        border_style="green",
-        title="Test Summary",
-        subtitle="API Response Test"
-    ))
+    test_output = (
+        f"Input: {test_data}\n"
+        f"→ Expected Sum: 6\n"
+        f"→ Actual Sum: {result}\n"
+        f"→ Result: {'✅ MATCH' if result == 6 else '❌ MISMATCH'}"
+    )
+    display_test_summary("API Response Test", test_output)
     
     assert result == 6
 ```
@@ -515,40 +649,6 @@ tests/test_integration.py:44::TestExternalIntegration.test_rate_limit_handling
 tests/test_integration.py:137::TestExternalIntegration.test_concurrent_requests
 tests/test_integration.py:231::TestExternalIntegration.test_api_latency
 tests/test_integration.py:308::TestExternalIntegration.test_market_hours_behavior
-```
-
-✅ Detailed test run with category grouping:
-```bash
-$ make test-detailed
-
-╭──────────────────────╮
-│ Starting API Tests   │
-╰──────────────────────╯
-
-╭────────────────────────╮
-│ API Validation Tests   │
-╰────────────────────────╯
-
-╭─────────── API Test Case ───────────╮
-│                                     │
-│  TEST: API Response Validation      │
-│                                     │
-╰─ Testing response format and values─╯
-
-... test details ...
-
-╭─────────────────── Test Summary ──────────────────╮
-│ TEST COMPLETED: test_with_grouped_output          │
-│ ✅ Successfully validated API response            │
-│ - Verified response format                        │
-│ - Confirmed calculation correctness               │
-│ - Validated expected output                       │
-╰──────────────── API Response Test ────────────────╯
-
-╭────────────────────────────────────────────────╮
-│ Completed API Tests                            │
-│ Tests: 5 | Passed: 5 | Failed: 0 | Duration: 0.5s │
-╰────────────────────────────────────────────────╯
 ```
 </example>
 
@@ -575,472 +675,37 @@ test_api_call: PASSED
 test_database: FAILED
 ```
 
-❌ Test output without line numbers:
+❌ Testing without embedded outputs and descriptions:
+```python
+# Missing description panel with integrated outputs
+def test_feature():
+    assert feature_function() == expected_result
 ```
-Overall Test Results Summary by Category
-            Integration Tests Summary            
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
-┃ Test Name                  ┃ Result    ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ test_rate_limit_handling   │ ✅ PASSED │
-│ test_concurrent_requests   │ ✅ PASSED │
-│ test_api_latency           │ ✅ PASSED │
-│ test_market_hours_behavior │ ✅ PASSED │
-└────────────────────────────┴───────────┘
+
+❌ Separating test descriptions from their results:
+```python
+# Putting descriptions and results in different places makes it harder to follow
+print("Test descriptions:")
+print("Test 1: Tests feature A")
+print("Test 2: Tests feature B")
+
+# ... later in the output ...
+print("Test results:")
+print("Test 1: PASSED")
+print("Test 2: FAILED")
 ```
 </example>
 
 ## Critical Rules
-- Always enable verbose output for test runs
-- Always display test inputs in a clearly formatted way
-- Always display actual results in a clearly formatted way
-- Always display expected results in a clearly formatted way
-- Use visual differences for failed assertions
-- Prefer tabular or structured formats for complex data
-- Clearly separate different test cases with visual breaks
-- Don't rely solely on text-based assertions without visual context
-- Consider accessibility when choosing visual representations
-- Include custom assertion helpers in test utilities
-- Always add visualization libraries to project dependencies
-- Use conditional imports for visualization libraries to make tests still run without them
-- Document required dependencies in requirements.txt, pyproject.toml, or similar
-- Organize tests into logical categories (API, Cache, Integration, etc.)
-- Use pytest markers to explicitly categorize tests
-- Implement category-based summaries at the end of test runs
-- Create clear visual boundaries between test categories
-- Add per-test summary panels for key findings and validations
-- Include per-category completion summaries with statistics
-- Provide both standard and detailed output options in Makefile
-- Include line numbers in test output for easier IDE navigation
-- Format test identifiers in a consistent path:line::Class.test_name format
-- Use grep or similar tools to extract test line numbers reliably
-- Support both class-based and module-level test functions 
-
-## STDIO and API Integration Test Visualization
-
-When testing MCP servers, especially those using STDIO mode or integrating with external APIs, the following additional visualization techniques are essential:
-
-### Real API Response Visualization
-
-```python
-def test_api_call_with_visualization(client):
-    """Test API call with enhanced visualization."""
-    from rich.console import Console
-    from rich.panel import Panel
-    from rich.syntax import Syntax
-    
-    console = Console()
-    
-    # Display test parameters
-    params = {"symbol": "AAPL", "metric": "marketCap"}
-    console.print(Panel(
-        Syntax(json.dumps(params, indent=2), "json"),
-        title="📤 Request Parameters",
-        border_style="blue"
-    ))
-    
-    # Make the actual API call
-    response = client.call_tool("get_stock_metric", params)
-    
-    # First check if we have a valid response structure
-    if "result" not in response or "content" not in response["result"]:
-        console.print(Panel(
-            Syntax(json.dumps(response, indent=2), "json"),
-            title="⚠️ Unexpected Response Structure",
-            border_style="yellow"
-        ))
-        pytest.fail("Invalid response structure")
-        return
-    
-    # Check for errors
-    if response["result"]["isError"]:
-        console.print(Panel(
-            Syntax(json.dumps(response["result"], indent=2), "json"),
-            title="❌ Error Response",
-            border_style="red"
-        ))
-        pytest.fail(f"API call failed: {response['result']['content'][0]['text']}")
-        return
-    
-    # Display successful response
-    content = response["result"]["content"]
-    if content and "text" in content[0]:
-        try:
-            # Try to parse as JSON
-            data = json.loads(content[0]["text"])
-            console.print(Panel(
-                Syntax(json.dumps(data, indent=2), "json"),
-                title="📥 API Response",
-                border_style="green"
-            ))
-        except json.JSONDecodeError:
-            # Handle non-JSON responses
-            console.print(Panel(
-                content[0]["text"],
-                title="📥 API Response (Text)",
-                border_style="green"
-            ))
-    
-    # Continue with assertions
-    assert not response["result"]["isError"]
-    # Additional assertions...
-```
-
-### Retry Logic Visualization
-
-```python
-def test_with_retry_visualization():
-    """Test with visualization of retry attempts."""
-    from rich.console import Console
-    from rich.table import Table
-    from rich.panel import Panel
-    import time
-    
-    console = Console()
-    console.print(Panel("Starting test with retry logic", title="Test Setup"))
-    
-    # Initialize tracking for retry attempts
-    attempts = []
-    max_retries = 3
-    start_time = time.time()
-    
-    # Simulate function with retry logic
-    for attempt in range(1, max_retries + 1):
-        attempt_start = time.time()
-        success = False
-        error_msg = None
-        
-        try:
-            # Simulate API call that might fail
-            console.print(f"Attempt {attempt}/{max_retries}: Making API call...")
-            
-            if attempt < max_retries:  # Simulate failure for first attempts
-                raise ConnectionError("Simulated network error")
-            
-            # Last attempt succeeds
-            result = {"data": "success"}
-            success = True
-        except Exception as e:
-            error_msg = str(e)
-            console.print(f"[red]Attempt {attempt} failed: {error_msg}[/red]")
-        
-        # Record attempt details
-        attempts.append({
-            "attempt": attempt,
-            "success": success,
-            "error": error_msg,
-            "duration": time.time() - attempt_start
-        })
-        
-        if success:
-            break
-        
-        # Wait before retry (just for demo)
-        if attempt < max_retries:
-            console.print(f"Waiting before retry {attempt+1}...")
-            time.sleep(0.1)
-    
-    # Display retry summary table
-    table = Table(title="Retry Attempts Summary")
-    table.add_column("Attempt", style="cyan")
-    table.add_column("Result", style="bold")
-    table.add_column("Error", style="red")
-    table.add_column("Duration (s)", style="blue")
-    
-    for attempt in attempts:
-        result = "[green]SUCCESS" if attempt["success"] else "[red]FAILED"
-        table.add_row(
-            str(attempt["attempt"]),
-            result,
-            attempt["error"] or "",
-            f"{attempt['duration']:.4f}"
-        )
-    
-    console.print(table)
-    
-    # Display overall execution time
-    total_time = time.time() - start_time
-    console.print(Panel(
-        f"Total execution time: {total_time:.4f}s\n"
-        f"Total attempts: {len(attempts)}\n"
-        f"Final result: {'Success' if attempts[-1]['success'] else 'Failure'}",
-        title="Test Summary",
-        border_style="green" if attempts[-1]["success"] else "red"
-    ))
-    
-    # Assertions
-    assert attempts[-1]["success"], "Final retry attempt should succeed"
-```
-
-### Skipped Test Visualization
-
-```python
-def test_that_might_be_skipped():
-    """Example of a test that might be skipped with visual indication."""
-    from rich.console import Console
-    from rich.panel import Panel
-    import pytest
-    
-    console = Console()
-    
-    # Check if we should skip
-    should_skip = check_if_test_should_be_skipped()
-    if should_skip:
-        reason = "Test skipped: Needs further investigation"
-        console.print(Panel(
-            f"[yellow]{reason}[/yellow]",
-            title="⏭️ TEST SKIPPED",
-            border_style="yellow"
-        ))
-        pytest.skip(reason)
-    
-    # Continue with normal test if not skipped
-    console.print(Panel("Test running normally", border_style="green"))
-    assert True
-```
-
-### Enhanced Error Reporting
-
-```python
-def test_with_enhanced_error_reporting():
-    """Test with better visualization of errors."""
-    from rich.console import Console
-    from rich.panel import Panel
-    from rich.syntax import Syntax
-    import traceback
-    
-    console = Console()
-    
-    try:
-        # Test code that might fail
-        result = call_api_function()
-        assert result["status"] == "success"
-    except KeyError as e:
-        # Visualize the specific error with context
-        error_traceback = traceback.format_exc()
-        console.print(Panel(error_traceback, title="❌ KeyError Exception", border_style="red"))
-        
-        console.print(Panel(
-            Syntax(json.dumps(result, indent=2), "json"),
-            title="🔍 Actual Response Structure",
-            border_style="yellow"
-        ))
-        
-        console.print(Panel(
-            "Expected 'status' key in response, found keys: " + 
-            ", ".join([f"'{k}'" for k in result.keys()]),
-            title="✏️ Debug Information",
-            border_style="blue"
-        ))
-        
-        # Re-raise to fail the test
-        raise
-    except json.JSONDecodeError as e:
-        # Special handling for JSON parsing errors
-        console.print(Panel(
-            f"Error parsing JSON: {str(e)}\n\nRaw content: {result[:100]}...",
-            title="❌ Invalid JSON Response",
-            border_style="red"
-        ))
-        raise
-```
-
-### Automatic Test Discovery and Reporting
-
-For Makefile targets that automatically discover and report tests:
-
-```makefile
-# Set up script paths and test directories
-SCRIPTS_DIR = scripts
-FORMAT_TEST_OUTPUT = $(SCRIPTS_DIR)/format_test_output.py
-TEST_DIR = tests
-
-# Function to discover test files automatically
-define discover_tests
-	@$(PYTHON) -c "import glob, os; \
-		files = sorted(glob.glob('$(TEST_DIR)/$(1)')[:$(2)]); \
-		print(' '.join(files))"
-endef
-
-# Function to extract test names from a file
-define extract_test_names
-	@$(PYTHON) -c "import re, sys; \
-		with open('$(1)', 'r') as f: \
-			content = f.read(); \
-		matches = re.findall(r'def (test_\w+)', content); \
-		print(' '.join([m.replace('test_', '') for m in matches]))"
-endef
-
-# Dynamic test target that handles any test file pattern
-test-%:
-	@echo "🧪 Running $(subst test-,,$@) tests with visual output..."
-	$(eval TEST_PATTERN := test_$(subst test-,,$@).py)
-	$(eval TEST_FILES := $(shell $(call discover_tests,$(TEST_PATTERN),10)))
-	$(PYTHON) -m pytest -v $(TEST_FILES)
-	@for file in $(TEST_FILES); do \
-		CATEGORY="$(shell echo $${file} | sed 's/.*test_\(.*\)\.py/\1/' | sed 's/_/ /g' | sed 's/\b\(.\)/\u\1/g')"; \
-		TEST_NAMES="$(shell $(call extract_test_names,$${file}))"; \
-		if [ ! -z "$$TEST_NAMES" ]; then \
-			$(PYTHON) $(FORMAT_TEST_OUTPUT) $${file} "$$CATEGORY" $$TEST_NAMES; \
-		fi; \
-	done
-
-# Run all tests with automatic discovery
-test-all:
-	@echo "🧪 Running all tests with automatic discovery..."
-	$(eval TEST_FILES := $(shell $(call discover_tests,test_*.py,100)))
-	$(PYTHON) -m pytest -v $(TEST_FILES)
-	@echo "\n🎯 Test Summary"
-	@for file in $(TEST_FILES); do \
-		CATEGORY="$(shell echo $${file} | sed 's/.*test_\(.*\)\.py/\1/' | sed 's/_/ /g' | sed 's/\b\(.\)/\u\1/g')"; \
-		echo "✅ $$CATEGORY Tests: $$file"; \
-	done
-```
-
-### Format Test Output Script with Line Highlighting
-
-Enhance the format_test_output.py script to highlight differences when assertions fail:
-
-```python
-def highlight_differences(expected, actual):
-    """Highlight differences between expected and actual values."""
-    from rich.console import Console
-    from rich.table import Table
-    from rich.text import Text
-    from difflib import ndiff
-    
-    console = Console()
-    
-    # For simple scalar values
-    if isinstance(expected, (int, float, str, bool)) and isinstance(actual, (int, float, str, bool)):
-        table = Table(title="Value Comparison")
-        table.add_column("Expected", style="green")
-        table.add_column("Actual", style="red")
-        table.add_row(str(expected), str(actual))
-        console.print(table)
-        return
-    
-    # For dictionaries
-    if isinstance(expected, dict) and isinstance(actual, dict):
-        table = Table(title="Dictionary Differences")
-        table.add_column("Key", style="blue")
-        table.add_column("Expected", style="green")
-        table.add_column("Actual", style="red")
-        
-        # Find all keys from both dictionaries
-        all_keys = set(expected.keys()) | set(actual.keys())
-        
-        for key in sorted(all_keys):
-            exp_val = expected.get(key, "<missing>")
-            act_val = actual.get(key, "<missing>")
-            
-            if exp_val == act_val:
-                row_style = "dim"
-            else:
-                row_style = "bold"
-                
-            table.add_row(
-                str(key),
-                str(exp_val),
-                str(act_val),
-                style=row_style
-            )
-        
-        console.print(table)
-        return
-    
-    # For lists or other sequences
-    if isinstance(expected, (list, tuple)) and isinstance(actual, (list, tuple)):
-        table = Table(title="Sequence Differences")
-        table.add_column("Index", style="blue")
-        table.add_column("Expected", style="green")
-        table.add_column("Actual", style="red")
-        
-        max_len = max(len(expected), len(actual))
-        
-        for i in range(max_len):
-            exp_val = expected[i] if i < len(expected) else "<missing>"
-            act_val = actual[i] if i < len(actual) else "<missing>"
-            
-            if exp_val == act_val:
-                row_style = "dim"
-            else:
-                row_style = "bold"
-                
-            table.add_row(
-                str(i),
-                str(exp_val),
-                str(act_val),
-                style=row_style
-            )
-        
-        console.print(table)
-        return
-    
-    # For strings with multiline diff
-    if isinstance(expected, str) and isinstance(actual, str):
-        console.print("[bold]Difference:[/bold]")
-        
-        diff = ndiff(expected.splitlines(), actual.splitlines())
-        for line in diff:
-            if line.startswith('+ '):
-                console.print(Text(line, style="red"))
-            elif line.startswith('- '):
-                console.print(Text(line, style="green"))
-            elif line.startswith('? '):
-                console.print(Text(line, style="blue"))
-            else:
-                console.print(Text(line, style="dim"))
-```
-
-## Test Runtime Visualization
-
-Add real-time progress bars and timing information to visualize long-running tests:
-
-```python
-def test_with_progress_visualization():
-    """Test with real-time progress visualization."""
-    from rich.console import Console
-    from rich.progress import Progress, TimeElapsedColumn, BarColumn, TextColumn
-    import time
-    
-    console = Console()
-    
-    total_items = 5
-    
-    with Progress(
-        TextColumn("[bold blue]{task.description}"),
-        BarColumn(),
-        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-        TimeElapsedColumn(),
-        console=console
-    ) as progress:
-        task = progress.add_task("[cyan]Processing items...", total=total_items)
-        
-        for i in range(total_items):
-            # Simulate processing work
-            time.sleep(0.5)
-            
-            # Update progress
-            progress.update(task, advance=1, 
-                            description=f"[cyan]Processing item {i+1}/{total_items}")
-    
-    console.print("[green]Test completed successfully![/green]")
-    assert True
-```
-
-## Critical Rules for Visual Testing
-  - Use rich console output for all test steps and results
-  - Visualize both success and failure paths clearly
-  - Use color coding consistently (green for success, red for errors, yellow for warnings)
-  - Display detailed context when tests fail
-  - Group related tests visually with clear section headers
-  - Highlight differences between expected and actual values
-  - Include test timing information for performance analysis
-  - Show line numbers for quick navigation in IDE
-  - Visualize retry attempts and background processes
-  - Use progress bars for long-running operations
-  - Include clean success/failure summaries at the end of test runs
-  - Format JSON and structured data for easy reading
-  - Implement automatic discovery of new tests
-  - Visualize skipped tests with clear reasons 
+- ALWAYS create test panels with both description and embedded output
+- ALWAYS organize test output by category or functionality
+- ALWAYS include clear test case descriptions explaining purpose and significance
+- ALWAYS use visual indicators like ✅/❌ to show success/failure status
+- ALWAYS display expected and actual results together for easy comparison
+- ALWAYS use color coding to distinguish between different types of information
+- Include full explanation, expected outcomes, and actual results in each test panel
+- Format test output with line numbers for better IDE navigation
+- Use rich library for consistent panel formatting and color schemes
+- Maintain consistent color schemes across similar test categories
+- Include context about why the test matters, not just what it tests
+- Embed input data, output results, and comparisons within the same panel 
