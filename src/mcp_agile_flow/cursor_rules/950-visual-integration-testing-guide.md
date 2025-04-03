@@ -22,11 +22,36 @@
 - Include both test descriptions and test outputs within the same panel for improved clarity
 - Display actual outputs directly below expected outputs for easier comparison
 - Use check marks (✅) or X marks (❌) as visual indicators for pass/fail status
+- Emphasize real behavior over mocked behavior in test outputs
+- Clearly identify when tests are using real dependencies vs minimal substitutions
+- Ensure test outputs include meaningful data from integrated systems
 - Install necessary visualization libraries in project dependencies:
   - `rich`: For colored, formatted console output with tables and panels
   - `tabulate`: For simple ASCII tables when rich is not available
   - `pytest-clarity`: For improved assertion failure messages
   - `pytest-sugar`: For progress visualization during test runs
+
+## Testing Approach Guidelines
+
+- **Prioritize Integration Testing:** Prefer tests that verify how components work together rather than testing components in isolation
+- **Avoid Excessive Mocking:** Mocking creates artificial environments that may not reflect real behavior
+- **Test Against Real Dependencies:**
+  - Use actual databases with test containers instead of in-memory substitutes
+  - Connect to real service endpoints or realistic service simulations
+  - Test with representative data that matches production complexity
+- **Acceptable Minimal Substitutions:** 
+  - External paid APIs may use recorded responses (with VCR pattern)
+  - Time-dependent features may use fixed timestamps
+  - Random generators may use seeded outputs for predictability
+- **When Testing Integration Points:**
+  - Show clear visual indicators of which systems are being integrated
+  - Display the actual data flowing between systems
+  - Include timing information for integration points
+  - Highlight any transformations happening between systems
+- **Concrete vs. Abstract:**
+  - Favor concrete tests that reflect real user workflows
+  - Avoid testing implementation details that aren't visible to users
+  - Ensure tests would fail if user experience breaks, not just if code changes
 
 ## Test Environment Setup
 ```python
@@ -37,12 +62,15 @@ rich>=12.0.0  # For visual output formatting
 pytest-clarity  # For better assertion failure messages
 pytest-sugar  # For progress visualization
 tabulate  # For simple table output
+testcontainers>=3.7.0  # For dockerized dependency testing
+pytest-vcr  # For recording/replaying external API responses when necessary
+faker  # For generating realistic test data
 
 # Alternative with pip
-# pip install pytest rich pytest-clarity pytest-sugar tabulate
+# pip install pytest rich pytest-clarity pytest-sugar tabulate testcontainers pytest-vcr faker
 
 # Alternative with uv
-# uv pip install pytest rich pytest-clarity pytest-sugar tabulate
+# uv pip install pytest rich pytest-clarity pytest-sugar tabulate testcontainers pytest-vcr faker
 ```
 
 ## Standard Test Case Panel Template
@@ -57,12 +85,15 @@ def print_test_descriptions(test_category):
     console.print(Panel(
         "[bold]Test: {Test Name}[/bold]\n\n"
         "{Descriptive paragraph explaining what this test verifies and why it's important.}\n\n"
+        "[dim]Integration Points:[/dim]\n"
+        "• {System 1} → {System 2}: {data flow description}\n"
+        "• {System 2} → {Database}: {data flow description}\n\n"
         "[dim]Expected outcomes:[/dim]\n"
         "• {Expected outcome 1}\n"
         "• {Expected outcome 2}\n"
         "• {Expected outcome 3}\n\n"
         "[dim cyan]Test Output:[/dim cyan]\n"
-        "{Include actual test output here with relevant details}\n"
+        "{Include actual test output here with real dependency data}\n"
         "→ {Specific test output line 1} ✅\n"
         "→ {Specific test output line 2} ✅\n"
         "→ {Specific test output line 3} ✅",
@@ -708,4 +739,4 @@ print("Test 2: FAILED")
 - Use rich library for consistent panel formatting and color schemes
 - Maintain consistent color schemes across similar test categories
 - Include context about why the test matters, not just what it tests
-- Embed input data, output results, and comparisons within the same panel 
+- Embed input data, output results, and comparisons within the same panel
